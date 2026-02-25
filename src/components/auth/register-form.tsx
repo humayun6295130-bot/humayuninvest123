@@ -6,7 +6,7 @@ import * as z from "zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, collection, getDocs, query, limit } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -61,8 +61,15 @@ export function RegisterForm() {
           description: "This username is already taken. Please choose another one.",
         });
         form.setError("username", { message: "This username is already taken." });
+        setIsLoading(false);
         return;
       }
+
+      // Check if this is the first user to determine admin status
+      const usersCollectionRef = collection(firestore, "users");
+      const firstUserQuery = query(usersCollectionRef, limit(1));
+      const userSnapshot = await getDocs(firstUserQuery);
+      const isAdmin = userSnapshot.empty;
 
       // Create user
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
@@ -82,12 +89,13 @@ export function RegisterForm() {
         isPublic: false,
         bio: "",
         profilePictureUrl: "",
+        role: isAdmin ? 'admin' : 'user',
       };
       setDocumentNonBlocking(userDocRef, newUser, { merge: false });
 
       toast({
         title: "Registration Successful",
-        description: "Your account has been created. Welcome!",
+        description: `Your account has been created. ${isAdmin ? "You have been assigned admin privileges." : ""}`,
       });
       router.push("/dashboard");
 
@@ -176,4 +184,3 @@ export function RegisterForm() {
     </Card>
   );
 }
-    
