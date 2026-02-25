@@ -15,8 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { portfolio } from "@/lib/data";
-import { cn } from "@/lib/utils";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("en-US", {
@@ -25,8 +23,10 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function TopHoldings() {
-  const topAssets = [...portfolio.assets]
+export function TopHoldings({ assets }: { assets: any[] }) {
+
+  const topAssets = [...assets]
+    .map(asset => ({...asset, totalValue: asset.quantity * asset.averageCost}))
     .sort((a, b) => b.totalValue - a.totalValue)
     .slice(0, 5);
 
@@ -35,7 +35,7 @@ export function TopHoldings() {
       <CardHeader>
         <CardTitle>Top Holdings</CardTitle>
         <CardDescription>
-          Your best performing assets.
+          Your largest holdings by value.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -47,22 +47,28 @@ export function TopHoldings() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {topAssets.map((asset) => (
+            {topAssets.length > 0 ? topAssets.map((asset) => (
               <TableRow key={asset.id}>
                 <TableCell>
-                  <div className="font-medium">{asset.ticker}</div>
+                  <div className="font-medium">{asset.symbol}</div>
                   <div className="hidden text-sm text-muted-foreground md:inline">
-                    {asset.name}
+                    {asset.assetType}
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <div>{formatCurrency(asset.totalValue)}</div>
-                  <div className={cn(asset.dailyChange >= 0 ? 'text-green-500' : 'text-red-500', 'text-xs')}>
-                    {asset.dailyChange >= 0 ? '+' : ''}{formatCurrency(asset.dailyChange)} ({asset.dailyChangePercentage.toFixed(2)}%)
+                  <div className="text-xs text-muted-foreground">
+                    {asset.quantity} units @ {formatCurrency(asset.averageCost)}
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            )) : (
+                <TableRow>
+                    <TableCell colSpan={2} className="h-24 text-center">
+                        No assets to display.
+                    </TableCell>
+                </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>

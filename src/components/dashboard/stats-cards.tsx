@@ -6,9 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { portfolio } from "@/lib/data";
-import { cn } from "@/lib/utils";
-import { DollarSign, TrendingDown, TrendingUp } from "lucide-react";
+import { Briefcase, DollarSign, Wallet } from "lucide-react";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("en-US", {
@@ -17,43 +15,27 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-const formatPercentage = (value: number) => {
-  return `${value.toFixed(2)}%`;
-};
+export function StatsCards({ assets, balance }: { assets: any[], balance: number }) {
+  
+  const totalValue = assets.reduce((acc, asset) => {
+    return acc + (asset.quantity * asset.averageCost);
+  }, 0);
 
-export function StatsCards() {
   const stats = [
     {
-      title: "Total Value",
-      value: formatCurrency(portfolio.totalValue),
+      title: "Total Portfolio Value",
+      value: formatCurrency(totalValue),
       icon: <DollarSign className="h-5 w-5 text-muted-foreground" />,
-      change: null,
-      changeColor: "",
     },
     {
-      title: "24h Change",
-      value: formatCurrency(portfolio.dailyGainLoss),
-      icon:
-        portfolio.dailyGainLoss >= 0 ? (
-          <TrendingUp className="h-5 w-5 text-green-500" />
-        ) : (
-          <TrendingDown className="h-5 w-5 text-red-500" />
-        ),
-      change: formatPercentage(portfolio.dailyGainLossPercentage),
-      changeColor: portfolio.dailyGainLoss >= 0 ? "text-green-500" : "text-red-500",
+        title: "Account Balance",
+        value: formatCurrency(balance),
+        icon: <Wallet className="h-5 w-5 text-muted-foreground" />,
     },
     {
-      title: "Total Gain / Loss",
-      value: formatCurrency(portfolio.overallGainLoss),
-      icon:
-        portfolio.overallGainLoss >= 0 ? (
-          <TrendingUp className="h-5 w-5 text-green-500" />
-        ) : (
-          <TrendingDown className="h-5 w-5 text-red-500" />
-        ),
-      change: formatPercentage(portfolio.overallGainLossPercentage),
-      changeColor:
-        portfolio.overallGainLoss >= 0 ? "text-green-500" : "text-red-500",
+        title: "Total Assets",
+        value: assets.length,
+        icon: <Briefcase className="h-5 w-5 text-muted-foreground" />,
     },
   ];
 
@@ -67,11 +49,6 @@ export function StatsCards() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stat.value}</div>
-            {stat.change && (
-                <p className={cn("text-xs text-muted-foreground", stat.changeColor)}>
-                    {stat.change} from last day
-                </p>
-            )}
           </CardContent>
         </Card>
       ))}

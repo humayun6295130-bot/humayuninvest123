@@ -41,5 +41,5 @@ export default function DashboardPage() {
     return <AdminDashboard />;
   }
 
-  return <UserDashboard />;
+  return <UserDashboard userProfile={userProfile} />;
 }

@@ -1,4 +1,7 @@
 "use client";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, limit } from "firebase/firestore";
+
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart';
 import { TopHoldings } from '@/components/dashboard/top-holdings';
@@ -41,16 +44,55 @@ const plans = [
     },
 ];
 
-export function UserDashboard() {
+export function UserDashboard({ userProfile }: { userProfile: any }) {
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  // 1. Fetch the user's portfolios (we'll just use the first one for now)
+  const portfoliosQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, `users/${user.uid}/portfolios`), limit(1));
+  }, [user, firestore]);
+
+  const { data: portfolios, isLoading: isPortfoliosLoading } = useCollection(portfoliosQuery);
+  const portfolio = portfolios?.[0];
+
+  // 2. Fetch the assets for that portfolio
+  const assetsQuery = useMemoFirebase(() => {
+    if (!user || !firestore || !portfolio) return null;
+    return collection(firestore, `users/${user.uid}/portfolios/${portfolio.id}/assets`);
+  }, [user, firestore, portfolio]);
+
+  const { data: assets, isLoading: isAssetsLoading } = useCollection(assetsQuery);
+
+  const isLoading = isPortfoliosLoading || (!!portfolio && isAssetsLoading);
+
+
   return (
     <div className="space-y-8">
-      <StatsCards />
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card><CardHeader><CardTitle>Total Portfolio Value</CardTitle></CardHeader><CardContent><div className="h-8 w-24 animate-pulse rounded-md bg-muted" /></CardContent></Card>
+            <Card><CardHeader><CardTitle>Account Balance</CardTitle></CardHeader><CardContent><div className="h-8 w-24 animate-pulse rounded-md bg-muted" /></CardContent></Card>
+            <Card><CardHeader><CardTitle>Assets</CardTitle></CardHeader><CardContent><div className="h-8 w-12 animate-pulse rounded-md bg-muted" /></CardContent></Card>
+        </div>
+      ) : (
+        <StatsCards assets={assets || []} balance={userProfile?.balance || 0} />
+      )}
+      
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <PortfolioChart />
         </div>
         <div className="lg:col-span-1">
-          <TopHoldings />
+           {isLoading ? (
+             <Card>
+                <CardHeader><CardTitle>Top Holdings</CardTitle></CardHeader>
+                <CardContent className="h-72 animate-pulse rounded-md bg-muted" />
+             </Card>
+           ) : (
+             <TopHoldings assets={assets || []} />
+           )}
         </div>
       </div>
        <div>
