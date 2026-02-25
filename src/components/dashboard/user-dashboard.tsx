@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle } from "lucide-react";
 import Link from "next/link";
+import { EarningCounter } from '@/components/invest/EarningCounter';
 
 const plans = [
     {
@@ -77,6 +78,7 @@ export function UserDashboard() {
                                 </li>
                             ))}
                         </ul>
+                        <EarningCounter initialAmount={plan.price} />
                     </CardContent>
                     <CardFooter>
                         <Link href="/wallet" className="w-full">
