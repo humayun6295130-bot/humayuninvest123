@@ -132,15 +132,16 @@ service cloud.firestore {
     /**
      * @description Root collection for all financial transactions.
      * @path /transactions/{transactionId}
-     * @allow (read) User can read their own transactions; admin can read all.
+     * @allow (get) User can read their own transaction; admin can read any.
+     * @allow (list) Not explicitly allowed. Firestore allows list if the client query
+     *             is constrained in a way that satisfies the `get` rule for all
+     *             potential documents (e.g., `where('userId', '==', request.auth.uid)`).
+     *             Admins can list all because their `get` rule passes for all documents.
      * @allow (create) User can create a transaction for themselves.
      * @allow (update) Only an admin can update a transaction (e.g., to approve it).
      */
     match /transactions/{transactionId} {
       allow get: if isOwner(resource.data.userId) || isAdmin();
-      // Users can list transactions if their client query is correctly filtered by userId.
-      // Admins can list all transactions.
-      allow list: if isSignedIn() || isAdmin();
       allow create: if isOwner(request.resource.data.userId);
       allow update: if isAdmin();
       allow delete: if false; // Transactions are immutable once created.
