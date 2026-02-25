@@ -1,5 +1,6 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TransactionManager } from "@/components/admin/transaction-manager";
 
 export function AdminDashboard() {
     return (
@@ -7,12 +8,16 @@ export function AdminDashboard() {
             <Card>
                 <CardHeader>
                     <CardTitle>Admin Dashboard</CardTitle>
-                    <CardDescription>This is where you can manage application-wide settings and content.</CardDescription>
+                    <CardDescription>Welcome, admin. This is where you can manage application-wide settings and user activity.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <p>Welcome, admin. You have access to special privileges.</p>
+                    <p>You have access to special privileges.</p>
                 </CardContent>
             </Card>
+
+            <TransactionManager />
         </div>
     );
 }
+
+    

@@ -9,35 +9,26 @@
  * - Private user data (profiles, portfolios, assets, draft posts) is nested
  *   under `/users/{userId}`. Access to this entire data tree is controlled by
  *   matching the authenticated user's ID with the `userId` in the path.
- * - Public data (published posts, public profiles, categories, tags, price history) is stored
- *   in top-level collections, allowing for efficient global queries.
+ * - Public data (published posts, public profiles, categories, tags, price history) and
+ *   operational data (transactions) are stored in top-level collections for efficient querying.
  *
  * # Key Security Decisions
  * - **Strict Ownership**: Users can only access data within their own
- *   `/users/{userId}` path. They cannot read or write to another user's data.
- * - **Admin Role**: An 'admin' role is implemented. This role is checked for
- *   write operations on global collections like `content_categories`. Admin
- *   status is stored in the user's document (`/users/{userId}`).
+ *   `/users/{userId}` path or documents they own in root collections.
+ * - **Admin Role**: An 'admin' role has elevated privileges, such as updating
+ *   any user's profile, managing transactions, and writing to global content collections.
  * - **Limited User Listing**: Listing the entire `/users` collection is
- *   disallowed for privacy. However, a query with a limit of 1 is permitted
- *   specifically to allow the registration process to determine if the first
- *   user is signing up to grant them admin rights.
- * - **Structural Segregation for Content**: Instead of a single 'posts' collection
- *   with a status flag, draft posts are kept in a private user subcollection
- *   (`/users/{userId}/draft_posts`) while published posts are moved to a separate,
- *   public top-level collection (`/published_posts`). This is more secure and
- *   performant for listing public content.
- * - **Admin-Only Collections**: Collections like `/content_categories` and
- *   `/content_tags` are publicly readable but writes are restricted to admins.
+ *   disallowed for privacy, but a limited query is allowed for the initial
+ *   admin-creation check during registration.
+ * - **Centralized Transactions**: All transactions are in a single `/transactions`
+ *   collection to allow admins to easily query for pending items. Rules
+ *   ensure users can only read their own and admins can read/update all.
  *
  * # Denormalization for Authorization
  * - To avoid slow and costly cross-document `get()` calls in rules, documents
- *   contain fields necessary for authorization. For example, a `published_posts`
- *   document contains an `authorId`, allowing a rule to grant update/delete
- *   permissions directly to the author without looking up other documents.
- * - Subcollections under `/users/{userId}` also contain ownership fields
- *   (e.g., `Portfolio.userId`) to ensure data integrity upon creation and
- *   prevent resources from being moved between users on update.
+ *   contain fields necessary for authorization. For example, a `transactions`
+ *   document contains a `userId`, allowing rules to grant read access to the
+ *   owner without looking up other documents.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -85,23 +76,22 @@ service cloud.firestore {
     /**
      * @description Controls access to a user's own profile document.
      * @path /users/{userId}
-     * @allow (get, create) An authenticated user can manage their own profile document.
-     * @deny (list) A user cannot list all users, but a very limited list is allowed for admin-check.
-     * @principle A user has exclusive control over their own root document.
+     * @allow (get) Owner or admin can read.
+     * @allow (create) Owner can create their own profile.
+     * @allow (update) Owner can update non-critical fields; admin can update anything.
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if request.query.limit <= 1; // Allow checking for first user.
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      // User can update their doc, but cannot change their role or balance. Admin can.
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.balance == resource.data.balance) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     /**
      * @description Secures a user's private collection of investment portfolios.
      * @path /users/{userId}/portfolios/{portfolioId}
-     * @allow (get, list, create) The owner can manage their own portfolios.
-     * @deny A user cannot access another user's portfolio.
      * @principle Restricts access to a user's own data tree via path-based security.
      */
     match /users/{userId}/portfolios/{portfolioId} {
@@ -114,7 +104,6 @@ service cloud.firestore {
     /**
      * @description Secures the investment assets within a user's portfolio.
      * @path /users/{userId}/portfolios/{portfolioId}/assets/{assetId}
-     * @allow (get, list, create) The owner can manage assets in their own portfolio.
      * @principle Enforces ownership at the root of the data tree, securing all subcollections.
      */
     match /users/{userId}/portfolios/{portfolioId}/assets/{assetId} {
@@ -127,7 +116,6 @@ service cloud.firestore {
     /**
      * @description Secures a user's private collection of draft content posts.
      * @path /users/{userId}/draft_posts/{postId}
-     * @allow (get, list, create) The author can manage their own draft posts.
      * @principle Enforces strict ownership for private, unpublished content.
      */
     match /users/{userId}/draft_posts/{postId} {
@@ -137,28 +125,27 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description Secures a user's transaction history.
-     * @path /users/{userId}/transactions/{transactionId}
-     * @allow (get, list) The owner can read their own transaction history.
-     * @allow (create) Users can create new transactions (e.g., a withdrawal request).
-     * @deny (update, delete) Existing transactions cannot be modified by the client to maintain integrity.
-     */
-    match /users/{userId}/transactions/{transactionId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update, delete: if false;
-    }
-
     //-------------------------------------------------------------------------
     // Public & Shared Collections
     //-------------------------------------------------------------------------
+    
+    /**
+     * @description Root collection for all financial transactions.
+     * @path /transactions/{transactionId}
+     * @allow (read) User can read their own transactions; admin can read all.
+     * @allow (create) User can create a transaction for themselves.
+     * @allow (update) Only an admin can update a transaction (e.g., to approve it).
+     */
+    match /transactions/{transactionId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isAdmin();
+      allow delete: if false; // Transactions are immutable once created.
+    }
 
     /**
      * @description Controls access to public user profiles.
      * @path /public_profiles/{username}
-     * @allow (get, list) Any user can read public profiles.
-     * @allow (create, update, delete) Only the profile owner can manage their public profile.
      */
     match /public_profiles/{username} {
       allow get, list: if true;
@@ -170,9 +157,6 @@ service cloud.firestore {
     /**
      * @description Controls access to publicly published content posts.
      * @path /published_posts/{postId}
-     * @allow (get, list) Any user, including unauthenticated visitors, can read published posts.
-     * @allow (create, update, delete) Only the author of the post can manage it.
-     * @principle Implements a "Public Read, Owner Write" pattern for shared content.
      */
     match /published_posts/{postId} {
       allow get, list: if true;
@@ -184,9 +168,6 @@ service cloud.firestore {
     /**
      * @description Controls access to historical asset pricing data.
      * @path /asset_price_history/{priceHistoryId}
-     * @allow (get, list) Any user can read historical price data.
-     * @deny (writes) All writes are denied, assuming this data is populated by a trusted backend service.
-     * @principle Secures system-generated data as read-only for clients.
      */
     match /asset_price_history/{priceHistoryId} {
       allow get, list: if true;
@@ -196,9 +177,6 @@ service cloud.firestore {
     /**
      * @description Controls access to global content categories.
      * @path /content_categories/{categoryId}
-     * @allow (get, list) Any user can read the list of categories.
-     * @allow (write) Only admins can manage categories.
-     * @principle Secures global taxonomy data as read-only for most clients.
      */
     match /content_categories/{categoryId} {
       allow get, list: if true;
@@ -208,9 +186,6 @@ service cloud.firestore {
     /**
      * @description Controls access to global content tags.
      * @path /content_tags/{tagId}
-     * @allow (get, list) Any user can read the list of tags.
-     * @allow (write) Only admins can manage tags.
-     * @principle Secures global taxonomy data as read-only for most clients.
      */
     match /content_tags/{tagId} {
       allow get, list: if true;
@@ -218,3 +193,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

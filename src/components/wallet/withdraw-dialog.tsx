@@ -52,13 +52,15 @@ const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user) {
+    if (!user || !userProfile) {
       toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
       return;
     }
 
     const transaction = {
       userId: user.uid,
+      userDisplayName: userProfile.displayName,
+      userEmail: userProfile.email,
       type: "withdrawal",
       amount: values.amount,
       currency: "USD",
@@ -67,7 +69,7 @@ const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
       description: `Withdrawal to ${values.walletAddress}`,
     };
 
-    const transactionsRef = collection(firestore, `users/${user.uid}/transactions`);
+    const transactionsRef = collection(firestore, "transactions");
     addDocumentNonBlocking(transactionsRef, transaction);
 
     // Note: In a real app, the balance would be updated by a secure backend function
@@ -140,3 +142,5 @@ const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
 };
 
 export default WithdrawDialog;
+
+    

@@ -12,7 +12,7 @@ import {
   ArrowDownUp,
 } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, where, orderBy } from 'firebase/firestore';
 import {
   Table,
   TableBody,
@@ -39,7 +39,11 @@ export default function WalletPage() {
 
   const transactionsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, `users/${user.uid}/transactions`);
+    return query(
+        collection(firestore, `transactions`), 
+        where("userId", "==", user.uid),
+        orderBy("timestamp", "desc")
+    );
   }, [user, firestore]);
 
   const { data: transactions } = useCollection(transactionsQuery);
@@ -102,7 +106,7 @@ export default function WalletPage() {
                 <CardDescription>Deposit or withdraw funds from your account.</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center gap-4">
-                <DepositDialog />
+                <DepositDialog userProfile={userProfile} />
                 <WithdrawDialog userProfile={userProfile} />
             </CardContent>
         </Card>
@@ -174,3 +178,5 @@ export default function WalletPage() {
     </div>
   );
 }
+
+    
