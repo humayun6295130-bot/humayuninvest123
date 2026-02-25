@@ -1,0 +1,389 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the AscendFolio application, including their profile information and linking to their portfolios and authored content.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for identification purposes. Authentication data is managed externally.",
+          "format": "email"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The publicly displayed name of the user, used for general identification and as an author name."
+        },
+        "bio": {
+          "type": "string",
+          "description": "A short biography of the user, particularly if they are an author. Optional."
+        },
+        "profilePictureUrl": {
+          "type": "string",
+          "description": "URL to the user's profile picture. Optional.",
+          "format": "uri"
+        },
+        "memberSince": {
+          "type": "string",
+          "description": "The date and time when the user registered on the platform.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "displayName",
+        "memberSince"
+      ]
+    },
+    "Portfolio": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Portfolio",
+      "type": "object",
+      "description": "Represents a collection of investment assets owned by a specific user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Portfolio entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who owns this portfolio. (Relationship: User 1:N Portfolio)"
+        },
+        "name": {
+          "type": "string",
+          "description": "A user-defined name for the portfolio."
+        },
+        "creationDate": {
+          "type": "string",
+          "description": "The date and time when the portfolio was created.",
+          "format": "date-time"
+        },
+        "lastUpdatedDate": {
+          "type": "string",
+          "description": "The date and time when the portfolio was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "creationDate",
+        "lastUpdatedDate"
+      ]
+    },
+    "Asset": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Asset",
+      "type": "object",
+      "description": "Represents a specific investment holding (e.g., stock, ETF, cryptocurrency) within a user's portfolio.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Asset entity."
+        },
+        "portfolioId": {
+          "type": "string",
+          "description": "Reference to the Portfolio this asset belongs to. (Relationship: Portfolio 1:N Asset)"
+        },
+        "assetType": {
+          "type": "string",
+          "description": "The type of investment asset, e.g., 'stock', 'ETF', 'cryptocurrency', 'bond'."
+        },
+        "symbol": {
+          "type": "string",
+          "description": "The ticker symbol or unique identifier for the asset, e.g., 'AAPL', 'BTC'."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "The number of units of the asset held in the portfolio."
+        },
+        "averageCost": {
+          "type": "number",
+          "description": "The average purchase price per unit of the asset."
+        },
+        "currency": {
+          "type": "string",
+          "description": "The currency in which the asset is denominated, e.g., 'USD'."
+        },
+        "purchaseDate": {
+          "type": "string",
+          "description": "The date when the asset was first purchased. Optional.",
+          "format": "date"
+        }
+      },
+      "required": [
+        "id",
+        "portfolioId",
+        "assetType",
+        "symbol",
+        "quantity",
+        "averageCost",
+        "currency"
+      ]
+    },
+    "AssetPriceHistory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AssetPriceHistory",
+      "type": "object",
+      "description": "Stores historical and real-time pricing data for individual assets.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AssetPriceHistory entity."
+        },
+        "assetSymbol": {
+          "type": "string",
+          "description": "The ticker symbol or unique identifier for the asset this price history pertains to. (Relationship: FinancialInstrument 1:N AssetPriceHistory based on symbol)"
+        },
+        "priceTimestamp": {
+          "type": "string",
+          "description": "The date and time of the price recording.",
+          "format": "date-time"
+        },
+        "price": {
+          "type": "number",
+          "description": "The recorded price of the asset at the given timestamp."
+        },
+        "currency": {
+          "type": "string",
+          "description": "The currency of the recorded price, e.g., 'USD'."
+        }
+      },
+      "required": [
+        "id",
+        "assetSymbol",
+        "priceTimestamp",
+        "price",
+        "currency"
+      ]
+    },
+    "ContentPost": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ContentPost",
+      "type": "object",
+      "description": "Represents a piece of published content such as an article, market analysis, or investment insight.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ContentPost entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the published content."
+        },
+        "slug": {
+          "type": "string",
+          "description": "A URL-friendly identifier for the content, typically derived from the title."
+        },
+        "contentHtml": {
+          "type": "string",
+          "description": "The main body of the content, stored as HTML or rich text."
+        },
+        "authorId": {
+          "type": "string",
+          "description": "Reference to the User who authored this content. (Relationship: User 1:N ContentPost)"
+        },
+        "publishedDate": {
+          "type": "string",
+          "description": "The date and time when the content was published.",
+          "format": "date-time"
+        },
+        "lastModifiedDate": {
+          "type": "string",
+          "description": "The date and time when the content was last modified. Optional.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The publication status of the content, e.g., 'draft', 'published', 'archived'."
+        },
+        "summary": {
+          "type": "string",
+          "description": "A brief summary or excerpt of the content."
+        },
+        "thumbnailUrl": {
+          "type": "string",
+          "description": "URL to a thumbnail image associated with the content. Optional.",
+          "format": "uri"
+        },
+        "categoryIds": {
+          "type": "array",
+          "description": "References to categories associated with this content. (Relationship: ContentCategory N:N ContentPost)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tagIds": {
+          "type": "array",
+          "description": "References to tags associated with this content. (Relationship: ContentTag N:N ContentPost)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "slug",
+        "contentHtml",
+        "authorId",
+        "publishedDate",
+        "status",
+        "summary"
+      ]
+    },
+    "ContentCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ContentCategory",
+      "type": "object",
+      "description": "Represents a category for organizing published content.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ContentCategory entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the category, e.g., 'Market Analysis', 'Investment Tips'."
+        },
+        "slug": {
+          "type": "string",
+          "description": "A URL-friendly identifier for the category, derived from the name."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of what this category covers."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "slug",
+        "description"
+      ]
+    },
+    "ContentTag": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ContentTag",
+      "type": "object",
+      "description": "Represents a tag for granular categorization and search of published content.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ContentTag entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the tag, e.g., 'stocks', 'crypto', 'long-term'."
+        },
+        "slug": {
+          "type": "string",
+          "description": "A URL-friendly identifier for the tag, derived from the name."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "slug"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores individual user profile information. Accessible only by the owner (request.auth.uid == userId)."
+        }
+      },
+      {
+        "path": "/users/{userId}/portfolios/{portfolioId}",
+        "definition": {
+          "entityName": "Portfolio",
+          "schema": {
+            "$ref": "#/backend/entities/Portfolio"
+          },
+          "description": "Private collection of investment portfolios for a specific user. Includes denormalized 'userId' for authorization independence, ensuring request.auth.uid matches the path's userId."
+        }
+      },
+      {
+        "path": "/users/{userId}/portfolios/{portfolioId}/assets/{assetId}",
+        "definition": {
+          "entityName": "Asset",
+          "schema": {
+            "$ref": "#/backend/entities/Asset"
+          },
+          "description": "Private collection of investment assets within a user's specific portfolio. Includes denormalized 'userId' and 'portfolioId' for authorization independence, ensuring request.auth.uid matches the path's userId."
+        }
+      },
+      {
+        "path": "/asset_price_history/{priceHistoryId}",
+        "definition": {
+          "entityName": "AssetPriceHistory",
+          "schema": {
+            "$ref": "#/backend/entities/AssetPriceHistory"
+          },
+          "description": "Global collection for historical and real-time pricing data for various assets. Publicly readable by all users."
+        }
+      },
+      {
+        "path": "/users/{userId}/draft_posts/{postId}",
+        "definition": {
+          "entityName": "ContentPost",
+          "schema": {
+            "$ref": "#/backend/entities/ContentPost"
+          },
+          "description": "Stores content posts in a 'draft' or 'private' status, owned and editable only by the specified user. The 'authorId' field in the document matches the path's 'userId' for explicit authorization."
+        }
+      },
+      {
+        "path": "/published_posts/{postId}",
+        "definition": {
+          "entityName": "ContentPost",
+          "schema": {
+            "$ref": "#/backend/entities/ContentPost"
+          },
+          "description": "Stores content posts that have been 'published', making them publicly readable. Write access is restricted to the original author (identified by the 'authorId' field in the document) or an administrator."
+        }
+      },
+      {
+        "path": "/content_categories/{categoryId}",
+        "definition": {
+          "entityName": "ContentCategory",
+          "schema": {
+            "$ref": "#/backend/entities/ContentCategory"
+          },
+          "description": "Global collection of content categories, publicly readable. Write access is typically restricted to administrators."
+        }
+      },
+      {
+        "path": "/content_tags/{tagId}",
+        "definition": {
+          "entityName": "ContentTag",
+          "schema": {
+            "$ref": "#/backend/entities/ContentTag"
+          },
+          "description": "Global collection of content tags, publicly readable. Write access is typically restricted to administrators."
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure prioritizes authorization independence, security, and debuggability, especially with the new publishing website feature. User-specific private data, such as portfolios and draft content, is nested under the `/users/{userId}` path, leveraging path-based ownership for simplified security rules. Global, publicly accessible data, like published content posts, content categories, and tags, resides in top-level collections.\n\n**Authorization Independence via Denormalization:**\n- For `Portfolio` and `Asset` entities, the `userId` is explicitly included in the document data, and `portfolioId` is included in `Asset` documents. This denormalization means that security rules for these subcollections do not need to perform `get()` operations on parent documents (e.g., to check if `request.auth.uid` matches the portfolio's owner). Instead, rules can directly compare `request.auth.uid` with the `userId` parameter in the path or the `userId` field within the document itself, making rules atomic and easier to debug.\n- For `ContentPost` entities, structural segregation is used instead of direct denormalization within a single collection for authorization. Draft posts are stored in `/users/{userId}/draft_posts/{postId}`, making `userId` directly available in the path for authorization. Published posts are in `/published_posts/{postId}`, and while they contain `authorId`, read access is public, eliminating the need for `get()` calls for read authorization. Write access to `published_posts` can still utilize the `authorId` field for author-specific edits.\n\n**QAPs (Rules are not Filters):**\n- **Private Data:** Collections like `/users/{userId}/portfolios` and `/users/{userId}/draft_posts` enforce ownership through the `{userId}` wildcard in their paths. Security rules can directly match `request.auth.uid == userId`, ensuring that `list` operations implicitly return only data owned by the authenticated user without requiring Firestore to filter results post-query.\n- **Public Data:** Collections such as `/published_posts`, `/content_categories`, `/content_tags`, and `/asset_price_history` are designed for global read access. Their security rules can be `allow read: if true;`, meaning any client can perform `list` operations on these collections and receive all documents. Write access to these public collections will be restricted, typically to administrators or the original authors (for `published_posts`), using checks against `request.auth.uid` and/or specific roles (not detailed here but would reside in a `/roles` collection).\n\n**Publishing Website Feature:**\nTo support the publishing website, `ContentPost` documents are explicitly segregated by their publication status:\n- Drafts are stored under `users/{userId}/draft_posts/{postId}`. This ensures only the author (`userId`) can read, create, update, or delete their own drafts.\n- Published content is moved to a top-level collection `published_posts/{postId}`. These documents are globally readable (`allow read: if true;`). Write access remains restricted to the `authorId` stored within the document itself, allowing authors to update their published content, or to administrators.\n\nThis segregation simplifies rules, enhances security, and improves performance for querying public vs. private content."
+  }
+}

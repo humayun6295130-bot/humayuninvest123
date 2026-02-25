@@ -1,0 +1,191 @@
+/**
+ * # Core Philosophy
+ * This ruleset enforces a strict user-ownership model for private data and a
+ * public-read, author-write model for shared content. It achieves security
+ * and performance by physically separating private user data from public data
+ * into different collections.
+ *
+ * # Data Structure
+ * - Private user data (profiles, portfolios, assets, draft posts) is nested
+ *   under `/users/{userId}`. Access to this entire data tree is controlled by
+ *   matching the authenticated user's ID with the `userId` in the path.
+ * - Public data (published posts, categories, tags, price history) is stored
+ *   in top-level collections, allowing for efficient global queries.
+ *
+ * # Key Security Decisions
+ * - **Strict Ownership**: Users can only access data within their own
+ *   `/users/{userId}` path. They cannot read or write to another user's data.
+ * - **No User Listing**: Listing all documents in the `/users` collection is
+ *   explicitly disallowed to protect user privacy.
+ * - **Structural Segregation for Content**: Instead of a single 'posts' collection
+ *   with a status flag, draft posts are kept in a private user subcollection
+ *   (`/users/{userId}/draft_posts`) while published posts are moved to a separate,
+ *   public top-level collection (`/published_posts`). This is more secure and
+ *   performant for listing public content.
+ * - **Admin-Only Collections**: Collections like `/content_categories` and
+ *   `/content_tags` are publicly readable but have writes disabled. In a
+ *   production environment, these would be managed by a trusted admin role or
+ *   backend process.
+ *
+ * # Denormalization for Authorization
+ * - To avoid slow and costly cross-document `get()` calls in rules, documents
+ *   contain fields necessary for authorization. For example, a `published_posts`
+ *   document contains an `authorId`, allowing a rule to grant update/delete
+ *   permissions directly to the author without looking up other documents.
+ * - Subcollections under `/users/{userId}` also contain ownership fields
+ *   (e.g., `Portfolio.userId`) to ensure data integrity upon creation and
+ *   prevent resources from being moved between users on update.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    //-------------------------------------------------------------------------
+    // Helper Functions
+    //-------------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the provided userId.
+     * This is the primary function for enforcing data ownership.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks for ownership on an existing document. Used for update and delete
+     * operations to prevent acting on non-existent data.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    //-------------------------------------------------------------------------
+    // User Data Collections (/users/{userId}/**)
+    //-------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to a user's own profile document.
+     * @path /users/{userId}
+     * @allow (create) An authenticated user can create their own profile document.
+     * @deny (get) A user cannot read another user's profile.
+     * @principle A user has exclusive control over their own root document.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Disallow listing all users for privacy.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures a user's private collection of investment portfolios.
+     * @path /users/{userId}/portfolios/{portfolioId}
+     * @allow (create, list) The owner can create and list their own portfolios.
+     * @deny (get) A user cannot read another user's portfolio.
+     * @principle Restricts access to a user's own data tree via path-based security.
+     */
+    match /users/{userId}/portfolios/{portfolioId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures the investment assets within a user's portfolio.
+     * @path /users/{userId}/portfolios/{portfolioId}/assets/{assetId}
+     * @allow (create, list) The owner can create and list assets in their own portfolio.
+     * @deny (get) A user cannot read assets in another user's portfolio.
+     * @principle Enforces ownership at the root of the data tree, securing all subcollections.
+     */
+    match /users/{userId}/portfolios/{portfolioId}/assets/{assetId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.portfolioId == portfolioId;
+      allow update: if isExistingOwner(userId) && request.resource.data.portfolioId == resource.data.portfolioId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures a user's private collection of draft content posts.
+     * @path /users/{userId}/draft_posts/{postId}
+     * @allow (create, list) The author can create and list their own draft posts.
+     * @deny (update) A user cannot update another user's draft post.
+     * @principle Enforces strict ownership for private, unpublished content.
+     */
+    match /users/{userId}/draft_posts/{postId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.authorId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.authorId == resource.data.authorId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    //-------------------------------------------------------------------------
+    // Public & Shared Collections
+    //-------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to publicly published content posts.
+     * @path /published_posts/{postId}
+     * @allow (get, list) Any user, including unauthenticated visitors, can read published posts.
+     * @deny (update) A user cannot update a post they did not author.
+     * @principle Implements a "Public Read, Owner Write" pattern for shared content.
+     */
+    match /published_posts/{postId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.authorId) && request.resource.data.authorId == resource.data.authorId;
+      allow delete: if isExistingOwner(resource.data.authorId);
+    }
+
+    /**
+     * @description Controls access to historical asset pricing data.
+     * @path /asset_price_history/{priceHistoryId}
+     * @allow (get, list) Any user can read historical price data.
+     * @deny (create, update, delete) All writes are denied, assuming this data is populated by a trusted backend service.
+     * @principle Secures system-generated data as read-only for clients.
+     */
+    match /asset_price_history/{priceHistoryId} {
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Controls access to global content categories.
+     * @path /content_categories/{categoryId}
+     * @allow (get, list) Any user can read the list of categories.
+     * @deny (create, update, delete) All writes are denied, as categories should be managed by an administrator.
+     * @principle Secures global taxonomy data as read-only for clients.
+     */
+    match /content_categories/{categoryId} {
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Controls access to global content tags.
+     * @path /content_tags/{tagId}
+     * @allow (get, list) Any user can read the list of tags.
+     * @deny (create, update, delete) All writes are denied, as tags should be managed by an administrator.
+     * @principle Secures global taxonomy data as read-only for clients.
+     */
+    match /content_tags/{tagId} {
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}
