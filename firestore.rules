@@ -9,7 +9,7 @@
  * - Private user data (profiles, portfolios, assets, draft posts) is nested
  *   under `/users/{userId}`. Access to this entire data tree is controlled by
  *   matching the authenticated user's ID with the `userId` in the path.
- * - Public data (published posts, categories, tags, price history) is stored
+ * - Public data (published posts, public profiles, categories, tags, price history) is stored
  *   in top-level collections, allowing for efficient global queries.
  *
  * # Key Security Decisions
@@ -133,6 +133,19 @@ service cloud.firestore {
     //-------------------------------------------------------------------------
 
     /**
+     * @description Controls access to public user profiles.
+     * @path /public_profiles/{username}
+     * @allow (get, list) Any user can read public profiles.
+     * @allow (create, update, delete) Only the profile owner can manage their public profile.
+     */
+    match /public_profiles/{username} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(resource.data.userId);
+    }
+
+    /**
      * @description Controls access to publicly published content posts.
      * @path /published_posts/{postId}
      * @allow (get, list) Any user, including unauthenticated visitors, can read published posts.
@@ -189,3 +202,4 @@ service cloud.firestore {
     }
   }
 }
+    

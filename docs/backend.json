@@ -15,6 +15,10 @@
           "description": "The user's email address, used for identification purposes. Authentication data is managed externally.",
           "format": "email"
         },
+        "username": {
+            "type": "string",
+            "description": "The user's unique, public username."
+        },
         "displayName": {
           "type": "string",
           "description": "The publicly displayed name of the user, used for general identification and as an author name."
@@ -32,14 +36,33 @@
           "type": "string",
           "description": "The date and time when the user registered on the platform.",
           "format": "date-time"
+        },
+        "isPublic": {
+            "type": "boolean",
+            "description": "Indicates if the user's portfolio is public."
         }
       },
       "required": [
         "id",
         "email",
+        "username",
         "displayName",
         "memberSince"
       ]
+    },
+    "PublicProfile": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "PublicProfile",
+        "description": "Public-facing user profile information.",
+        "type": "object",
+        "properties": {
+            "userId": { "type": "string" },
+            "username": { "type": "string" },
+            "displayName": { "type": "string" },
+            "bio": { "type": "string" },
+            "profilePictureUrl": { "type": "string", "format": "uri" }
+        },
+        "required": ["userId", "username", "displayName"]
     },
     "Portfolio": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -314,6 +337,16 @@
         }
       },
       {
+        "path": "/public_profiles/{username}",
+        "definition": {
+          "entityName": "PublicProfile",
+          "schema": {
+            "$ref": "#/backend/entities/PublicProfile"
+          },
+          "description": "Publicly readable user profiles, keyed by username. Writable only by the owner."
+        }
+      },
+      {
         "path": "/users/{userId}/portfolios/{portfolioId}",
         "definition": {
           "entityName": "Portfolio",
@@ -387,3 +420,4 @@
     "reasoning": "The recommended Firestore structure prioritizes authorization independence, security, and debuggability, especially with the new publishing website feature. User-specific private data, such as portfolios and draft content, is nested under the `/users/{userId}` path, leveraging path-based ownership for simplified security rules. Global, publicly accessible data, like published content posts, content categories, and tags, resides in top-level collections.\n\n**Authorization Independence via Denormalization:**\n- For `Portfolio` and `Asset` entities, the `userId` is explicitly included in the document data, and `portfolioId` is included in `Asset` documents. This denormalization means that security rules for these subcollections do not need to perform `get()` operations on parent documents (e.g., to check if `request.auth.uid` matches the portfolio's owner). Instead, rules can directly compare `request.auth.uid` with the `userId` parameter in the path or the `userId` field within the document itself, making rules atomic and easier to debug.\n- For `ContentPost` entities, structural segregation is used instead of direct denormalization within a single collection for authorization. Draft posts are stored in `/users/{userId}/draft_posts/{postId}`, making `userId` directly available in the path for authorization. Published posts are in `/published_posts/{postId}`, and while they contain `authorId`, read access is public, eliminating the need for `get()` calls for read authorization. Write access to `published_posts` can still utilize the `authorId` field for author-specific edits.\n\n**QAPs (Rules are not Filters):**\n- **Private Data:** Collections like `/users/{userId}/portfolios` and `/users/{userId}/draft_posts` enforce ownership through the `{userId}` wildcard in their paths. Security rules can directly match `request.auth.uid == userId`, ensuring that `list` operations implicitly return only data owned by the authenticated user without requiring Firestore to filter results post-query.\n- **Public Data:** Collections such as `/published_posts`, `/content_categories`, `/content_tags`, and `/asset_price_history` are designed for global read access. Their security rules can be `allow read: if true;`, meaning any client can perform `list` operations on these collections and receive all documents. Write access to these public collections will be restricted, typically to administrators or the original authors (for `published_posts`), using checks against `request.auth.uid` and/or specific roles (not detailed here but would reside in a `/roles` collection).\n\n**Publishing Website Feature:**\nTo support the publishing website, `ContentPost` documents are explicitly segregated by their publication status:\n- Drafts are stored under `users/{userId}/draft_posts/{postId}`. This ensures only the author (`userId`) can read, create, update, or delete their own drafts.\n- Published content is moved to a top-level collection `published_posts/{postId}`. These documents are globally readable (`allow read: if true;`). Write access remains restricted to the `authorId` stored within the document itself, allowing authors to update their published content, or to administrators.\n\nThis segregation simplifies rules, enhances security, and improves performance for querying public vs. private content."
   }
 }
+    

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Search, User } from "lucide-react";
+import { LogOut, Search, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,20 +15,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useAuth, useUser } from "@/firebase";
+import { signOut } from "firebase/auth";
 
 export function AppHeader() {
   const pathname = usePathname();
+  const { user } = useUser();
+  const auth = useAuth();
+  
   const getPageTitle = () => {
-    switch (pathname) {
-      case "/dashboard":
-        return "Dashboard";
-      case "/portfolio":
-        return "Portfolio";
-      case "/settings":
-        return "Settings";
-      default:
-        return "AscendFolio";
-    }
+    if (pathname.startsWith('/dashboard')) return "Dashboard";
+    if (pathname.startsWith('/portfolio')) return "Portfolio";
+    if (pathname.startsWith('/public-profile')) return "Public Profile";
+    if (pathname.startsWith('/settings')) return "Settings";
+    return "AscendFolio";
+  };
+  
+  const handleLogout = async () => {
+    await signOut(auth);
   };
 
   return (
@@ -53,31 +57,30 @@ export function AppHeader() {
             <Avatar className="h-9 w-9">
               <AvatarImage
                 data-ai-hint="person face"
-                src="https://picsum.photos/seed/user-avatar/40/40"
-                alt="User Avatar"
+                src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/40/40`}
+                alt={user?.displayName || "User Avatar"}
               />
-              <AvatarFallback>U</AvatarFallback>
+              <AvatarFallback>{user?.displayName?.[0] || 'U'}</AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuLabel>{user?.displayName || "My Account"}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
             <Link href="/settings">
-              <User className="mr-2 h-4 w-4" />
+              <UserIcon className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/login">
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </Link>
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Log out</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </header>
   );
 }
+    
