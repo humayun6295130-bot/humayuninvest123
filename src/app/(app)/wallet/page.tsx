@@ -3,13 +3,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Copy, Wallet as WalletIcon, Landmark, ArrowDownUp } from "lucide-react";
+import { Copy, Wallet as WalletIcon, ArrowDownUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import WithdrawDialog from "@/components/wallet/withdraw-dialog";
 
 export default function WalletPage() {
     const { user } = useUser();
@@ -52,6 +53,15 @@ export default function WalletPage() {
             case 'completed': return 'outline';
             case 'pending': return 'secondary';
             case 'failed': return 'destructive';
+            default: return 'secondary';
+        }
+    }
+    
+    const getTransactionTypeBadgeVariant = (type: string) => {
+        switch (type) {
+            case 'deposit': return 'default';
+            case 'withdrawal': return 'secondary';
+            case 'investment': return 'outline';
             default: return 'secondary';
         }
     }
@@ -100,10 +110,7 @@ export default function WalletPage() {
                                 </div>
                             </div>
                              <div className="w-full text-center">
-                                <Button disabled>
-                                    <Landmark className="mr-2 h-4 w-4" />
-                                    Withdraw Funds
-                                </Button>
+                                <WithdrawDialog userProfile={userProfile} />
                             </div>
                         </CardContent>
                     </Card>
@@ -134,7 +141,7 @@ export default function WalletPage() {
                                             <TableRow key={tx.id}>
                                                 <TableCell className="text-xs text-muted-foreground">{tx.timestamp ? format(tx.timestamp.toDate(), 'PPpp') : ''}</TableCell>
                                                 <TableCell>
-                                                    <Badge variant={tx.type === 'deposit' ? 'default' : 'secondary'} className="capitalize">{tx.type}</Badge>
+                                                    <Badge variant={getTransactionTypeBadgeVariant(tx.type) as any} className="capitalize">{tx.type}</Badge>
                                                 </TableCell>
                                                 <TableCell>{tx.description || 'N/A'}</TableCell>
                                                 <TableCell>

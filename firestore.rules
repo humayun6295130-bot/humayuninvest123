@@ -141,11 +141,13 @@ service cloud.firestore {
      * @description Secures a user's transaction history.
      * @path /users/{userId}/transactions/{transactionId}
      * @allow (get, list) The owner can read their own transaction history.
-     * @deny (writes) Writes are denied on the client to ensure integrity; they should be handled by trusted backend services.
+     * @allow (create) Users can create new transactions (e.g., a withdrawal request).
+     * @deny (update, delete) Existing transactions cannot be modified by the client to maintain integrity.
      */
     match /users/{userId}/transactions/{transactionId} {
       allow get, list: if isOwner(userId);
-      allow write: if false;
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update, delete: if false;
     }
 
     //-------------------------------------------------------------------------
