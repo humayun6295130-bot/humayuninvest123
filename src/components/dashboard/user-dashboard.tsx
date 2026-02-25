@@ -5,6 +5,7 @@ import { TopHoldings } from '@/components/dashboard/top-holdings';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle } from "lucide-react";
+import Link from "next/link";
 
 const plans = [
     {
@@ -78,7 +79,9 @@ export function UserDashboard() {
                         </ul>
                     </CardContent>
                     <CardFooter>
-                        <Button className="w-full">Choose Plan</Button>
+                        <Link href="/wallet" className="w-full">
+                            <Button className="w-full">Choose Plan</Button>
+                        </Link>
                     </CardFooter>
                 </Card>
             ))}

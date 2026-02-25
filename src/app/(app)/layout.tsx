@@ -14,7 +14,7 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/layout/app-header";
-import { DollarSign, LayoutDashboard, Settings, Wallet } from "lucide-react";
+import { DollarSign, LayoutDashboard, Settings, Briefcase, Wallet } from "lucide-react";
 import { useUser } from "@/firebase";
 import { useEffect } from "react";
 
@@ -66,8 +66,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname.startsWith('/portfolio')} tooltip="Portfolio">
                 <Link href="/portfolio">
-                  <Wallet />
+                  <Briefcase />
                   <span>Portfolio</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith('/wallet')} tooltip="Wallet">
+                <Link href="/wallet">
+                  <Wallet />
+                  <span>Wallet</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
