@@ -18,8 +18,10 @@
  * - **Admin Role**: An 'admin' role is implemented. This role is checked for
  *   write operations on global collections like `content_categories`. Admin
  *   status is stored in the user's document (`/users/{userId}`).
- * - **No User Listing**: Listing all documents in the `/users` collection is
- *   explicitly disallowed to protect user privacy.
+ * - **Limited User Listing**: Listing the entire `/users` collection is
+ *   disallowed for privacy. However, a query with a limit of 1 is permitted
+ *   specifically to allow the registration process to determine if the first
+ *   user is signing up to grant them admin rights.
  * - **Structural Segregation for Content**: Instead of a single 'posts' collection
  *   with a status flag, draft posts are kept in a private user subcollection
  *   (`/users/{userId}/draft_posts`) while published posts are moved to a separate,
@@ -84,12 +86,12 @@ service cloud.firestore {
      * @description Controls access to a user's own profile document.
      * @path /users/{userId}
      * @allow (get, create) An authenticated user can manage their own profile document.
-     * @deny (list) A user cannot list all users.
+     * @deny (list) A user cannot list all users, but a very limited list is allowed for admin-check.
      * @principle A user has exclusive control over their own root document.
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if false; // Disallow listing all users for privacy.
+      allow list: if request.query.limit <= 1; // Allow checking for first user.
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
