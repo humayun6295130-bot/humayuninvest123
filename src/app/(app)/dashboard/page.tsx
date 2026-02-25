@@ -1,25 +1,45 @@
-import { StatsCards } from '@/components/dashboard/stats-cards';
-import { PortfolioChart } from '@/components/dashboard/portfolio-chart';
-import { TopHoldings } from '@/components/dashboard/top-holdings';
-import type { Metadata } from 'next';
+"use client";
 
-export const metadata: Metadata = {
-  title: 'Dashboard | AscendFolio',
-  description: 'Your portfolio at a glance.',
-};
+import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { doc } from "firebase/firestore";
+import { UserDashboard } from "@/components/dashboard/user-dashboard";
+import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
+import { DollarSign } from "lucide-react";
 
 export default function DashboardPage() {
-  return (
-    <div className="space-y-6">
-      <StatsCards />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <PortfolioChart />
-        </div>
-        <div className="lg:col-span-1">
-          <TopHoldings />
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const router = useRouter();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading || isProfileLoading || !userProfile) {
+    return (
+       <div className="flex h-[80vh] w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+           <DollarSign className="h-12 w-12 animate-pulse text-primary" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (userProfile?.role === 'admin') {
+    return <AdminDashboard />;
+  }
+
+  return <UserDashboard />;
 }

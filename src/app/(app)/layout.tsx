@@ -14,23 +14,14 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/layout/app-header";
-import { DollarSign, LayoutDashboard, Settings, Wallet, Globe, Shield } from "lucide-react";
-import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { DollarSign, LayoutDashboard, Settings, Wallet } from "lucide-react";
+import { useUser } from "@/firebase";
 import { useEffect } from "react";
-import { doc } from "firebase/firestore";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
-  const firestore = useFirestore();
-
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, "users", user.uid);
-  }, [firestore, user]);
-
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -38,7 +29,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isUserLoading, user, router]);
 
-  if (isUserLoading || !user || isProfileLoading) {
+  if (isUserLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -80,24 +71,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith('/public-profile')} tooltip="Public Profile">
-                <Link href="/public-profile">
-                  <Globe />
-                  <span>Public Profile</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            {userProfile?.role === 'admin' && (
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname.startsWith('/admin')} tooltip="Admin">
-                  <Link href="/admin">
-                    <Shield />
-                    <span>Admin</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
