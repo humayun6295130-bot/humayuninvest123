@@ -137,7 +137,8 @@ service cloud.firestore {
      * @allow (update) Only an admin can update a transaction (e.g., to approve it).
      */
     match /transactions/{transactionId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow get: if isOwner(resource.data.userId) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isOwner(request.resource.data.userId);
       allow update: if isAdmin();
       allow delete: if false; // Transactions are immutable once created.
@@ -193,5 +194,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
