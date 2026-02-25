@@ -39,6 +39,7 @@ const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
     amount: z.coerce
       .number()
       .positive("Amount must be a positive number.")
+      .min(50, "Minimum withdrawal amount is $50.")
       .max(userProfile?.balance || 0, "Withdrawal amount cannot exceed your current balance."),
   });
 
