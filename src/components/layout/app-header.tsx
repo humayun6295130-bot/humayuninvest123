@@ -26,7 +26,6 @@ export function AppHeader() {
   const getPageTitle = () => {
     if (pathname.startsWith('/dashboard')) return "Dashboard";
     if (pathname.startsWith('/portfolio')) return "Portfolio";
-    if (pathname.startsWith('/invest')) return "Investment Plans";
     if (pathname.startsWith('/public-profile')) return "Public Profile";
     if (pathname.startsWith('/settings')) return "Settings";
     return "AscendFolio";
