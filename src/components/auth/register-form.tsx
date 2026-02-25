@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
+import { useAuth, useFirestore, setDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
 import { useState } from "react";
 
 const formSchema = z.object({
@@ -92,6 +92,15 @@ export function RegisterForm() {
         role: isAdmin ? 'admin' : 'user',
       };
       setDocumentNonBlocking(userDocRef, newUser, { merge: false });
+
+      // Create a default portfolio for the new user
+      const portfolioCollectionRef = collection(firestore, "users", user.uid, "portfolios");
+      addDocumentNonBlocking(portfolioCollectionRef, {
+          userId: user.uid,
+          name: "My First Portfolio",
+          creationDate: serverTimestamp(),
+          lastUpdatedDate: serverTimestamp(),
+      });
 
       toast({
         title: "Registration Successful",

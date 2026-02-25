@@ -8,7 +8,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { portfolio } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -21,6 +20,8 @@ import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddAssetDialog } from "./add-asset-dialog";
+import { useFirestore, deleteDocumentNonBlocking } from "@/firebase";
+import { doc } from "firebase/firestore";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("en-US", {
@@ -29,12 +30,29 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function AssetsTable() {
+export function AssetsTable({ assets, portfolioId, userId }: { assets: any[], portfolioId: string, userId: string }) {
+  const firestore = useFirestore();
+
+  const handleDelete = (assetId: string) => {
+    if (!window.confirm("Are you sure you want to delete this asset?")) return;
+    
+    const assetRef = doc(firestore, `users/${userId}/portfolios/${portfolioId}/assets/${assetId}`);
+    deleteDocumentNonBlocking(assetRef);
+  };
+
+  // These calculations will be based on the live data
+  const processedAssets = assets.map(asset => {
+    const totalValue = asset.quantity * asset.averageCost;
+    const totalCost = asset.quantity * asset.averageCost;
+    const gainLoss = totalValue - totalCost;
+    return { ...asset, totalValue, gainLoss };
+  });
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Your Investments</CardTitle>
-        <AddAssetDialog />
+        <AddAssetDialog portfolioId={portfolioId} userId={userId} />
       </CardHeader>
       <CardContent>
         <Table>
@@ -43,8 +61,7 @@ export function AssetsTable() {
               <TableHead>Asset</TableHead>
               <TableHead>Type</TableHead>
               <TableHead className="text-right">Quantity</TableHead>
-              <TableHead className="text-right">Current Price</TableHead>
-              <TableHead className="text-right">24h Change</TableHead>
+              <TableHead className="text-right">Avg. Cost</TableHead>
               <TableHead className="text-right">Total Value</TableHead>
               <TableHead className="text-right">Total Gain/Loss</TableHead>
               <TableHead>
@@ -53,26 +70,16 @@ export function AssetsTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {portfolio.assets.map((asset) => (
+            {processedAssets.length > 0 ? processedAssets.map((asset) => (
               <TableRow key={asset.id}>
                 <TableCell>
-                  <div className="font-medium">{asset.ticker}</div>
-                  <div className="text-sm text-muted-foreground">{asset.name}</div>
+                  <div className="font-medium">{asset.symbol}</div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">{asset.type}</Badge>
+                  <Badge variant="outline">{asset.assetType}</Badge>
                 </TableCell>
                 <TableCell className="text-right">{asset.quantity.toLocaleString()}</TableCell>
-                <TableCell className="text-right">{formatCurrency(asset.currentPrice)}</TableCell>
-                <TableCell
-                  className={cn(
-                    "text-right",
-                    asset.dailyChange >= 0 ? "text-green-500" : "text-red-500"
-                  )}
-                >
-                  {asset.dailyChange >= 0 ? "+" : ""}
-                  {asset.dailyChangePercentage.toFixed(2)}%
-                </TableCell>
+                <TableCell className="text-right">{formatCurrency(asset.averageCost)}</TableCell>
                 <TableCell className="text-right font-medium">{formatCurrency(asset.totalValue)}</TableCell>
                 <TableCell
                   className={cn(
@@ -95,7 +102,7 @@ export function AssetsTable() {
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-500 focus:text-red-500 focus:bg-red-500/10">
+                      <DropdownMenuItem onClick={() => handleDelete(asset.id)} className="text-red-500 focus:text-red-500 focus:bg-red-500/10">
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
@@ -103,7 +110,13 @@ export function AssetsTable() {
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
-            ))}
+            )) : (
+                <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center">
+                        No assets yet. Add your first asset to get started.
+                    </TableCell>
+                </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>

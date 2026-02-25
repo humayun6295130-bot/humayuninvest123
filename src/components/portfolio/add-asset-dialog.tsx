@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import {
     Form,
@@ -31,40 +32,61 @@ import {
     SelectValue,
   } from "@/components/ui/select";
 import { PlusCircle } from "lucide-react";
+import { useFirestore, addDocumentNonBlocking } from "@/firebase";
+import { collection } from "firebase/firestore";
+import { useState } from "react";
 
 const formSchema = z.object({
-    ticker: z.string().min(1, "Ticker is required.").toUpperCase(),
-    type: z.enum(["Stock", "Crypto", "ETF"]),
+    symbol: z.string().min(1, "Symbol is required.").toUpperCase(),
+    assetType: z.enum(["stock", "cryptocurrency", "ETF", "bond"]),
     quantity: z.coerce.number().positive("Quantity must be positive."),
-    avgPrice: z.coerce.number().positive("Price must be positive."),
+    averageCost: z.coerce.number().positive("Price must be positive."),
   });
 
-export function AddAssetDialog() {
+export function AddAssetDialog({ portfolioId, userId }: { portfolioId: string, userId: string }) {
     const { toast } = useToast();
+    const firestore = useFirestore();
+    const [open, setOpen] = useState(false);
+
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            ticker: "",
+            symbol: "",
             quantity: 0,
-            avgPrice: 0,
+            averageCost: 0,
         },
     });
 
     function onSubmit(values: z.infer<typeof formSchema>) {
-        console.log(values);
+        if (!userId || !portfolioId) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Could not add asset. User or portfolio not found.",
+            });
+            return;
+        }
+
+        const assetCollectionRef = collection(firestore, `users/${userId}/portfolios/${portfolioId}/assets`);
+        
+        addDocumentNonBlocking(assetCollectionRef, {
+            ...values,
+            portfolioId: portfolioId,
+            currency: 'USD',
+            purchaseDate: new Date().toISOString().split('T')[0]
+        });
+
         toast({
             title: "Asset Added",
-            description: `${values.quantity} of ${values.ticker} has been added to your portfolio.`,
+            description: `${values.quantity} of ${values.symbol} has been added to your portfolio.`,
         });
-        // Here you would typically call a server action or API to update the database
-        // and then re-fetch or optimistically update the UI.
-        // For now, we just log and close the dialog.
-        // We'll reset the form for the next time it opens.
+        
         form.reset();
+        setOpen(false);
       }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -82,10 +104,10 @@ export function AddAssetDialog() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
                 <FormField
                     control={form.control}
-                    name="ticker"
+                    name="symbol"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Ticker</FormLabel>
+                            <FormLabel>Symbol</FormLabel>
                             <FormControl>
                                 <Input placeholder="e.g., AAPL, BTC" {...field} />
                             </FormControl>
@@ -95,7 +117,7 @@ export function AddAssetDialog() {
                 />
                 <FormField
                     control={form.control}
-                    name="type"
+                    name="assetType"
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Asset Type</FormLabel>
@@ -106,9 +128,10 @@ export function AddAssetDialog() {
                                 </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                <SelectItem value="Stock">Stock</SelectItem>
-                                <SelectItem value="Crypto">Crypto</SelectItem>
+                                <SelectItem value="stock">Stock</SelectItem>
+                                <SelectItem value="cryptocurrency">Cryptocurrency</SelectItem>
                                 <SelectItem value="ETF">ETF</SelectItem>
+                                <SelectItem value="bond">Bond</SelectItem>
                                 </SelectContent>
                             </Select>
                             <FormMessage />
@@ -130,7 +153,7 @@ export function AddAssetDialog() {
                 />
                  <FormField
                     control={form.control}
-                    name="avgPrice"
+                    name="averageCost"
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Average Purchase Price</FormLabel>
@@ -142,6 +165,9 @@ export function AddAssetDialog() {
                     )}
                 />
                 <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="ghost">Cancel</Button>
+                    </DialogClose>
                     <Button type="submit">Add Asset</Button>
                 </DialogFooter>
             </form>
