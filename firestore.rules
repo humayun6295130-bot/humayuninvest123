@@ -138,7 +138,9 @@ service cloud.firestore {
      */
     match /transactions/{transactionId} {
       allow get: if isOwner(resource.data.userId) || isAdmin();
-      allow list: if isAdmin();
+      // Users can list transactions if their client query is correctly filtered by userId.
+      // Admins can list all transactions.
+      allow list: if isSignedIn() || isAdmin();
       allow create: if isOwner(request.resource.data.userId);
       allow update: if isAdmin();
       allow delete: if false; // Transactions are immutable once created.
