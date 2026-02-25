@@ -28,7 +28,7 @@ export default function PortfolioPage() {
 
   const { data: assets, isLoading: isAssetsLoading } = useCollection(assetsQuery);
 
-  const isLoading = isUserLoading || isPortfoliosLoading || (portfolios && !portfolio && !isAssetsLoading) || (portfolio && isAssetsLoading);
+  const isLoading = isUserLoading || isPortfoliosLoading || (!!portfolio && isAssetsLoading);
 
   if (isLoading) {
     return (
