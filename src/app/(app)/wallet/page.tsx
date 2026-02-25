@@ -15,7 +15,7 @@ export default function WalletPage() {
         navigator.clipboard.writeText(walletAddress);
         toast({
             title: "Copied!",
-            description: "Wallet address copied to clipboard.",
+            description: "Deposit address copied to clipboard.",
         });
     };
 
@@ -23,8 +23,8 @@ export default function WalletPage() {
         <div className="flex justify-center items-start pt-10">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <CardTitle>Deposit Funds</CardTitle>
-                    <CardDescription>Scan the QR code or use the address to deposit funds into your wallet.</CardDescription>
+                    <CardTitle>Fund Your Account</CardTitle>
+                    <CardDescription>To deposit funds, scan the QR code with your wallet application or copy the address below.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center gap-6">
                     <div className="p-4 bg-white rounded-lg">
@@ -37,7 +37,7 @@ export default function WalletPage() {
                         />
                     </div>
                     <div className="w-full space-y-2 text-center">
-                        <p className="text-sm font-medium text-muted-foreground">Wallet Address</p>
+                        <p className="text-sm font-medium text-muted-foreground">Deposit Address</p>
                         <div className="flex items-center gap-2 rounded-md border p-2 bg-muted">
                            <p className="text-sm font-mono break-all flex-1">{walletAddress}</p>
                             <Button variant="ghost" size="icon" onClick={handleCopy}>
