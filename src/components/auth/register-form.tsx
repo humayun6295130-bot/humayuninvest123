@@ -89,6 +89,7 @@ export function RegisterForm() {
         isPublic: false,
         bio: "",
         profilePictureUrl: "",
+        balance: 0,
         role: isAdmin ? 'admin' : 'user',
       };
       setDocumentNonBlocking(userDocRef, newUser, { merge: false });

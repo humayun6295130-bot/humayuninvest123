@@ -137,6 +137,17 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
+    /**
+     * @description Secures a user's transaction history.
+     * @path /users/{userId}/transactions/{transactionId}
+     * @allow (get, list) The owner can read their own transaction history.
+     * @deny (writes) Writes are denied on the client to ensure integrity; they should be handled by trusted backend services.
+     */
+    match /users/{userId}/transactions/{transactionId} {
+      allow get, list: if isOwner(userId);
+      allow write: if false;
+    }
+
     //-------------------------------------------------------------------------
     // Public & Shared Collections
     //-------------------------------------------------------------------------
