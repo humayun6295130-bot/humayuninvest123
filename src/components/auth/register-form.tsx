@@ -6,7 +6,7 @@ import * as z from "zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, collection, getDocs, query, limit } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, collection, getDocs, query, limit } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useFirestore, setDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
+import { auth, db } from "@/firebase";
 import { useState } from "react";
 
 const formSchema = z.object({
@@ -33,8 +33,6 @@ const formSchema = z.object({
 export function RegisterForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const auth = useAuth();
-  const firestore = useFirestore();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -51,22 +49,8 @@ export function RegisterForm() {
     setIsLoading(true);
 
     try {
-      // Check for username uniqueness
-      const usernameDocRef = doc(firestore, "public_profiles", values.username);
-      const usernameDoc = await getDoc(usernameDocRef);
-      if (usernameDoc.exists()) {
-        toast({
-          variant: "destructive",
-          title: "Registration Failed",
-          description: "This username is already taken. Please choose another one.",
-        });
-        form.setError("username", { message: "This username is already taken." });
-        setIsLoading(false);
-        return;
-      }
-
       // Check if this is the first user to determine admin status
-      const usersCollectionRef = collection(firestore, "users");
+      const usersCollectionRef = collection(db, "users");
       const firstUserQuery = query(usersCollectionRef, limit(1));
       const userSnapshot = await getDocs(firstUserQuery);
       const isAdmin = userSnapshot.empty;
@@ -75,33 +59,41 @@ export function RegisterForm() {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // Update profile
+      // Update Firebase Auth profile
       await updateProfile(user, { displayName: values.name });
 
       // Create user document in Firestore
-      const userDocRef = doc(firestore, "users", user.uid);
+      const userDocRef = doc(db, "users", user.uid);
       const newUser = {
         id: user.uid,
         email: values.email,
         username: values.username,
         displayName: values.name,
-        memberSince: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         isPublic: false,
         bio: "",
         profilePictureUrl: "",
         balance: 0,
         role: isAdmin ? 'admin' : 'user',
+        currencyPreference: 'USD'
       };
-      setDocumentNonBlocking(userDocRef, newUser, { merge: false });
+      
+      await setDoc(userDocRef, newUser);
 
       // Create a default portfolio for the new user
-      const portfolioCollectionRef = collection(firestore, "users", user.uid, "portfolios");
-      addDocumentNonBlocking(portfolioCollectionRef, {
-          userId: user.uid,
+      const portfolioRef = doc(collection(db, `users/${user.uid}/portfolios`));
+      await setDoc(portfolioRef, {
+          id: portfolioRef.id,
+          userProfileId: user.uid,
           name: "My First Portfolio",
-          creationDate: serverTimestamp(),
-          lastUpdatedDate: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
       });
+
+      if (isAdmin) {
+        await setDoc(doc(db, "roles_admin", user.uid), newUser);
+      }
 
       toast({
         title: "Registration Successful",

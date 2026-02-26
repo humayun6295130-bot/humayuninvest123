@@ -1,8 +1,10 @@
+"use client";
+
 import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Upload, CheckCircle2, Copy, X, ImageIcon } from "lucide-react";
+import { Upload, Copy, X, ImageIcon, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -24,8 +27,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
-import { collection, serverTimestamp } from "firebase/firestore";
+import { db, auth } from "@/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "@/firebase";
 
 const walletAddress = "0x362A4533B0E745d339ff4fdb98E96BDb838FAa85";
 
@@ -36,8 +41,6 @@ const formSchema = z.object({
 
 export default function DepositDialog({ userProfile }: { userProfile: any }) {
   const { toast } = useToast();
-  const { user } = useUser();
-  const firestore = useFirestore();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -67,7 +70,14 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const uploadFile = async (file: File, userId: string) => {
+    const storageRef = ref(storage, `receipts/${userId}/${Date.now()}_${file.name}`);
+    const snapshot = await uploadBytes(storageRef, file);
+    return getDownloadURL(snapshot.ref);
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    const user = auth.currentUser;
     if (!user || !userProfile) {
       toast({ variant: "destructive", title: "Error", description: "User not authenticated." });
       return;
@@ -76,6 +86,11 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
     setIsLoading(true);
 
     try {
+      let proofUrl = "";
+      if (selectedFile) {
+        proofUrl = await uploadFile(selectedFile, user.uid);
+      }
+
       const transaction = {
         userId: user.uid,
         userDisplayName: userProfile.displayName,
@@ -87,11 +102,11 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
         timestamp: serverTimestamp(),
         description: `Deposit request via ${values.transactionHash}`,
         transactionHash: values.transactionHash,
-        hasProof: !!selectedFile, // Mark if proof was attached
+        proofUrl: proofUrl,
       };
 
-      const transactionsRef = collection(firestore, `transactions`);
-      await addDocumentNonBlocking(transactionsRef, transaction);
+      const transactionsRef = collection(db, `transactions`);
+      await addDoc(transactionsRef, transaction);
 
       toast({
         title: "Deposit Submitted",

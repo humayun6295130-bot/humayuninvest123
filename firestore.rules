@@ -2,120 +2,67 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * PROTOTYPING MODE SECURITY RULES
-     * 
-     * Core Philosophy:
-     * This ruleset implements a strict User-Ownership model combined with a Marker-Based Administrative 
-     * Role system (DBAC). While it enforces rigorous authorization (who can access what), it remains 
-     * flexible regarding data shapes to support rapid frontend iteration.
-     * 
-     * Data Structure:
-     * 1. Private User Data: Nested under `/users/{userId}/...`. Access is restricted to the owner 
-     *    identified by the `{userId}` wildcard or a global Administrator.
-     * 2. Administrative Markers: Located at `/roles_admin/{userId}`. The existence of a document 
-     *    here grants global "puro control" (full control) across the entire database.
-     * 3. Global Catalog: `/investment_assets/{assetId}` is readable by all authenticated users 
-     *    but only writable by Administrators.
-     * 
-     * Key Security Decisions:
-     * - Denormalization for Performance: High-level ownership identifiers (e.g., `userProfileId`) are 
-     *   required on nested documents (Portfolios, Holdings) to allow for fast, local authorization 
-     *   checks without the need for recursive `get()` calls.
-     * - Admin Override: Every collection includes an `isAdmin()` check to fulfill the requirement 
-     *   of giving administrators full control over all data.
-     * - Existence Verification: All update and delete operations verify that the target document 
-     *   actually exists before proceeding, preventing orphaned requests or logic errors.
-     */
-
     // --- Helper Functions ---
 
-    /** @description Checks if the request is from a signed-in user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** @description Checks if the user has an administrative marker document. */
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
-    /** @description Checks if the user's UID matches the provided ID. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** @description Checks ownership and ensures the document exists for state changes. */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
     // --- Collection Rules ---
 
-    /**
-     * @description Administrative marker collection. Documents here define who is an admin.
-     * @path /roles_admin/{userId}
-     * @allow (get) Admin user or the user themselves checking their own status.
-     * @deny (create) Non-admin users attempting to grant themselves privileges.
-     * @principle Marker-based Role-Based Access Control (RBAC).
-     */
     match /roles_admin/{userId} {
-      allow get, list: if isAdmin() || isOwner(userId);
-      allow create, update, delete: if isAdmin();
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
-    /**
-     * @description User profiles containing preferences and roles.
-     * @path /users/{userId}
-     * @allow (create) User creating their own profile where document ID matches their Auth UID.
-     * @deny (update) Changing the profile 'id' field to a different user's UID.
-     * @principle Self-creation and relational integrity between path and data.
-     */
     match /users/{userId} {
-      allow get, list: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin();
-      allow update: if (isExistingOwner(userId) && request.resource.data.id == resource.data.id) || isAdmin();
-      allow delete: if isExistingOwner(userId) || isAdmin();
+      allow update: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description User-specific investment portfolios.
-     * @path /users/{userId}/portfolios/{portfolioId}
-     * @allow (list) Owner viewing their own list of portfolios.
-     * @deny (create) Setting a 'userProfileId' that doesn't match the parent path UID.
-     * @principle Hierarchical ownership with denormalized ID validation.
-     */
     match /users/{userId}/portfolios/{portfolioId} {
-      allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if (isOwner(userId) && request.resource.data.userProfileId == userId) || isAdmin();
-      allow update: if (isExistingOwner(userId) && request.resource.data.userProfileId == resource.data.userProfileId) || isAdmin();
-      allow delete: if isExistingOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Specific holdings within a portfolio.
-     * @path /users/{userId}/portfolios/{portfolioId}/holdings/{holdingId}
-     * @allow (update) Owner adjusting quantity of an asset.
-     * @deny (get) User attempting to read holdings in another user's portfolio.
-     * @principle Authorization independence via denormalized ownership fields.
-     */
-    match /users/{userId}/portfolios/{portfolioId}/holdings/{holdingId} {
-      allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if (isOwner(userId) && request.resource.data.userProfileId == userId) || isAdmin();
-      allow update: if (isExistingOwner(userId) && request.resource.data.userProfileId == resource.data.userProfileId) || isAdmin();
-      allow delete: if isExistingOwner(userId) || isAdmin();
+    match /users/{userId}/portfolios/{portfolioId}/assets/{assetId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Global catalog of investment assets (stocks, crypto, etc).
-     * @path /investment_assets/{assetId}
-     * @allow (list) Any authenticated user browsing the asset catalog.
-     * @deny (create) Standard user attempting to add a new asset to the global catalog.
-     * @principle Public Read (Auth-only) with restricted Admin-only writes.
-     */
-    match /investment_assets/{assetId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+    match /transactions/{transactionId} {
+      // Users can see their own transactions, Admins can see all.
+      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 100);
+      allow get: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      
+      // Users can create their own transaction requests.
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      
+      // Only admins can update or delete transactions.
+      allow update, delete: if isAdmin();
+    }
+    
+    match /published_posts/{postId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /users/{userId}/draft_posts/{postId} {
+      allow read, write: if isOwner(userId) || isAdmin();
     }
   }
 }

@@ -1,14 +1,14 @@
 "use client";
 
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, writeBatch, increment, orderBy } from "firebase/firestore";
+import { collection, query, where, doc, writeBatch, increment, orderBy, updateDoc } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, ExternalLink, Image as ImageIcon } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
