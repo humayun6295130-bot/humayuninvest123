@@ -1,41 +1,47 @@
-"use client";
-
-import { useState } from "react";
-import Image from "next/image";
+import { useState, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Upload, CheckCircle2, Copy, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Copy, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
 import { collection, serverTimestamp } from "firebase/firestore";
 
 const walletAddress = "0x362A4533B0E745d339ff4fdb98E96BDb838FAa85";
-const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${walletAddress}`;
 
 const formSchema = z.object({
-  amount: z.coerce.number().positive("Amount must be a positive number."),
-  transactionHash: z.string().min(10, "Please enter a valid transaction hash."),
+  amount: z.coerce.number().positive("Amount must be a positive number.").min(10, "Minimum deposit is $10"),
+  transactionHash: z.string().min(5, "Please enter a valid transaction hash or reference."),
 });
 
-
-const DepositDialog = ({ userProfile }: { userProfile: any }) => {
+export default function DepositDialog({ userProfile }: { userProfile: any }) {
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
   const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,108 +52,189 @@ const DepositDialog = ({ userProfile }: { userProfile: any }) => {
     navigator.clipboard.writeText(walletAddress);
     toast({
       title: "Copied!",
-      description: "Deposit address copied to clipboard.",
+      description: "Address copied to clipboard.",
     });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-     if (!user || !userProfile) {
-      toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
+    if (!user || !userProfile) {
+      toast({ variant: "destructive", title: "Error", description: "User not authenticated." });
       return;
     }
 
-    const transaction = {
-      userId: user.uid,
-      userDisplayName: userProfile.displayName,
-      userEmail: userProfile.email,
-      type: "deposit",
-      amount: values.amount,
-      currency: "USD",
-      status: "pending",
-      timestamp: serverTimestamp(),
-      description: `Deposit request`,
-      transactionHash: values.transactionHash
-    };
+    setIsLoading(true);
 
-    const transactionsRef = collection(firestore, `transactions`);
-    addDocumentNonBlocking(transactionsRef, transaction);
+    try {
+      const transaction = {
+        userId: user.uid,
+        userDisplayName: userProfile.displayName,
+        userEmail: userProfile.email,
+        type: "deposit",
+        amount: values.amount,
+        currency: "USD",
+        status: "pending",
+        timestamp: serverTimestamp(),
+        description: `Deposit request via ${values.transactionHash}`,
+        transactionHash: values.transactionHash,
+        hasProof: !!selectedFile, // Mark if proof was attached
+      };
 
-    toast({
-      title: "Deposit Request Submitted",
-      description: `Your request to deposit $${values.amount} has been submitted for review.`,
-    });
+      const transactionsRef = collection(firestore, `transactions`);
+      await addDocumentNonBlocking(transactionsRef, transaction);
 
-    setOpen(false);
-    form.reset();
-  }
+      toast({
+        title: "Deposit Submitted",
+        description: "Your request is being reviewed by our team.",
+      });
+
+      setOpen(false);
+      form.reset();
+      setSelectedFile(null);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to submit deposit. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button className="bg-[#334C99] hover:bg-[#283d7a] text-white">
           <Download className="mr-2 h-4 w-4" />
           Deposit Funds
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto bg-[#EBEFF6]">
         <DialogHeader>
-          <DialogTitle>Fund Your Account</DialogTitle>
+          <DialogTitle className="text-[#334C99]">Deposit Funds</DialogTitle>
           <DialogDescription>
-            Send funds to the address below, then enter the details to submit your deposit for verification.
+            Transfer funds to the wallet below and provide details.
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="flex flex-col items-center gap-4 pt-4">
-            <div className="p-2 bg-white rounded-lg border">
-                <Image src={qrCodeUrl} alt="Deposit QR Code" width={200} height={200} />
-            </div>
-            <div className="w-full space-y-2 text-center">
-                <p className="text-sm font-medium text-muted-foreground">Deposit Address</p>
-                <div className="flex items-center gap-2 rounded-md border p-2 bg-muted">
-                    <p className="text-sm font-mono break-all flex-1">{walletAddress}</p>
-                    <Button variant="ghost" size="icon" onClick={handleCopy} className="h-8 w-8">
-                        <Copy className="h-3 w-3" />
-                        <span className="sr-only">Copy Address</span>
-                    </Button>
-                </div>
-            </div>
-        </div>
 
-        <Form {...form}>
+        <div className="space-y-4 py-2">
+          <div className="p-4 bg-white rounded-xl border border-gray-200">
+            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">USDT (ERC20) Address</p>
+            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded border">
+              <code className="text-xs break-all flex-1 text-[#334C99]">{walletAddress}</code>
+              <Button variant="ghost" size="icon" onClick={handleCopy} className="h-8 w-8 hover:text-[#52BBDB]">
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
+              <FormField
                 control={form.control}
                 name="amount"
                 render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Amount (USD)</FormLabel>
-                        <FormControl><Input type="number" step="0.01" placeholder="e.g., 50.00" {...field} /></FormControl>
-                        <FormMessage />
-                    </FormItem>
+                  <FormItem>
+                    <FormLabel>Deposit Amount ($)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="0.00" 
+                        {...field} 
+                        className="bg-white border-gray-300 focus:border-[#52BBDB] focus:ring-[#52BBDB]" 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-                />
-                 <FormField
+              />
+
+              <FormField
                 control={form.control}
                 name="transactionHash"
                 render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Transaction Hash / ID</FormLabel>
-                        <FormControl><Input placeholder="Enter the TXID from your wallet" {...field} /></FormControl>
-                        <FormMessage />
-                    </FormItem>
+                  <FormItem>
+                    <FormLabel>Transaction ID / Hash</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Paste your TXID here" 
+                        {...field} 
+                        className="bg-white border-gray-300 focus:border-[#52BBDB] focus:ring-[#52BBDB]" 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-                />
-                <DialogFooter>
-                    <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button type="submit">Submit Deposit</Button>
-                </DialogFooter>
+              />
+
+              <div className="space-y-2">
+                <FormLabel>Payment Proof (Optional)</FormLabel>
+                <div 
+                  className={`border-2 border-dashed rounded-lg p-4 transition-colors cursor-pointer flex flex-col items-center justify-center gap-2
+                    ${selectedFile ? 'border-[#52BBDB] bg-blue-50' : 'border-gray-300 hover:border-[#52BBDB] bg-white'}`}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+                  {selectedFile ? (
+                    <div className="flex items-center gap-2 w-full">
+                      <ImageIcon className="h-5 w-5 text-[#334C99]" />
+                      <span className="text-sm truncate flex-1">{selectedFile.name}</span>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 text-red-500 hover:bg-red-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFile();
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 text-gray-400" />
+                      <div className="text-center">
+                        <p className="text-sm text-gray-600">Click to upload screenshot</p>
+                        <p className="text-xs text-gray-400">PNG, JPG up to 5MB</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <FormDescription>
+                  Uploading a screenshot of your transaction helps speed up verification.
+                </FormDescription>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full bg-[#334C99] hover:bg-[#283d7a] text-white py-6"
+                disabled={isLoading}
+              >
+                {isLoading ? "Processing..." : "Complete Deposit"}
+              </Button>
             </form>
-        </Form>
+          </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );
-};
-
-export default DepositDialog;
-
-    
+}
