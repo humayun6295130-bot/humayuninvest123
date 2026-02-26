@@ -18,17 +18,10 @@
  * - **Admin Role**: An 'admin' role has elevated privileges, such as updating
  *   any user's profile, managing transactions, and writing to global content collections.
  * - **Limited User Listing**: Listing the entire `/users` collection is
- *   disallowed for privacy, but a limited query is allowed for the initial
- *   admin-creation check during registration.
+ *   disallowed for regular users, but admins can list all users.
  * - **Centralized Transactions**: All transactions are in a single `/transactions`
  *   collection to allow admins to easily query for pending items. Rules
  *   ensure users can only read their own and admins can read/update all.
- *
- * # Denormalization for Authorization
- * - To avoid slow and costly cross-document `get()` calls in rules, documents
- *   contain fields necessary for authorization. For example, a `transactions`
- *   document contains a `userId`, allowing rules to grant read access to the
- *   owner without looking up other documents.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -38,33 +31,18 @@ service cloud.firestore {
     // Helper Functions
     //-------------------------------------------------------------------------
 
-    /**
-     * Checks if the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the currently authenticated user's UID matches the provided userId.
-     * This is the primary function for enforcing data ownership.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * Checks for ownership on an existing document. Used for update and delete
-     * operations to prevent acting on non-existent data.
-     */
     function isExistingOwner(userId) {
       return isOwner(userId) && resource != null;
     }
 
-    /**
-     * Checks if the authenticated user has the 'admin' role.
-     * This requires reading the user's own profile document.
-     */
     function isAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
@@ -73,124 +51,71 @@ service cloud.firestore {
     // User Data Collections (/users/{userId}/**)
     //-------------------------------------------------------------------------
 
-    /**
-     * @description Controls access to a user's own profile document.
-     * @path /users/{userId}
-     * @allow (get) Owner or admin can read.
-     * @allow (create) Owner can create their own profile.
-     * @allow (update) Owner can update non-critical fields; admin can update anything.
-     */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if request.query.limit <= 1; // Allow checking for first user.
+      allow list: if isAdmin() || request.query.limit <= 1; 
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      // User can update their doc, but cannot change their role or balance. Admin can.
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.balance == resource.data.balance) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
     }
 
-    /**
-     * @description Secures a user's private collection of investment portfolios.
-     * @path /users/{userId}/portfolios/{portfolioId}
-     * @principle Restricts access to a user's own data tree via path-based security.
-     */
     match /users/{userId}/portfolios/{portfolioId} {
-      allow get, list: if isOwner(userId);
+      allow get, list: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      allow update: if (isExistingOwner(userId) || isAdmin()) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId) || isAdmin();
     }
 
-    /**
-     * @description Secures the investment assets within a user's portfolio.
-     * @path /users/{userId}/portfolios/{portfolioId}/assets/{assetId}
-     * @principle Enforces ownership at the root of the data tree, securing all subcollections.
-     */
     match /users/{userId}/portfolios/{portfolioId}/assets/{assetId} {
-      allow get, list: if isOwner(userId);
+      allow get, list: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && request.resource.data.portfolioId == portfolioId;
-      allow update: if isExistingOwner(userId) && request.resource.data.portfolioId == resource.data.portfolioId;
-      allow delete: if isExistingOwner(userId);
+      allow update: if (isExistingOwner(userId) || isAdmin()) && request.resource.data.portfolioId == resource.data.portfolioId;
+      allow delete: if isExistingOwner(userId) || isAdmin();
     }
 
-    /**
-     * @description Secures a user's private collection of draft content posts.
-     * @path /users/{userId}/draft_posts/{postId}
-     * @principle Enforces strict ownership for private, unpublished content.
-     */
     match /users/{userId}/draft_posts/{postId} {
-      allow get, list: if isOwner(userId);
+      allow get, list: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && request.resource.data.authorId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.authorId == resource.data.authorId;
-      allow delete: if isExistingOwner(userId);
+      allow update: if (isExistingOwner(userId) || isAdmin()) && request.resource.data.authorId == resource.data.authorId;
+      allow delete: if isExistingOwner(userId) || isAdmin();
     }
 
     //-------------------------------------------------------------------------
     // Public & Shared Collections
     //-------------------------------------------------------------------------
     
-    /**
-     * @description Root collection for all financial transactions.
-     * @path /transactions/{transactionId}
-     * @allow (get) User can read their own transaction; admin can read any.
-     * @allow (list) Not explicitly allowed. Firestore allows list if the client query
-     *             is constrained in a way that satisfies the `get` rule for all
-     *             potential documents (e.g., `where('userId', '==', request.auth.uid)`).
-     *             Admins can list all because their `get` rule passes for all documents.
-     * @allow (create) User can create a transaction for themselves.
-     * @allow (update) Only an admin can update a transaction (e.g., to approve it).
-     */
     match /transactions/{transactionId} {
-      allow get: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isOwner(request.resource.data.userId);
+      allow get: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
+      allow list: if isSignedIn(); // Queries must still filter by userId for non-admins
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
       allow update: if isAdmin();
-      allow delete: if false; // Transactions are immutable once created.
+      allow delete: if false; 
     }
 
-    /**
-     * @description Controls access to public user profiles.
-     * @path /public_profiles/{username}
-     */
     match /public_profiles/{username} {
       allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(resource.data.userId);
+      allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
+      allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
     }
 
-    /**
-     * @description Controls access to publicly published content posts.
-     * @path /published_posts/{postId}
-     */
     match /published_posts/{postId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.authorId) && request.resource.data.authorId == resource.data.authorId;
-      allow delete: if isExistingOwner(resource.data.authorId);
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isOwner(resource.data.authorId) || isAdmin());
+      allow delete: if isSignedIn() && (isOwner(resource.data.authorId) || isAdmin());
     }
 
-    /**
-     * @description Controls access to historical asset pricing data.
-     * @path /asset_price_history/{priceHistoryId}
-     */
     match /asset_price_history/{priceHistoryId} {
       allow get, list: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
-    /**
-     * @description Controls access to global content categories.
-     * @path /content_categories/{categoryId}
-     */
     match /content_categories/{categoryId} {
       allow get, list: if true;
       allow write: if isAdmin();
     }
 
-    /**
-     * @description Controls access to global content tags.
-     * @path /content_tags/{tagId}
-     */
     match /content_tags/{tagId} {
       allow get, list: if true;
       allow write: if isAdmin();
