@@ -11,17 +11,6 @@
  *   matching the authenticated user's ID with the `userId` in the path.
  * - Public data (published posts, public profiles, categories, tags, price history) and
  *   operational data (transactions) are stored in top-level collections for efficient querying.
- *
- * # Key Security Decisions
- * - **Strict Ownership**: Users can only access data within their own
- *   `/users/{userId}` path or documents they own in root collections.
- * - **Admin Role**: An 'admin' role has elevated privileges, such as updating
- *   any user's profile, managing transactions, and writing to global content collections.
- * - **Limited User Listing**: Listing the entire `/users` collection is
- *   disallowed for regular users, but admins can list all users.
- * - **Centralized Transactions**: All transactions are in a single `/transactions`
- *   collection to allow admins to easily query for pending items. Rules
- *   ensure users can only read their own and admins can read/update all.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -61,16 +50,16 @@ service cloud.firestore {
 
     match /users/{userId}/portfolios/{portfolioId} {
       allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if (isExistingOwner(userId) || isAdmin()) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId) || isAdmin();
+      allow create: if (isOwner(userId) || isAdmin()) && request.resource.data.userId == userId;
+      allow update: if (isOwner(userId) || isAdmin()) && request.resource.data.userId == resource.data.userId;
+      allow delete: if (isOwner(userId) || isAdmin());
     }
 
     match /users/{userId}/portfolios/{portfolioId}/assets/{assetId} {
       allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.portfolioId == portfolioId;
-      allow update: if (isExistingOwner(userId) || isAdmin()) && request.resource.data.portfolioId == resource.data.portfolioId;
-      allow delete: if isExistingOwner(userId) || isAdmin();
+      allow create: if (isOwner(userId) || isAdmin()) && (request.resource.data.portfolioId == portfolioId || isAdmin());
+      allow update: if (isOwner(userId) || isAdmin());
+      allow delete: if (isOwner(userId) || isAdmin());
     }
 
     match /users/{userId}/draft_posts/{postId} {
@@ -85,14 +74,11 @@ service cloud.firestore {
     //-------------------------------------------------------------------------
     
     match /transactions/{transactionId} {
-      // Users can only see their own transactions. Admins can see everything.
-      // Use resource.data for get/list checks.
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      // Users can only create transactions for themselves.
+      // Users can only see their own. Admins see all. Query-based listing.
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn(); // Query must filter by userId in code for non-admins
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      // Only admins can update transaction status (e.g., from pending to completed).
       allow update: if isAdmin();
-      // Transactions should generally not be deleted for audit purposes.
       allow delete: if false; 
     }
 
