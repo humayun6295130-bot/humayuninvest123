@@ -1,18 +1,18 @@
 {
   "entities": {
-    "User": {
+    "UserProfile": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
+      "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user of the AscendFolio application, holding their personal details.",
+      "description": "Represents a user's profile information within the AscendFolio application. This entity stores user-specific preferences and identifying details, but explicitly excludes authentication credentials as per security best practices.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the User entity."
+          "description": "Unique identifier for the UserProfile entity."
         },
         "email": {
           "type": "string",
-          "description": "The user's email address, used for identification.",
+          "description": "The user's email address, used for communication and identification. Must be a valid email format.",
           "format": "email"
         },
         "firstName": {
@@ -23,14 +23,22 @@
           "type": "string",
           "description": "The last name of the user."
         },
+        "role": {
+          "type": "string",
+          "description": "The role assigned to the user within the application (e.g., 'user', 'admin'). This determines permissions and access levels."
+        },
+        "currencyPreference": {
+          "type": "string",
+          "description": "The preferred currency for displaying financial values across the user's portfolios (e.g., 'USD', 'EUR', 'GBP')."
+        },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp indicating when the user account was created.",
+          "description": "Timestamp indicating when the user profile was first created.",
           "format": "date-time"
         },
         "updatedAt": {
           "type": "string",
-          "description": "Timestamp indicating when the user account was last updated.",
+          "description": "Timestamp indicating the last time the user profile information was updated.",
           "format": "date-time"
         }
       },
@@ -39,6 +47,8 @@
         "email",
         "firstName",
         "lastName",
+        "role",
+        "currencyPreference",
         "createdAt",
         "updatedAt"
       ]
@@ -47,23 +57,23 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Portfolio",
       "type": "object",
-      "description": "Represents a collection of investment assets owned by a specific user.",
+      "description": "Represents a user's personal collection or grouping of investment holdings, allowing for organization and separate tracking of assets.",
       "properties": {
         "id": {
           "type": "string",
           "description": "Unique identifier for the Portfolio entity."
         },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who owns this portfolio. (Relationship: User 1:N Portfolio)"
-        },
         "name": {
           "type": "string",
-          "description": "The user-defined name for the investment portfolio."
+          "description": "A user-defined name for the portfolio (e.g., 'Retirement Fund', 'Kids' College Savings')."
         },
         "description": {
           "type": "string",
-          "description": "An optional detailed description provided by the user for this portfolio."
+          "description": "An optional detailed description of the portfolio's purpose, strategy, or specific goals."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to the UserProfile that owns this portfolio. (Relationship: UserProfile 1:N Portfolio)"
         },
         "createdAt": {
           "type": "string",
@@ -72,66 +82,74 @@
         },
         "updatedAt": {
           "type": "string",
-          "description": "Timestamp indicating when the portfolio was last updated.",
+          "description": "Timestamp indicating the last time the portfolio's details were updated.",
           "format": "date-time"
         }
       },
       "required": [
         "id",
-        "userId",
         "name",
+        "userProfileId",
         "createdAt",
         "updatedAt"
       ]
     },
-    "Asset": {
+    "InvestmentAsset": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Asset",
+      "title": "InvestmentAsset",
       "type": "object",
-      "description": "Represents a specific financial instrument (e.g., stock, ETF, cryptocurrency) available for investment.",
+      "description": "Represents a general type of investment instrument (e.g., a specific stock, ETF, or cryptocurrency). This entity serves as a global catalog of tradable assets that users can track or hold.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Asset entity."
+          "description": "Unique identifier for the InvestmentAsset entity."
         },
-        "tickerSymbol": {
+        "symbol": {
           "type": "string",
-          "description": "The unique ticker symbol or cryptocurrency symbol that identifies the asset (e.g., AAPL, BTC)."
+          "description": "The unique ticker symbol or short identifier for the asset (e.g., 'AAPL' for Apple Inc., 'BTC' for Bitcoin, 'SPY' for SPDR S&P 500 ETF Trust)."
         },
         "name": {
           "type": "string",
-          "description": "The full, common name of the investment asset (e.g., Apple Inc., Bitcoin)."
+          "description": "The full, official name of the investment asset (e.g., 'Apple Inc.', 'Bitcoin', 'SPDR S&P 500 ETF Trust')."
         },
         "type": {
           "type": "string",
-          "description": "The category of the asset, such as 'Stock', 'ETF', or 'Cryptocurrency'."
-        },
-        "currency": {
-          "type": "string",
-          "description": "The primary currency in which the asset is traded (e.g., USD, EUR, BTC)."
+          "description": "The category or class of the investment asset (e.g., 'Stock', 'ETF', 'Cryptocurrency', 'Mutual Fund')."
         },
         "exchange": {
           "type": "string",
-          "description": "The primary exchange where the asset is traded (e.g., NASDAQ, NYSE, Binance). This is optional for some asset types like cryptocurrencies."
+          "description": "The primary exchange or platform where the asset is traded (e.g., 'NASDAQ', 'NYSE', 'Coinbase')."
         },
-        "description": {
+        "currency": {
           "type": "string",
-          "description": "A brief informational description or overview of the asset."
+          "description": "The base currency in which the asset is primarily denominated or traded (e.g., 'USD', 'EUR', 'USDT')."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when this investment asset definition was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating the last time this investment asset definition was updated.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
-        "tickerSymbol",
+        "symbol",
         "name",
         "type",
-        "currency"
+        "currency",
+        "createdAt",
+        "updatedAt"
       ]
     },
     "Holding": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Holding",
       "type": "object",
-      "description": "Represents a specific quantity of an asset held within a user's portfolio.",
+      "description": "Represents a specific quantity of an InvestmentAsset held within a user's Portfolio. This is the record of a user's ownership of a particular asset.",
       "properties": {
         "id": {
           "type": "string",
@@ -141,41 +159,44 @@
           "type": "string",
           "description": "Reference to the Portfolio that contains this holding. (Relationship: Portfolio 1:N Holding)"
         },
-        "assetId": {
+        "investmentAssetId": {
           "type": "string",
-          "description": "Reference to the specific Asset being held. (Relationship: Asset 1:N Holding)"
+          "description": "Reference to the specific InvestmentAsset (e.g., Apple stock, Bitcoin) being held. (Relationship: InvestmentAsset 1:N Holding)"
         },
         "quantity": {
           "type": "number",
-          "description": "The number of units or shares of the asset currently held in the portfolio."
+          "description": "The number of units, shares, or coins of the investment asset currently held."
         },
-        "averagePurchasePrice": {
+        "averageCostBasis": {
           "type": "number",
-          "description": "The calculated average price per unit at which the asset was acquired in the portfolio's currency."
+          "description": "The average price paid per unit for the total quantity held, used to calculate capital gains or losses."
         },
-        "purchaseDate": {
+        "initialPurchaseDate": {
           "type": "string",
-          "description": "The date on which the asset was acquired.",
-          "format": "date"
+          "description": "The date of the first recorded transaction that contributed to this specific holding.",
+          "format": "date-time"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes or comments associated with this specific holding."
         },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp indicating when this holding record was initially created.",
+          "description": "Timestamp indicating when this holding record was created.",
           "format": "date-time"
         },
         "updatedAt": {
           "type": "string",
-          "description": "Timestamp indicating when this holding record was last updated.",
+          "description": "Timestamp indicating the last time this holding record was updated.",
           "format": "date-time"
         }
       },
       "required": [
         "id",
         "portfolioId",
-        "assetId",
+        "investmentAssetId",
         "quantity",
-        "averagePurchasePrice",
-        "purchaseDate",
+        "averageCostBasis",
         "createdAt",
         "updatedAt"
       ]
@@ -192,17 +213,21 @@
       {
         "path": "/users/{userId}",
         "definition": {
-          "entityName": "User",
+          "entityName": "UserProfile",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores individual user profile data. Access is restricted to the user whose ID matches `userId` in the path (i.e., `request.auth.uid`).",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user, corresponding to `request.auth.uid`."
-            }
-          ]
+          "description": "Stores individual user profile data. Access is restricted to the user themselves or administrators. The document `id` MUST match the `{userId}` from the path (i.e., `request.auth.uid`). This collection serves as the primary source of truth for user roles and preferences."
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "AdminRole",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "This auxiliary collection contains marker documents where the `id` of the document is the `userId` of an administrator. The *existence* of a document at `/roles_admin/{userId}` grants administrative privileges, allowing efficient and atomic role checks in security rules (DBAC). This collection is denormalized from the `UserProfile.role` field to enable 'existence over content' checks."
         }
       },
       {
@@ -212,17 +237,7 @@
           "schema": {
             "$ref": "#/backend/entities/Portfolio"
           },
-          "description": "Stores investment portfolios owned by a specific user. Each document includes a denormalized 'userId' field matching the path parameter for authorization independence, allowing direct ownership checks.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who owns this portfolio."
-            },
-            {
-              "name": "portfolioId",
-              "description": "The unique identifier for the specific investment portfolio."
-            }
-          ]
+          "description": "Contains portfolios belonging to a specific user. The `userProfileId` field within each document MUST match the `{userId}` from the path, ensuring direct ownership verification for authorization independence. This structure supports QAPs for listing user-specific portfolios efficiently."
         }
       },
       {
@@ -232,56 +247,20 @@
           "schema": {
             "$ref": "#/backend/entities/Holding"
           },
-          "description": "Stores specific asset holdings within a user's portfolio. Each document includes denormalized 'userId' and 'portfolioId' fields for authorization independence, enabling direct ownership and portfolio context checks.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who owns the parent portfolio and this holding."
-            },
-            {
-              "name": "portfolioId",
-              "description": "The unique identifier of the parent portfolio containing this holding."
-            },
-            {
-              "name": "holdingId",
-              "description": "The unique identifier for the specific asset holding."
-            }
-          ]
+          "description": "Stores specific investment holdings within a user's portfolio. To achieve authorization independence and avoid `get()` calls in rules, the `Holding` document will be augmented to include a denormalized `userProfileId` (matching `{userId}` from the path) in addition to its `portfolioId`. This ensures ownership verification directly from the document itself, supporting QAPs for listing user-specific holdings within a portfolio."
         }
       },
       {
-        "path": "/assets/{assetId}",
+        "path": "/investment_assets/{assetId}",
         "definition": {
-          "entityName": "Asset",
+          "entityName": "InvestmentAsset",
           "schema": {
-            "$ref": "#/backend/entities/Asset"
+            "$ref": "#/backend/entities/InvestmentAsset"
           },
-          "description": "Stores globally available financial asset definitions (e.g., stocks, ETFs, cryptocurrencies). This collection is publicly readable by all authenticated users and fully controllable by administrators.",
-          "params": [
-            {
-              "name": "assetId",
-              "description": "The unique identifier for the specific financial asset."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_admin/{adminId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "A collection used for Database Access Control (DBAC) to identify administrators. The existence of a document at `/roles_admin/{adminId}` indicates that the user with `adminId` has administrative privileges. Documents typically contain only the ID, serving as a marker.",
-          "params": [
-            {
-              "name": "adminId",
-              "description": "The unique identifier of a user who holds the administrator role."
-            }
-          ]
+          "description": "A global catalog of all available investment assets. All authenticated users have read-only access to this collection. Only administrators have write access. This collection maintains a homogeneous security posture, enabling QAPs for listing all assets for all users."
         }
       }
     ],
-    "reasoning": "The recommended Firestore structure for AscendFolio prioritizes security, scalability, and debuggability in alignment with the core design principles and mandates. The design leverages a combination of hierarchical path-based ownership for user-specific data and dedicated top-level collections for global data and administrative roles.\n\n**Authorization Independence:** This is achieved primarily through denormalization. For instance:\n*   In the `/users/{userId}/portfolios/{portfolioId}` collection, each `Portfolio` document will include a `userId` field. This allows security rules to verify ownership directly (e.g., `request.auth.uid == resource.data.userId`) without requiring a `get()` call to the parent `users/{userId}` document. This enables atomic operations and simplifies rule logic.\n*   Similarly, in the `/users/{userId}/portfolios/{portfolioId}/holdings/{holdingId}` collection, each `Holding` document will denormalize both `userId` and `portfolioId`. This ensures that access rules can validate the user's ownership of both the holding and its parent portfolio directly within the `Holding` document, eliminating dependencies on `get()` calls to the `Portfolio` or `User` parents.\nThis strategy makes rules robust, atomic, and easier to debug as all necessary authorization context is present within the document itself.\n\n**QAPs (Rules are not Filters):** The structure inherently supports secure `list` operations:\n*   **User-Owned Data (`/users/{userId}/...`):** By embedding `userId` in the path, `list` operations on `/users/{userId}/portfolios` or `/users/{userId}/portfolios/{portfolioId}/holdings` can be restricted to `request.auth.uid == userId`. This means a user can only list *their own* portfolios and holdings, and the security rules explicitly enforce this scope, preventing unauthorized data leakage through broader queries.\n*   **Global Data (`/assets`):** The `/assets` collection is designed for public read access. A `list` operation on this collection will simply allow all reads (`allow list: if true;`), as intended for globally available assets.\n*   **Admin Roles (`/roles_admin`):** Access to this collection (primarily for existence checks) is tightly controlled, ensuring that `list` operations (if ever needed by an admin interface) would only return documents if the requester is an admin, or is performing a specific existence check for their own UID. The structure ensures that client-side queries do not need to perform additional filtering, as the rules will define the exact permissible scope.\n\n**Structural Segregation and Access Modeling:**\n*   **Private User Data:** `/users/{userId}` for `User` profiles and `/users/{userId}/portfolios/{portfolioId}` for `Portfolio` data, and `/users/{userId}/portfolios/{portfolioId}/holdings/{holdingId}` for `Holding` data. This is a classic hierarchical, user-owned structure, making ownership-based rules very simple and explicit.\n*   **Global Shared Data:** `/assets/{assetId}` is a top-level collection for `Asset` definitions, making them publicly readable and globally manageable by administrators. This segregates public/global data from private user data.\n*   **DBAC (Database Access Control):** A dedicated collection, `/roles_admin/{adminId}`, is used to mark users with administrative privileges. This allows security rules to check for admin status using simple `exists()` calls, adhering to the DBAC principle and avoiding custom claims.\n\nThis structure ensures a clear separation of concerns, simplifies security rule development, and provides a highly debuggable system for AscendFolio."
+    "reasoning": "The recommended Firestore structure for AscendFolio prioritizes secure, scalable, and debuggable access control by strictly adhering to the core design principles and strategy mandates. \n\n**Authorization Independence:** This is achieved primarily through structural segregation and strategic denormalization. User-owned data (`UserProfile`, `Portfolio`, `Holding`) is organized hierarchically under `/users/{userId}`. For nested subcollections like `holdings`, critical ownership identifiers (`userProfileId`) are denormalized into each `Holding` document. For example, a `Holding` document at `/users/{userId}/portfolios/{portfolioId}/holdings/{holdingId}` will explicitly contain `userProfileId` matching `{userId}` and `portfolioId` matching `{portfolioId}`. This eliminates the need for expensive and non-atomic `get()` calls in security rules to verify parent ownership, making rules simple to write and highly performant. The global `InvestmentAsset` collection has no hierarchical dependencies, inherently supporting authorization independence for its specific use case.\n\n**QAPs (Rules are not Filters):** This structure supports efficient and secure `list` operations by ensuring homogeneous security postures within each collection or subcollection, and by embedding all necessary authorization context directly within documents. \n1.  **Private User Data:** For `/users/{userId}/userProfile`, `/users/{userId}/portfolios/{portfolioId}`, and `/users/{userId}/portfolios/{portfolioId}/holdings/{holdingId}`, access is strictly tied to `request.auth.uid`. A user can only `list` or `get` their own data, as enforced by the `{userId}` wildcard matching `request.auth.uid`. This prevents unauthorized users from attempting to query data they don't own, adhering to the QAP principle.\n2.  **Global Assets:** The `/investment_assets/{assetId}` collection is designed with a homogeneous security posture: all authenticated users have read-only access, while only administrators have write access. This allows users to `list` all available assets without additional filtering logic in rules, as every document is equally readable.\n3.  **Admin Roles:** The `/roles_admin/{userId}` collection uses 'existence over content' for admin checks. Security rules can check `exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))` to grant elevated privileges, enabling comprehensive control for administrators over all data, as per the user's request.\n\n**Structural Segregation & Access Modeling:** \n*   Private data (e.g., `UserProfile`) is stored under `/users/{userId}`. \n*   User-owned, one-to-many relationships (e.g., `User` has `Portfolios`, `Portfolio` has `Holdings`) follow the hierarchical path `/users/{userId}/portfolios/{portfolioId}` and `/users/{userId}/portfolios/{portfolioId}/holdings/{holdingId}`. \n*   Global, non-user-specific data (`InvestmentAsset`) resides in its own top-level collection (`/investment_assets/{assetId}`). \n*   Admin roles are managed via a dedicated 'marker' collection (`/roles_admin/{userId}`) for efficient DBAC."
   }
 }
