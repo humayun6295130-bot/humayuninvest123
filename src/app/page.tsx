@@ -1,34 +1,22 @@
 
+"use client";
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { DollarSign, ShieldCheck, TrendingUp, Zap, ArrowRight, Briefcase, PieChart } from 'lucide-react';
+import { DollarSign, ShieldCheck, TrendingUp, Zap, ArrowRight, Briefcase } from 'lucide-react';
+import { PublicHeader } from '@/components/layout/public-header';
+import { PublicFooter } from '@/components/layout/public-footer';
 
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
-      {/* Navigation */}
-      <header className="px-4 lg:px-6 h-16 flex items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <Link className="flex items-center justify-center gap-2" href="/">
-          <div className="bg-primary p-1.5 rounded-lg text-primary-foreground">
-            <DollarSign className="h-6 w-6" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">AscendFolio</span>
-        </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Link className="text-sm font-medium hover:text-primary transition-colors py-2" href="/login">
-            Login
-          </Link>
-          <Button asChild size="sm">
-            <Link href="/register">Get Started</Link>
-          </Button>
-        </nav>
-      </header>
+      <PublicHeader />
 
       <main className="flex-1">
         {/* Hero Section */}
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-gradient-to-b from-primary/5 via-background to-background">
-          <div className="container px-4 md:px-6 mx-auto">
-            <div className="flex flex-col items-center space-y-4 text-center">
+          <div className="container px-4 md:px-6 mx-auto text-center">
+            <div className="flex flex-col items-center space-y-4">
               <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary/10 text-primary mb-4">
                 <Zap className="mr-1 h-3 w-3" />
                 Empowering Your Financial Future
@@ -43,8 +31,8 @@ export default function LandingPage() {
                 <Button asChild size="lg" className="px-8">
                   <Link href="/register">Start Growing Now <ArrowRight className="ml-2 h-4 w-4" /></Link>
                 </Button>
-                <Button variant="outline" size="lg" className="px-8">
-                  View Demo
+                <Button variant="outline" size="lg" className="px-8" asChild>
+                  <Link href="/about">Learn More</Link>
                 </Button>
               </div>
             </div>
@@ -52,7 +40,7 @@ export default function LandingPage() {
         </section>
 
         {/* Features Section */}
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-muted/30">
+        <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-muted/30">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="grid gap-12 lg:grid-cols-3">
               <div className="flex flex-col items-center space-y-4 text-center p-6 bg-background rounded-2xl shadow-sm border group hover:border-primary transition-colors">
@@ -80,62 +68,21 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Stats Section */}
-        <section className="w-full py-12 md:py-24 lg:py-32 border-t">
-          <div className="container px-4 md:px-6 mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-              <div className="space-y-2">
-                <h4 className="text-4xl font-bold">$2B+</h4>
-                <p className="text-sm text-muted-foreground uppercase tracking-widest">Assets Managed</p>
-              </div>
-              <div className="space-y-2">
-                <h4 className="text-4xl font-bold">150k+</h4>
-                <p className="text-sm text-muted-foreground uppercase tracking-widest">Active Users</p>
-              </div>
-              <div className="space-y-2">
-                <h4 className="text-4xl font-bold">99.9%</h4>
-                <p className="text-sm text-muted-foreground uppercase tracking-widest">Uptime</p>
-              </div>
-              <div className="space-y-2">
-                <h4 className="text-4xl font-bold">24/7</h4>
-                <p className="text-sm text-muted-foreground uppercase tracking-widest">Expert Support</p>
-              </div>
-            </div>
+        {/* CTA Section */}
+        <section className="w-full py-20 border-t bg-primary text-primary-foreground">
+          <div className="container px-4 mx-auto text-center space-y-8">
+            <h2 className="text-3xl md:text-5xl font-bold">Ready to take control of your wealth?</h2>
+            <p className="text-primary-foreground/80 text-lg max-w-2xl mx-auto">
+              Join 150,000+ investors who use AscendFolio to master their financial future.
+            </p>
+            <Button size="lg" variant="secondary" className="px-12" asChild>
+              <Link href="/register">Join Now for Free</Link>
+            </Button>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full border-t py-12 bg-muted/20">
-        <div className="container px-4 md:px-6 mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex flex-col items-center md:items-start gap-4">
-            <Link className="flex items-center gap-2" href="/">
-              <div className="bg-primary p-1 rounded text-primary-foreground">
-                <DollarSign className="h-5 w-5" />
-              </div>
-              <span className="text-lg font-bold">AscendFolio</span>
-            </Link>
-            <p className="text-sm text-muted-foreground text-center md:text-left">
-              © 2024 AscendFolio Inc. All rights reserved.<br />
-              Investing involves risk. Please trade responsibly.
-            </p>
-          </div>
-          <div className="flex gap-12">
-            <div className="flex flex-col gap-2">
-              <h5 className="font-semibold text-sm">Product</h5>
-              <Link className="text-sm text-muted-foreground hover:text-primary transition-colors" href="#">Features</Link>
-              <Link className="text-sm text-muted-foreground hover:text-primary transition-colors" href="#">Pricing</Link>
-              <Link className="text-sm text-muted-foreground hover:text-primary transition-colors" href="#">Security</Link>
-            </div>
-            <div className="flex flex-col gap-2">
-              <h5 className="font-semibold text-sm">Support</h5>
-              <Link className="text-sm text-muted-foreground hover:text-primary transition-colors" href="#">Help Center</Link>
-              <Link className="text-sm text-muted-foreground hover:text-primary transition-colors" href="#">API Docs</Link>
-              <Link className="text-sm text-muted-foreground hover:text-primary transition-colors" href="#">Contact</Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }
