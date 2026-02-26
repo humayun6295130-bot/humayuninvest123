@@ -5,9 +5,10 @@ import { collection, query, limit } from "firebase/firestore";
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart';
 import { TopHoldings } from '@/components/dashboard/top-holdings';
+import { AssetAllocation } from '@/components/dashboard/asset-allocation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { EarningCounter } from '@/components/invest/EarningCounter';
 
@@ -48,7 +49,6 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
   const { user } = useUser();
   const firestore = useFirestore();
 
-  // 1. Fetch the user's portfolios (we'll just use the first one for now)
   const portfoliosQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return query(collection(firestore, `users/${user.uid}/portfolios`), limit(1));
@@ -57,7 +57,6 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
   const { data: portfolios, isLoading: isPortfoliosLoading } = useCollection(portfoliosQuery);
   const portfolio = portfolios?.[0];
 
-  // 2. Fetch the assets for that portfolio
   const assetsQuery = useMemoFirebase(() => {
     if (!user || !firestore || !portfolio) return null;
     return collection(firestore, `users/${user.uid}/portfolios/${portfolio.id}/assets`);
@@ -66,7 +65,6 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
   const { data: assets, isLoading: isAssetsLoading } = useCollection(assetsQuery);
 
   const isLoading = isPortfoliosLoading || (!!portfolio && isAssetsLoading);
-
 
   return (
     <div className="space-y-8">
@@ -84,25 +82,23 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
         <div className="lg:col-span-2">
           <PortfolioChart />
         </div>
-        <div className="lg:col-span-1">
-           {isLoading ? (
-             <Card>
-                <CardHeader><CardTitle>Top Holdings</CardTitle></CardHeader>
-                <CardContent className="h-72 animate-pulse rounded-md bg-muted" />
-             </Card>
-           ) : (
-             <TopHoldings assets={assets || []} />
-           )}
+        <div className="lg:col-span-1 space-y-6">
+           <AssetAllocation assets={assets || []} />
+           <TopHoldings assets={assets || []} />
         </div>
       </div>
-       <div>
-        <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold">Investment Plans</h2>
-            <p className="text-muted-foreground">Choose a plan that fits your investment goals.</p>
+
+       <div className="rounded-xl border bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+            <div>
+                <h2 className="text-2xl font-bold">Investment Plans</h2>
+                <p className="text-muted-foreground">Premium strategies to accelerate your growth.</p>
+            </div>
+            <TrendingUp className="h-8 w-8 text-primary opacity-20" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
             {plans.map((plan) => (
-                <Card key={plan.name} className="flex flex-col h-full">
+                <Card key={plan.name} className="flex flex-col h-full border-primary/10 hover:border-primary/30 transition-colors">
                     <CardHeader>
                         <CardTitle>{plan.name}</CardTitle>
                         <CardDescription>{plan.description}</CardDescription>
@@ -124,7 +120,9 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                     </CardContent>
                     <CardFooter>
                         <Link href="/wallet" className="w-full">
-                            <Button className="w-full">Choose Plan</Button>
+                            <Button className="w-full" variant={userProfile?.activePlan === plan.name ? "outline" : "default"}>
+                                {userProfile?.activePlan === plan.name ? "Current Plan" : "Choose Plan"}
+                            </Button>
                         </Link>
                     </CardFooter>
                 </Card>
