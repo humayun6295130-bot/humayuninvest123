@@ -1,12 +1,14 @@
+
 "use client";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, limit } from "firebase/firestore";
+import { collection, query, limit, where, orderBy } from "firebase/firestore";
 
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart';
 import { TopHoldings } from '@/components/dashboard/top-holdings';
 import { AssetAllocation } from '@/components/dashboard/asset-allocation';
-import { AIInsightCard } from '@/components/dashboard/ai-insight-card';
+import { Watchlist } from '@/components/dashboard/watchlist';
+import { RecentTransactionsSmall } from '@/components/dashboard/recent-transactions-small';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, TrendingUp } from "lucide-react";
@@ -40,7 +42,7 @@ const plans = [
         description: "For the serious, active investor.",
         features: [
             "Everything in Growth",
-            "AI-powered insights",
+            "Deep portfolio analytics",
             "Dedicated phone support",
         ],
     },
@@ -65,8 +67,19 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
 
   const { data: assets, isLoading: isAssetsLoading } = useCollection(assetsQuery);
 
+  const transactionsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(
+        collection(firestore, "transactions"),
+        where("userId", "==", user.uid),
+        orderBy("timestamp", "desc"),
+        limit(3)
+    );
+  }, [user, firestore]);
+
+  const { data: recentTransactions } = useCollection(transactionsQuery);
+
   const isLoading = isPortfoliosLoading || (!!portfolio && isAssetsLoading);
-  const isPro = userProfile?.activePlan === "Professional Plan";
 
   return (
     <div className="space-y-8">
@@ -83,14 +96,11 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 flex flex-col gap-6">
           <PortfolioChart />
-          <AIInsightCard 
-            assets={assets || []} 
-            userName={userProfile?.displayName || "Investor"} 
-            hasProPlan={isPro}
-          />
+          <Watchlist />
         </div>
         <div className="lg:col-span-1 space-y-6">
            <AssetAllocation assets={assets || []} />
+           <RecentTransactionsSmall transactions={recentTransactions || []} />
            <TopHoldings assets={assets || []} />
         </div>
       </div>
