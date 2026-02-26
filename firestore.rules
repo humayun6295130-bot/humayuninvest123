@@ -1,114 +1,127 @@
-/**
- * # Core Philosophy
- * This ruleset enforces a strict user-ownership model for private data and a
- * public-read, author-write model for shared content. It achieves security
- * and performance by physically separating private user data from public data
- * into different collections.
- *
- * # Data Structure
- * - Private user data (profiles, portfolios, assets, draft posts) is nested
- *   under `/users/{userId}`. Access to this entire data tree is controlled by
- *   matching the authenticated user's ID with the `userId` in the path.
- * - Public data (published posts, public profiles, categories, tags, price history) and
- *   operational data (transactions) are stored in top-level collections for efficient querying.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    //-------------------------------------------------------------------------
-    // Helper Functions
-    //-------------------------------------------------------------------------
+    /**
+     * CORE PHILOSOPHY:
+     * This ruleset implements a strict User-Ownership model coupled with a "Super Admin" override 
+     * pattern (Database Access Control - DBAC). While users are granted full CRUD access to 
+     * their own data trees, an administrator (defined by the existence of a document in 
+     * /roles_admin/{uid}) is granted global permissions across all collections.
+     *
+     * DATA STRUCTURE & AUTHORIZATION:
+     * - Private Data: Nested under /users/{userId}, creating a natural security boundary.
+     * - Global Data: Asset definitions are stored in a top-level /assets collection.
+     * - Admin Roles: Defined in the /roles_admin collection.
+     *
+     * KEY DECISIONS:
+     * 1. Denormalization: Documents in subcollections (Portfolios, Holdings) must include 
+     *    the 'userId' and 'portfolioId' fields. This allows the rules to perform 
+     *    authorization checks without expensive parent document lookups (get() calls).
+     * 2. Prototyping Flexibility: Schema validation is limited only to relational 
+     *    integrity (IDs and ownership links). Content fields like strings/booleans 
+     *    are not validated to allow for rapid iteration.
+     * 3. Relational Integrity: On creation, we enforce that the internal 'userId' 
+     *    field matches the path parameter to ensure data consistency.
+     */
 
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    /** Checks if the user is authenticated. */
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /** Checks if the current user is an administrator via DBAC. */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /** Checks if the user's UID matches the provided ID. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    /** Combined check for existence and ownership for updates/deletes. */
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+      return resource != null && isOwner(userId);
     }
 
-    function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
+    // --- COLLECTION RULES ---
 
-    //-------------------------------------------------------------------------
-    // User Data Collections (/users/{userId}/**)
-    //-------------------------------------------------------------------------
-
+    /**
+     * @description Rules for the root User profile document.
+     * @path /users/{userId}
+     * @allow Authenticated user (get/list/create/update/delete) where UID matches userId, OR Admin.
+     * @deny User 'A' attempting to access /users/'B'.
+     * @principle Ownership-based access with Admin override.
+     */
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin() || request.query.limit <= 1; 
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.balance == resource.data.balance) || isAdmin();
-      allow delete: if isOwner(userId) || isAdmin();
-    }
-
-    match /users/{userId}/portfolios/{portfolioId} {
       allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if (isOwner(userId) || isAdmin()) && request.resource.data.userId == userId;
-      allow update: if (isOwner(userId) || isAdmin()) && request.resource.data.userId == resource.data.userId;
-      allow delete: if (isOwner(userId) || isAdmin());
-    }
-
-    match /users/{userId}/portfolios/{portfolioId}/assets/{assetId} {
-      allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if (isOwner(userId) || isAdmin()) && (request.resource.data.portfolioId == portfolioId || isAdmin());
-      allow update: if (isOwner(userId) || isAdmin());
-      allow delete: if (isOwner(userId) || isAdmin());
-    }
-
-    match /users/{userId}/draft_posts/{postId} {
-      allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.authorId == userId;
-      allow update: if (isExistingOwner(userId) || isAdmin()) && request.resource.data.authorId == resource.data.authorId;
+      allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin();
+      allow update: if (isExistingOwner(userId) && request.resource.data.id == userId) || isAdmin();
       allow delete: if isExistingOwner(userId) || isAdmin();
+
+      /**
+       * @description Portfolios belonging to a specific user.
+       * @path /users/{userId}/portfolios/{portfolioId}
+       * @allow User 'A' managing their own portfolios, OR Admin.
+       * @deny User 'A' creating a portfolio under User 'B's path.
+       * @principle Denormalized ownership validation for nested collections.
+       */
+      match /portfolios/{portfolioId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if (isOwner(userId) && request.resource.data.userId == userId) || isAdmin();
+        allow update: if (isExistingOwner(userId) && request.resource.data.userId == userId) || isAdmin();
+        allow delete: if isExistingOwner(userId) || isAdmin();
+
+        /**
+         * @description Asset holdings within a specific portfolio.
+         * @path /users/{userId}/portfolios/{portfolioId}/holdings/{holdingId}
+         * @allow User 'A' managing holdings in their own portfolio, OR Admin.
+         * @deny User 'A' updating a holding to point to a different portfolioId.
+         * @principle Relational integrity enforcement for nested resources.
+         */
+        match /holdings/{holdingId} {
+          allow get, list: if isOwner(userId) || isAdmin();
+          allow create: if (isOwner(userId) && request.resource.data.userId == userId && request.resource.data.portfolioId == portfolioId) || isAdmin();
+          allow update: if (isExistingOwner(userId) && request.resource.data.userId == userId && request.resource.data.portfolioId == portfolioId) || isAdmin();
+          allow delete: if isExistingOwner(userId) || isAdmin();
+        }
+      }
     }
 
-    //-------------------------------------------------------------------------
-    // Public & Shared Collections
-    //-------------------------------------------------------------------------
-    
-    match /transactions/{transactionId} {
-      // Users can only see their own. Admins see all. Query-based listing.
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn(); // Query must filter by userId in code for non-admins
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAdmin();
-      allow delete: if false; 
+    /**
+     * @description Global asset definitions (Stocks, Crypto, etc.).
+     * @path /assets/{assetId}
+     * @allow Read access for all signed-in users; Write access for Admins only.
+     * @deny Non-admin user attempting to create or delete an asset.
+     * @principle Public Read with Admin-Only Writes.
+     */
+    match /assets/{assetId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
     }
 
-    match /public_profiles/{username} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
-      allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
-    }
-
-    match /published_posts/{postId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isOwner(resource.data.authorId) || isAdmin());
-      allow delete: if isSignedIn() && (isOwner(resource.data.authorId) || isAdmin());
-    }
-
-    match /asset_price_history/{priceHistoryId} {
-      allow get, list: if true;
-      allow write: if isAdmin();
-    }
-
-    match /content_categories/{categoryId} {
-      allow get, list: if true;
-      allow write: if isAdmin();
-    }
-
-    match /content_tags/{tagId} {
-      allow get, list: if true;
-      allow write: if isAdmin();
+    /**
+     * @description Administrative role marker collection.
+     * @path /roles_admin/{adminId}
+     * @allow Authenticated users to check for admin status (get); Full control for Admins.
+     * @deny General users listing or creating new admin markers.
+     * @principle Sensitive Role Management Protection.
+     */
+    match /roles_admin/{adminId} {
+      allow get: if isSignedIn();
+      allow list, create, update, delete: if isAdmin();
     }
   }
 }
+
+/** 
+ * PROTOTYPING NOTE: 
+ * These rules prioritize authorization and structure over data validation. 
+ * While we ensure users can only write to their own data (isOwner) and 
+ * links are maintained (userId matches path), the specific types of 
+ * fields (e.g., whether 'tickerSymbol' is a string) are not enforced 
+ * to allow for rapid development of the frontend and schema.
+ */
