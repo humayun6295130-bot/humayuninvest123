@@ -37,6 +37,7 @@ export default function DashboardPage() {
     );
   }
 
+  // Double check user profile exists and has a role before rendering specialized dashboards
   if (userProfile?.role === 'admin') {
     return <AdminDashboard />;
   }

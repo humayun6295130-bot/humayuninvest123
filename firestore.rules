@@ -85,10 +85,14 @@ service cloud.firestore {
     //-------------------------------------------------------------------------
     
     match /transactions/{transactionId} {
-      allow get: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
-      allow list: if isSignedIn(); // Queries must still filter by userId for non-admins
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      // Users can only see their own transactions. Admins can see everything.
+      // Use resource.data for get/list checks.
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      // Users can only create transactions for themselves.
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      // Only admins can update transaction status (e.g., from pending to completed).
       allow update: if isAdmin();
+      // Transactions should generally not be deleted for audit purposes.
       allow delete: if false; 
     }
 
