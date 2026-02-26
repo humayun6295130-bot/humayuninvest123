@@ -6,6 +6,7 @@ import { StatsCards } from '@/components/dashboard/stats-cards';
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart';
 import { TopHoldings } from '@/components/dashboard/top-holdings';
 import { AssetAllocation } from '@/components/dashboard/asset-allocation';
+import { AIInsightCard } from '@/components/dashboard/ai-insight-card';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, TrendingUp } from "lucide-react";
@@ -65,6 +66,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
   const { data: assets, isLoading: isAssetsLoading } = useCollection(assetsQuery);
 
   const isLoading = isPortfoliosLoading || (!!portfolio && isAssetsLoading);
+  const isPro = userProfile?.activePlan === "Professional Plan";
 
   return (
     <div className="space-y-8">
@@ -79,8 +81,13 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
       )}
       
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 flex flex-col gap-6">
           <PortfolioChart />
+          <AIInsightCard 
+            assets={assets || []} 
+            userName={userProfile?.displayName || "Investor"} 
+            hasProPlan={isPro}
+          />
         </div>
         <div className="lg:col-span-1 space-y-6">
            <AssetAllocation assets={assets || []} />
