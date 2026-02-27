@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signInWithEmailAndPassword } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/firebase";
+import { useSupabase } from "@/supabase";
 import { useState } from "react";
 
 const formSchema = z.object({
@@ -30,7 +29,7 @@ const formSchema = z.object({
 export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const auth = useAuth();
+  const supabase = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -44,7 +43,13 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
+
+      if (error) throw error;
+
       toast({
         title: "Login Successful",
         description: "Welcome back! Redirecting you to your dashboard.",
@@ -57,7 +62,7 @@ export function LoginForm() {
         description: error.message || "An unexpected error occurred.",
       });
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   }
 
@@ -86,7 +91,7 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} disabled={isLoading}/>
+                    <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -100,7 +105,7 @@ export function LoginForm() {
             <p className="text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}
               <Button variant="link" asChild className="p-0 h-auto">
-                 <Link href="/register">Sign up</Link>
+                <Link href="/register">Sign up</Link>
               </Button>
             </p>
           </CardFooter>
@@ -109,4 +114,3 @@ export function LoginForm() {
     </Card>
   );
 }
-    

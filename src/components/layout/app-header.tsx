@@ -15,14 +15,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useAuth, useUser } from "@/firebase";
-import { signOut } from "firebase/auth";
+import { useUser, useSupabase } from "@/supabase";
 
 export function AppHeader() {
   const pathname = usePathname();
   const { user } = useUser();
-  const auth = useAuth();
-  
+  const supabase = useSupabase();
+
   const getPageTitle = () => {
     if (pathname.startsWith('/dashboard')) return "Dashboard";
     if (pathname.startsWith('/portfolio')) return "Portfolio";
@@ -30,9 +29,9 @@ export function AppHeader() {
     if (pathname.startsWith('/settings')) return "Settings";
     return "AscendFolio";
   };
-  
+
   const handleLogout = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
   };
 
   return (
@@ -57,15 +56,15 @@ export function AppHeader() {
             <Avatar className="h-9 w-9">
               <AvatarImage
                 data-ai-hint="person face"
-                src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/40/40`}
-                alt={user?.displayName || "User Avatar"}
+                src={`https://picsum.photos/seed/${user?.id}/40/40`}
+                alt={user?.user_metadata?.display_name || "User Avatar"}
               />
-              <AvatarFallback>{user?.displayName?.[0] || 'U'}</AvatarFallback>
+              <AvatarFallback>{user?.user_metadata?.display_name?.[0] || 'U'}</AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>{user?.displayName || "My Account"}</DropdownMenuLabel>
+          <DropdownMenuLabel>{user?.user_metadata?.display_name || "My Account"}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
             <Link href="/settings">
@@ -83,4 +82,3 @@ export function AppHeader() {
     </header>
   );
 }
-    

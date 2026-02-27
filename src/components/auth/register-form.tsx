@@ -5,8 +5,6 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc, serverTimestamp, collection, getDocs, query, limit } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { auth, db } from "@/firebase";
+import { useSupabase, insertRow, fetchRows } from "@/supabase";
 import { useState } from "react";
 
 const formSchema = z.object({
@@ -33,6 +31,7 @@ const formSchema = z.object({
 export function RegisterForm() {
   const router = useRouter();
   const { toast } = useToast();
+  const supabase = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -49,50 +48,51 @@ export function RegisterForm() {
     setIsLoading(true);
 
     try {
-      // Check if this is the first user to determine admin status
-      const usersCollectionRef = collection(db, "users");
-      const firstUserQuery = query(usersCollectionRef, limit(1));
-      const userSnapshot = await getDocs(firstUserQuery);
-      const isAdmin = userSnapshot.empty;
+      // Check if this user should be an admin based on their email
+      const isAdmin = values.email.toLowerCase() === "humayunlbb@gmail.com";
 
-      // Create user
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
+      // Create user with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+        options: {
+          data: {
+            display_name: values.name,
+          },
+        },
+      });
 
-      // Update Firebase Auth profile
-      await updateProfile(user, { displayName: values.name });
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("User creation failed.");
 
-      // Create user document in Firestore
-      const userDocRef = doc(db, "users", user.uid);
-      const newUser = {
-        id: user.uid,
+      const user = authData.user;
+
+      // Create user profile in database
+      await insertRow("users", {
+        id: user.id,
         email: values.email,
         username: values.username,
-        displayName: values.name,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        isPublic: false,
+        display_name: values.name,
+        is_public: false,
         bio: "",
-        profilePictureUrl: "",
+        profile_picture_url: "",
         balance: 0,
-        role: isAdmin ? 'admin' : 'user',
-        currencyPreference: 'USD'
-      };
-      
-      await setDoc(userDocRef, newUser);
+        role: isAdmin ? "admin" : "user",
+        currency_preference: "USD",
+      });
 
       // Create a default portfolio for the new user
-      const portfolioRef = doc(collection(db, `users/${user.uid}/portfolios`));
-      await setDoc(portfolioRef, {
-          id: portfolioRef.id,
-          userProfileId: user.uid,
-          name: "My First Portfolio",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+      await insertRow("portfolios", {
+        user_id: user.id,
+        name: "My First Portfolio",
       });
 
       if (isAdmin) {
-        await setDoc(doc(db, "roles_admin", user.uid), newUser);
+        await insertRow("roles_admin", {
+          user_id: user.id,
+          email: values.email,
+          display_name: values.name,
+        });
       }
 
       toast({
@@ -108,7 +108,7 @@ export function RegisterForm() {
         description: error.message || "An unexpected error occurred.",
       });
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   }
 
@@ -117,7 +117,7 @@ export function RegisterForm() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-4 pt-6">
-             <FormField
+            <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
@@ -177,7 +177,7 @@ export function RegisterForm() {
             <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
               <Button variant="link" asChild className="p-0 h-auto">
-                 <Link href="/login">Sign in</Link>
+                <Link href="/login">Sign in</Link>
               </Button>
             </p>
           </CardFooter>

@@ -8,7 +8,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,8 +19,7 @@ import { MoreHorizontal, Pencil, Trash2, Coins, TrendingUp, Layers } from "lucid
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AddAssetDialog } from "./add-asset-dialog";
-import { useFirestore, deleteDocumentNonBlocking } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { deleteRow } from "@/supabase";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("en-US", {
@@ -31,36 +29,37 @@ const formatCurrency = (value: number) => {
 };
 
 export function AssetsTable({ assets, portfolioId, userId }: { assets: any[], portfolioId: string, userId: string }) {
-  const firestore = useFirestore();
 
-  const handleDelete = (assetId: string) => {
+  const handleDelete = async (assetId: string) => {
     if (!window.confirm("Are you sure you want to delete this asset?")) return;
-    
-    const assetRef = doc(firestore, `users/${userId}/portfolios/${portfolioId}/assets/${assetId}`);
-    deleteDocumentNonBlocking(assetRef);
+    try {
+      await deleteRow("assets", assetId);
+    } catch (err) {
+      console.error("Failed to delete asset:", err);
+    }
   };
 
   const processedAssets = assets.map(asset => {
-    const totalValue = asset.quantity * asset.averageCost;
-    const totalCost = asset.quantity * asset.averageCost;
-    const gainLoss = 0; // Simulated gain/loss for UI consistency
+    const totalValue = asset.quantity * asset.average_cost;
+    const totalCost = asset.quantity * asset.average_cost;
+    const gainLoss = 0;
     return { ...asset, totalValue, gainLoss };
   });
 
   const getAssetIcon = (type: string) => {
-      switch(type) {
-          case 'cryptocurrency': return <Coins className="h-4 w-4" />;
-          case 'stock': return <TrendingUp className="h-4 w-4" />;
-          default: return <Layers className="h-4 w-4" />;
-      }
+    switch (type) {
+      case 'cryptocurrency': return <Coins className="h-4 w-4" />;
+      case 'stock': return <TrendingUp className="h-4 w-4" />;
+      default: return <Layers className="h-4 w-4" />;
+    }
   }
 
   return (
     <Card className="border-none shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
         <div>
-            <CardTitle className="text-xl font-bold">Your Assets</CardTitle>
-            <CardDescription>Manage and track your individual holdings.</CardDescription>
+          <CardTitle className="text-xl font-bold">Your Assets</CardTitle>
+          <CardDescription>Manage and track your individual holdings.</CardDescription>
         </div>
         <AddAssetDialog portfolioId={portfolioId} userId={userId} />
       </CardHeader>
@@ -83,19 +82,19 @@ export function AssetsTable({ assets, portfolioId, userId }: { assets: any[], po
               <TableRow key={asset.id} className="group transition-colors hover:bg-muted/30">
                 <TableCell>
                   <div className="flex items-center gap-3">
-                      <div className="p-2 bg-muted rounded-lg group-hover:bg-background transition-colors">
-                        {getAssetIcon(asset.assetType)}
-                      </div>
-                      <div className="font-bold">{asset.symbol}</div>
+                    <div className="p-2 bg-muted rounded-lg group-hover:bg-background transition-colors">
+                      {getAssetIcon(asset.asset_type)}
+                    </div>
+                    <div className="font-bold">{asset.symbol}</div>
                   </div>
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="capitalize text-[10px] font-bold tracking-wider">
-                    {asset.assetType}
+                    {asset.asset_type}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right font-mono">{asset.quantity.toLocaleString()}</TableCell>
-                <TableCell className="text-right text-muted-foreground">{formatCurrency(asset.averageCost)}</TableCell>
+                <TableCell className="text-right text-muted-foreground">{formatCurrency(asset.average_cost)}</TableCell>
                 <TableCell className="text-right font-bold text-primary">{formatCurrency(asset.totalValue)}</TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -119,11 +118,11 @@ export function AssetsTable({ assets, portfolioId, userId }: { assets: any[], po
                 </TableCell>
               </TableRow>
             )) : (
-                <TableRow>
-                    <TableCell colSpan={6} className="h-48 text-center text-muted-foreground italic">
-                        No assets yet. Add your first position to start tracking performance.
-                    </TableCell>
-                </TableRow>
+              <TableRow>
+                <TableCell colSpan={6} className="h-48 text-center text-muted-foreground italic">
+                  No assets yet. Add your first position to start tracking performance.
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>

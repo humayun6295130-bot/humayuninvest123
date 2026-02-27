@@ -1,6 +1,6 @@
 "use client";
 
-import { useCollection, useDoc, useMemoFirebase } from "@/firebase";
+import { useRealtimeCollection } from "@/supabase";
 import {
   Card,
   CardContent,
@@ -10,32 +10,28 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DollarSign } from "lucide-react";
-import { collection, query, where } from "firebase/firestore";
-import { useFirestore } from "@/firebase/provider";
 import { PortfolioChart } from "@/components/dashboard/portfolio-chart";
 import { TopHoldings } from "@/components/dashboard/top-holdings";
 import { StatsCards } from "@/components/dashboard/stats-cards";
+import { useMemo } from "react";
 
 export default function PublicProfilePage({
   params,
 }: {
   params: { username: string };
 }) {
-  const firestore = useFirestore();
-
-  const publicProfileQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(
-      collection(firestore, "public_profiles"),
-      where("username", "==", params.username)
-    );
-  }, [firestore, params.username]);
+  const publicProfileOptions = useMemo(() => ({
+    table: 'public_profiles',
+    filters: [{ column: 'username', operator: 'eq', value: params.username }],
+    limit: 1,
+    enabled: true,
+  }), [params.username]);
 
   const {
     data: profileData,
     isLoading: profileLoading,
     error: profileError,
-  } = useCollection(publicProfileQuery);
+  } = useRealtimeCollection(publicProfileOptions);
 
   const profile = profileData?.[0];
 
@@ -71,11 +67,11 @@ export default function PublicProfilePage({
     <div className="container mx-auto max-w-4xl space-y-8 p-4 py-8">
       <header className="flex flex-col items-center gap-4 text-center md:flex-row md:text-left">
         <Avatar className="h-24 w-24 border-2 border-primary">
-          <AvatarImage src={profile.profilePictureUrl} alt={profile.displayName} />
-          <AvatarFallback>{profile.displayName?.[0]}</AvatarFallback>
+          <AvatarImage src={profile.profile_picture_url} alt={profile.display_name} />
+          <AvatarFallback>{profile.display_name?.[0]}</AvatarFallback>
         </Avatar>
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold">{profile.displayName}</h1>
+          <h1 className="text-3xl font-bold">{profile.display_name}</h1>
           <p className="text-muted-foreground">@{profile.username}</p>
           {profile.bio && <p className="text-lg">{profile.bio}</p>}
         </div>
@@ -95,4 +91,3 @@ export default function PublicProfilePage({
     </div>
   );
 }
-    

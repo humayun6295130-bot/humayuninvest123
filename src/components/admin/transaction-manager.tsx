@@ -1,7 +1,6 @@
 "use client";
 
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, writeBatch, increment, orderBy, updateDoc } from "firebase/firestore";
+import { useRealtimeCollection, updateRow, incrementBalance } from "@/supabase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -9,30 +8,29 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { ImageIcon } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
 } from "@/components/ui/dialog";
 
 export function TransactionManager() {
-    const firestore = useFirestore();
     const { toast } = useToast();
     const [viewingProof, setViewingProof] = useState<string | null>(null);
     const [filterStatus, setFilterStatus] = useState("pending");
 
-    const transactionsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        let q = query(collection(firestore, "transactions"), orderBy("timestamp", "desc"));
-        if (filterStatus !== "all") {
-            q = query(collection(firestore, "transactions"), where("status", "==", filterStatus), orderBy("timestamp", "desc"));
-        }
-        return q;
-    }, [firestore, filterStatus]);
+    const transactionsOptions = useMemo(() => ({
+        table: 'transactions',
+        filters: filterStatus !== "all"
+            ? [{ column: 'status', operator: 'eq', value: filterStatus }]
+            : [],
+        orderBy: { column: 'created_at', ascending: false },
+        enabled: true,
+    }), [filterStatus]);
 
-    const { data: transactions, isLoading } = useCollection(transactionsQuery);
+    const { data: transactions, isLoading } = useRealtimeCollection(transactionsOptions);
 
     const determinePlan = (amount: number): string => {
         if (amount >= 50) return "Professional Plan";
@@ -42,58 +40,50 @@ export function TransactionManager() {
     }
 
     const handleApproval = async (transaction: any) => {
-        if (!firestore) return;
-        
-        const batch = writeBatch(firestore);
-        const txRef = doc(firestore, "transactions", transaction.id);
-        batch.update(txRef, { status: "completed" });
-
-        const userRef = doc(firestore, "users", transaction.userId);
-        const plan = determinePlan(transaction.amount);
-        batch.update(userRef, { 
-            balance: increment(transaction.amount),
-            activePlan: plan
-        });
-
         try {
-            await batch.commit();
+            // Update transaction status
+            await updateRow("transactions", transaction.id, { status: "completed" });
+
+            // Increment user balance and set plan
+            const plan = determinePlan(transaction.amount);
+            await incrementBalance(transaction.user_id, transaction.amount);
+            await updateRow("users", transaction.user_id, { active_plan: plan });
+
             toast({
                 title: "Transaction Approved",
-                description: `${transaction.userDisplayName}'s deposit of $${transaction.amount} was successful.`
-            })
+                description: `${transaction.user_display_name}'s deposit of $${transaction.amount} was successful.`
+            });
         } catch (error) {
             console.error("Approval failed: ", error);
             toast({
                 variant: "destructive",
                 title: "Approval Failed",
                 description: "Could not approve the transaction."
-            })
+            });
         }
     }
 
     const handleRejection = async (transactionId: string) => {
-        if (!firestore) return;
-        const txRef = doc(firestore, "transactions", transactionId);
         try {
-            await updateDoc(txRef, { status: "failed" });
+            await updateRow("transactions", transactionId, { status: "failed" });
             toast({
                 title: "Transaction Rejected",
                 description: "The transaction has been marked as failed."
             });
         } catch (error) {
-             toast({
+            toast({
                 variant: "destructive",
                 title: "Rejection Failed",
                 description: "Could not reject the transaction."
-            })
+            });
         }
     };
-    
+
     return (
         <div className="space-y-4">
             <div className="flex gap-2">
                 {["pending", "completed", "failed", "all"].map((status) => (
-                    <Button 
+                    <Button
                         key={status}
                         variant={filterStatus === status ? "default" : "outline"}
                         size="sm"
@@ -128,14 +118,14 @@ export function TransactionManager() {
                                     <TableCell colSpan={6} className="h-24 text-center">Loading transactions...</TableCell>
                                 </TableRow>
                             ) : transactions && transactions.length > 0 ? (
-                                transactions.map((tx) => (
+                                transactions.map((tx: any) => (
                                     <TableRow key={tx.id}>
                                         <TableCell className="text-xs text-muted-foreground">
-                                            {tx.timestamp ? format(tx.timestamp.toDate(), 'MMM d, HH:mm') : 'Pending...'}
+                                            {tx.created_at ? format(new Date(tx.created_at), 'MMM d, HH:mm') : 'Pending...'}
                                         </TableCell>
                                         <TableCell>
-                                            <div className="font-medium">{tx.userDisplayName || 'User'}</div>
-                                            <div className="text-xs text-muted-foreground">{tx.userEmail}</div>
+                                            <div className="font-medium">{tx.user_display_name || 'User'}</div>
+                                            <div className="text-xs text-muted-foreground">{tx.user_email}</div>
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={tx.type === 'deposit' ? 'default' : 'secondary'} className="capitalize">
@@ -144,8 +134,8 @@ export function TransactionManager() {
                                         </TableCell>
                                         <TableCell className="font-semibold text-[#334C99]">${tx.amount.toFixed(2)}</TableCell>
                                         <TableCell>
-                                            {tx.proofUrl ? (
-                                                <Button variant="ghost" size="sm" onClick={() => setViewingProof(tx.proofUrl)}>
+                                            {tx.proof_url ? (
+                                                <Button variant="ghost" size="sm" onClick={() => setViewingProof(tx.proof_url)}>
                                                     <ImageIcon className="h-4 w-4 mr-1" /> View
                                                 </Button>
                                             ) : (

@@ -11,8 +11,7 @@ import {
   Wallet as WalletIcon,
   ArrowDownUp,
 } from 'lucide-react';
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where, orderBy } from 'firebase/firestore';
+import { useUser, useRealtimeCollection } from '@/supabase';
 import {
   Table,
   TableBody,
@@ -25,28 +24,20 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import WithdrawDialog from '@/components/wallet/withdraw-dialog';
 import DepositDialog from '@/components/wallet/deposit-dialog';
+import ClaimDailyDialog from '@/components/wallet/claim-daily-dialog';
+import { useMemo } from 'react';
 
 export default function WalletPage() {
-  const { user } = useUser();
-  const firestore = useFirestore();
+  const { user, userProfile } = useUser();
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
+  const transactionsOptions = useMemo(() => ({
+    table: 'transactions',
+    filters: user ? [{ column: 'user_id', operator: 'eq', value: user.id }] : [],
+    orderBy: { column: 'created_at', ascending: false },
+    enabled: !!user,
+  }), [user]);
 
-  const { data: userProfile } = useDoc(userDocRef);
-
-  const transactionsQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return query(
-        collection(firestore, `transactions`), 
-        where("userId", "==", user.uid),
-        orderBy("timestamp", "desc")
-    );
-  }, [user, firestore]);
-
-  const { data: transactions } = useCollection(transactionsQuery);
+  const { data: transactions } = useRealtimeCollection(transactionsOptions);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -101,14 +92,15 @@ export default function WalletPage() {
           </CardContent>
         </Card>
         <Card>
-            <CardHeader>
-                <CardTitle>Funding Actions</CardTitle>
-                <CardDescription>Deposit or withdraw funds from your account.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex items-center gap-4">
-                <DepositDialog userProfile={userProfile} />
-                <WithdrawDialog userProfile={userProfile} />
-            </CardContent>
+          <CardHeader>
+            <CardTitle>Funding Actions</CardTitle>
+            <CardDescription>Deposit or withdraw funds from your account.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center gap-4 flex-wrap">
+            <DepositDialog userProfile={userProfile} />
+            <WithdrawDialog userProfile={userProfile} />
+            <ClaimDailyDialog userProfile={userProfile} />
+          </CardContent>
         </Card>
       </div>
 
@@ -136,10 +128,10 @@ export default function WalletPage() {
               </TableHeader>
               <TableBody>
                 {transactions && transactions.length > 0 ? (
-                  transactions.map((tx) => (
+                  transactions.map((tx: any) => (
                     <TableRow key={tx.id}>
                       <TableCell className="text-xs text-muted-foreground">
-                        {tx.timestamp ? format(tx.timestamp.toDate(), 'PPpp') : ''}
+                        {tx.created_at ? format(new Date(tx.created_at), 'PPpp') : ''}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -178,5 +170,3 @@ export default function WalletPage() {
     </div>
   );
 }
-
-    

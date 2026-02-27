@@ -1,27 +1,23 @@
 "use client";
 
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, limit } from "firebase/firestore";
+import { useRealtimeCollection } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlusCircle, Newspaper, BookOpen, Clock } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { useMemo } from "react";
 
 export default function ContentPage() {
-  const firestore = useFirestore();
+  const publishedPostsOptions = useMemo(() => ({
+    table: 'published_posts',
+    orderBy: { column: 'published_date', ascending: false },
+    limit: 10,
+    enabled: true,
+  }), []);
 
-  const publishedQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(
-      collection(firestore, "published_posts"),
-      orderBy("publishedDate", "desc"),
-      limit(10)
-    );
-  }, [firestore]);
-
-  const { data: posts, isLoading } = useCollection(publishedQuery);
+  const { data: posts, isLoading } = useRealtimeCollection(publishedPostsOptions);
 
   return (
     <div className="space-y-8">
@@ -40,30 +36,30 @@ export default function ContentPage() {
 
       <div className="grid gap-6">
         <div className="flex items-center gap-2 text-lg font-semibold border-b pb-2">
-            <Newspaper className="h-5 w-5 text-primary" />
-            <h2>Latest Insights</h2>
+          <Newspaper className="h-5 w-5 text-primary" />
+          <h2>Latest Insights</h2>
         </div>
 
         {isLoading ? (
-            <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                    <Card key={i} className="animate-pulse">
-                        <CardHeader className="h-24 bg-muted" />
-                    </Card>
-                ))}
-            </div>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader className="h-24 bg-muted" />
+              </Card>
+            ))}
+          </div>
         ) : posts && posts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {posts.map((post) => (
+            {posts.map((post: any) => (
               <Card key={post.id} className="group hover:shadow-md transition-shadow">
                 <CardHeader>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="secondary">Market Update</Badge>
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {post.publishedDate ? format(post.publishedDate.toDate(), 'MMM d, yyyy') : 'Recently'}
-                        </span>
-                    </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="secondary">Market Update</Badge>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      {post.published_date ? format(new Date(post.published_date), 'MMM d, yyyy') : 'Recently'}
+                    </span>
+                  </div>
                   <CardTitle className="group-hover:text-primary transition-colors">
                     {post.title}
                   </CardTitle>
@@ -72,11 +68,11 @@ export default function ContentPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Button variant="link" className="p-0 h-auto" asChild>
-                        <Link href={`/content/${post.id}`} className="flex items-center gap-1">
-                            Read Full Insight <BookOpen className="h-4 w-4 ml-1" />
-                        </Link>
-                    </Button>
+                  <Button variant="link" className="p-0 h-auto" asChild>
+                    <Link href={`/content/${post.id}`} className="flex items-center gap-1">
+                      Read Full Insight <BookOpen className="h-4 w-4 ml-1" />
+                    </Link>
+                  </Button>
                 </CardContent>
               </Card>
             ))}

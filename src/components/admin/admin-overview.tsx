@@ -1,36 +1,35 @@
 "use client";
 
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { useRealtimeCollection } from "@/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, DollarSign, ArrowDownUp, ShieldCheck } from "lucide-react";
+import { useMemo } from "react";
 
 export function AdminOverview() {
-  const firestore = useFirestore();
+  const usersOptions = useMemo(() => ({
+    table: 'users',
+    enabled: true,
+  }), []);
 
-  const usersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, "users");
-  }, [firestore]);
+  const transactionsOptions = useMemo(() => ({
+    table: 'transactions',
+    enabled: true,
+  }), []);
 
-  const transactionsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, "transactions");
-  }, [firestore]);
+  const pendingTxOptions = useMemo(() => ({
+    table: 'transactions',
+    filters: [{ column: 'status', operator: 'eq', value: 'pending' }],
+    enabled: true,
+  }), []);
 
-  const pendingTxQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "transactions"), where("status", "==", "pending"));
-  }, [firestore]);
-
-  const { data: users } = useCollection(usersQuery);
-  const { data: transactions } = useCollection(transactionsQuery);
-  const { data: pendingTxs } = useCollection(pendingTxQuery);
+  const { data: users } = useRealtimeCollection(usersOptions);
+  const { data: transactions } = useRealtimeCollection(transactionsOptions);
+  const { data: pendingTxs } = useRealtimeCollection(pendingTxOptions);
 
   const totalUsers = users?.length || 0;
-  const totalBalance = users?.reduce((acc, user) => acc + (user.balance || 0), 0) || 0;
-  const totalDeposits = transactions?.filter(t => t.type === 'deposit' && t.status === 'completed')
-    .reduce((acc, t) => acc + t.amount, 0) || 0;
+  const totalBalance = users?.reduce((acc: number, user: any) => acc + (user.balance || 0), 0) || 0;
+  const totalDeposits = transactions?.filter((t: any) => t.type === 'deposit' && t.status === 'completed')
+    .reduce((acc: number, t: any) => acc + t.amount, 0) || 0;
   const pendingCount = pendingTxs?.length || 0;
 
   const stats = [

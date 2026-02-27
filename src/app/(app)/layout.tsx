@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   SidebarProvider,
   Sidebar,
@@ -17,22 +18,12 @@ import {
 } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { DollarSign, LayoutDashboard, Settings, Briefcase, Wallet, Newspaper, ShieldCheck } from "lucide-react";
-import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
-import { doc } from "firebase/firestore";
-import { useEffect } from "react";
+import { useUser } from "@/supabase";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
+  const { user, isUserLoading, userProfile } = useUser();
   const router = useRouter();
-
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, "users", user.uid);
-  }, [firestore, user]);
-
-  const { data: userProfile } = useDoc(userDocRef);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -112,8 +103,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <SidebarGroupLabel>Administration</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname === '/dashboard'} tooltip="Admin Panel">
-                    <Link href="/dashboard">
+                  <SidebarMenuButton asChild isActive={pathname === '/admin'} tooltip="Admin Panel">
+                    <Link href="/admin">
                       <ShieldCheck />
                       <span>Admin Control</span>
                     </Link>

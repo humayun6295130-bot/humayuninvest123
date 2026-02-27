@@ -7,21 +7,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { useUser } from "@/supabase";
 import { AdminSettings } from "@/components/settings/admin-settings";
 import { UserSettings } from "@/components/settings/user-settings";
 
 export default function SettingsPage() {
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, "users", user.uid);
-  }, [firestore, user]);
-
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+  const { isUserLoading, userProfile, isProfileLoading } = useUser();
 
   const isLoading = isUserLoading || isProfileLoading;
 
@@ -36,11 +27,11 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-             <div className="flex h-24 items-center justify-center rounded-md border-2 border-dashed">
-                <p className="text-muted-foreground">Loading settings...</p>
+            <div className="flex h-24 items-center justify-center rounded-md border-2 border-dashed">
+              <p className="text-muted-foreground">Loading settings...</p>
             </div>
           ) : (
-             userProfile && (userProfile.role === 'admin' ? <AdminSettings /> : <UserSettings userProfile={userProfile} />)
+            userProfile && (userProfile.role === 'admin' ? <AdminSettings /> : <UserSettings userProfile={userProfile} />)
           )}
         </CardContent>
       </Card>

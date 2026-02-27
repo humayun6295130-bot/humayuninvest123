@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
-import { collection, serverTimestamp } from "firebase/firestore";
+import { useUser, insertRow } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,7 +29,6 @@ import { Landmark } from "lucide-react";
 
 const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
   const { user } = useUser();
-  const firestore = useFirestore();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
 
@@ -57,31 +55,28 @@ const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
       return;
     }
 
-    const transaction = {
-      userId: user.uid,
-      userDisplayName: userProfile.displayName,
-      userEmail: userProfile.email,
-      type: "withdrawal",
-      amount: values.amount,
-      currency: "USD",
-      status: "pending",
-      timestamp: serverTimestamp(),
-      description: `Withdrawal to ${values.walletAddress}`,
-    };
+    try {
+      await insertRow("transactions", {
+        user_id: user.id,
+        user_display_name: userProfile.display_name,
+        user_email: userProfile.email,
+        type: "withdrawal",
+        amount: values.amount,
+        currency: "USD",
+        status: "pending",
+        description: `Withdrawal to ${values.walletAddress}`,
+      });
 
-    const transactionsRef = collection(firestore, "transactions");
-    addDocumentNonBlocking(transactionsRef, transaction);
+      toast({
+        title: "Withdrawal Request Submitted",
+        description: `Your request to withdraw ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(values.amount)} has been submitted for processing.`,
+      });
 
-    // Note: In a real app, the balance would be updated by a secure backend function
-    // after the withdrawal is processed, not on the client.
-
-    toast({
-      title: "Withdrawal Request Submitted",
-      description: `Your request to withdraw ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(values.amount)} has been submitted for processing.`,
-    });
-
-    setOpen(false);
-    form.reset();
+      setOpen(false);
+      form.reset();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message || "Failed to submit withdrawal." });
+    }
   }
 
   return (
@@ -127,8 +122,8 @@ const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
                 </FormItem>
               )}
             />
-             <div className="text-sm text-muted-foreground">
-                Available to withdraw: {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(userProfile?.balance || 0)}
+            <div className="text-sm text-muted-foreground">
+              Available to withdraw: {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(userProfile?.balance || 0)}
             </div>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
@@ -142,5 +137,3 @@ const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
 };
 
 export default WithdrawDialog;
-
-    

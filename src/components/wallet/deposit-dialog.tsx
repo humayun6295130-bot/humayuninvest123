@@ -10,11 +10,9 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -27,10 +25,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { db, auth } from "@/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "@/firebase";
+import { useUser, insertRow, uploadFile } from "@/supabase";
 
 const walletAddress = "0x362A4533B0E745d339ff4fdb98E96BDb838FAa85";
 
@@ -41,6 +36,7 @@ const formSchema = z.object({
 
 export default function DepositDialog({ userProfile }: { userProfile: any }) {
   const { toast } = useToast();
+  const { user } = useUser();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -70,14 +66,7 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const uploadFile = async (file: File, userId: string) => {
-    const storageRef = ref(storage, `receipts/${userId}/${Date.now()}_${file.name}`);
-    const snapshot = await uploadBytes(storageRef, file);
-    return getDownloadURL(snapshot.ref);
-  };
-
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    const user = auth.currentUser;
     if (!user || !userProfile) {
       toast({ variant: "destructive", title: "Error", description: "User not authenticated." });
       return;
@@ -88,25 +77,21 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
     try {
       let proofUrl = "";
       if (selectedFile) {
-        proofUrl = await uploadFile(selectedFile, user.uid);
+        proofUrl = await uploadFile(selectedFile, user.id);
       }
 
-      const transaction = {
-        userId: user.uid,
-        userDisplayName: userProfile.displayName,
-        userEmail: userProfile.email,
+      await insertRow("transactions", {
+        user_id: user.id,
+        user_display_name: userProfile.display_name,
+        user_email: userProfile.email,
         type: "deposit",
         amount: values.amount,
         currency: "USD",
         status: "pending",
-        timestamp: serverTimestamp(),
         description: `Deposit request via ${values.transactionHash}`,
-        transactionHash: values.transactionHash,
-        proofUrl: proofUrl,
-      };
-
-      const transactionsRef = collection(db, `transactions`);
-      await addDoc(transactionsRef, transaction);
+        transaction_hash: values.transactionHash,
+        proof_url: proofUrl,
+      });
 
       toast({
         title: "Deposit Submitted",
@@ -163,11 +148,11 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
                   <FormItem>
                     <FormLabel>Deposit Amount ($)</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="0.00" 
-                        {...field} 
-                        className="bg-white border-gray-300 focus:border-[#52BBDB] focus:ring-[#52BBDB]" 
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        {...field}
+                        className="bg-white border-gray-300 focus:border-[#52BBDB] focus:ring-[#52BBDB]"
                       />
                     </FormControl>
                     <FormMessage />
@@ -182,10 +167,10 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
                   <FormItem>
                     <FormLabel>Transaction ID / Hash</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="Paste your TXID here" 
-                        {...field} 
-                        className="bg-white border-gray-300 focus:border-[#52BBDB] focus:ring-[#52BBDB]" 
+                      <Input
+                        placeholder="Paste your TXID here"
+                        {...field}
+                        className="bg-white border-gray-300 focus:border-[#52BBDB] focus:ring-[#52BBDB]"
                       />
                     </FormControl>
                     <FormMessage />
@@ -195,7 +180,7 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
 
               <div className="space-y-2">
                 <FormLabel>Payment Proof (Optional)</FormLabel>
-                <div 
+                <div
                   className={`border-2 border-dashed rounded-lg p-4 transition-colors cursor-pointer flex flex-col items-center justify-center gap-2
                     ${selectedFile ? 'border-[#52BBDB] bg-blue-50' : 'border-gray-300 hover:border-[#52BBDB] bg-white'}`}
                   onClick={() => fileInputRef.current?.click()}
@@ -211,10 +196,10 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
                     <div className="flex items-center gap-2 w-full">
                       <ImageIcon className="h-5 w-5 text-[#334C99]" />
                       <span className="text-sm truncate flex-1">{selectedFile.name}</span>
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
                         className="h-6 w-6 text-red-500 hover:bg-red-50"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -239,8 +224,8 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
                 </FormDescription>
               </div>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full bg-[#334C99] hover:bg-[#283d7a] text-white py-6"
                 disabled={isLoading}
               >
