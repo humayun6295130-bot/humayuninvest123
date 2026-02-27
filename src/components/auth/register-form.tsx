@@ -48,6 +48,10 @@ export function RegisterForm() {
     setIsLoading(true);
 
     try {
+      if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+      }
+
       // Check if this user should be an admin based on their email
       const isAdmin = values.email.toLowerCase() === "humayunlbb@gmail.com";
 

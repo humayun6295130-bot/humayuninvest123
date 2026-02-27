@@ -3,6 +3,9 @@ import { supabase } from './config';
 // ─── Insert ─────────────────────────────────────────────
 
 export async function insertRow(table: string, data: Record<string, any>) {
+    if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+    }
     const { data: result, error } = await supabase
         .from(table)
         .insert(data)
@@ -24,6 +27,9 @@ export async function updateRow(
     data: Record<string, any>,
     idColumn: string = 'id'
 ) {
+    if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+    }
     const { data: result, error } = await supabase
         .from(table)
         .update(data)
@@ -41,6 +47,9 @@ export async function updateRow(
 // ─── Upsert ─────────────────────────────────────────────
 
 export async function upsertRow(table: string, data: Record<string, any>) {
+    if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+    }
     const { data: result, error } = await supabase
         .from(table)
         .upsert(data)
@@ -61,6 +70,9 @@ export async function deleteRow(
     id: string,
     idColumn: string = 'id'
 ) {
+    if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+    }
     const { error } = await supabase
         .from(table)
         .delete()
@@ -82,6 +94,9 @@ export async function fetchRows(
         limit?: number;
     }
 ) {
+    if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+    }
     let query = supabase.from(table).select('*');
 
     if (options?.filters) {
@@ -116,6 +131,9 @@ export async function fetchRow(
     id: string,
     idColumn: string = 'id'
 ) {
+    if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+    }
     const { data, error } = await supabase
         .from(table)
         .select('*')
@@ -140,6 +158,9 @@ export async function batchUpdate(
         idColumn?: string;
     }>
 ) {
+    if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+    }
     // Supabase doesn't have native batch writes, so we run them concurrently
     const results = await Promise.all(
         operations.map((op) =>
@@ -160,7 +181,10 @@ export async function batchUpdate(
 // ─── RPC call for incrementing values ───────────────────
 
 export async function incrementBalance(userId: string, amount: number) {
-    const { data, error } = await supabase.rpc('increment_balance', {
+    if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+    }
+    const { data, error } = await supabase!.rpc('increment_balance', {
         user_id: userId,
         amount: amount,
     });

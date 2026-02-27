@@ -6,6 +6,9 @@ export async function uploadFile(
     file: File,
     userId: string
 ): Promise<string> {
+    if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+    }
     const fileName = `${userId}/${Date.now()}_${file.name}`;
 
     const { data, error } = await supabase.storage
@@ -29,6 +32,9 @@ export async function uploadFile(
 }
 
 export function getPublicUrl(path: string): string {
+    if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+    }
     const { data } = supabase.storage
         .from(BUCKET_NAME)
         .getPublicUrl(path);

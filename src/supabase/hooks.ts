@@ -1,14 +1,18 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from './config';
+import { supabase, isSupabaseConfigured } from './config';
 import { useSupabaseContext } from './provider';
 import type { User, SupabaseClient } from '@supabase/supabase-js';
 
 // ─── Core Hooks ───────────────────────────────────────
 
-export function useSupabase(): SupabaseClient {
-    return useSupabaseContext().supabase;
+export function useSupabase(): SupabaseClient | null {
+    const { supabase: client, isConfigured } = useSupabaseContext();
+    if (!isConfigured || !client) {
+        return null;
+    }
+    return client;
 }
 
 export function useUser(): { user: User | null; isUserLoading: boolean; userProfile: any | null; isProfileLoading: boolean } {
@@ -17,7 +21,14 @@ export function useUser(): { user: User | null; isUserLoading: boolean; userProf
 }
 
 export function useAuth() {
-    const { supabase: client } = useSupabaseContext();
+    const { supabase: client, isConfigured } = useSupabaseContext();
+    if (!isConfigured || !client) {
+        return {
+            signIn: async () => { throw new Error('Supabase not configured'); },
+            signUp: async () => { throw new Error('Supabase not configured'); },
+            signOut: async () => { throw new Error('Supabase not configured'); },
+        };
+    }
     return {
         signIn: (email: string, password: string) =>
             client.auth.signInWithPassword({ email, password }),
@@ -63,12 +74,18 @@ export function useRealtimeCollection<T = any>(
             return;
         }
 
+        if (!supabase) {
+            setError(new Error('Supabase not configured'));
+            setIsLoading(false);
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
 
         const fetchData = async () => {
             try {
-                let query = supabase.from(options.table).select('*');
+                let query = supabase!.from(options.table).select('*');
 
                 if (options.filters) {
                     for (const filter of options.filters) {
@@ -105,7 +122,7 @@ export function useRealtimeCollection<T = any>(
         fetchData();
 
         // Set up real-time subscription
-        const channel = supabase
+        const channel = supabase!
             .channel(`realtime-${options.table}-${optionsKey}`)
             .on(
                 'postgres_changes',
@@ -160,12 +177,18 @@ export function useRealtimeRow<T = any>(
             return;
         }
 
+        if (!supabase) {
+            setError(new Error('Supabase not configured'));
+            setIsLoading(false);
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
 
         const fetchData = async () => {
             try {
-                const { data: result, error: fetchError } = await supabase
+                const { data: result, error: fetchError } = await supabase!
                     .from(options.table)
                     .select('*')
                     .eq(column, options.id!)
@@ -193,7 +216,7 @@ export function useRealtimeRow<T = any>(
         fetchData();
 
         // Real-time subscription
-        const channel = supabase
+        const channel = supabase!
             .channel(`realtime-row-${options.table}-${options.id}`)
             .on(
                 'postgres_changes',
@@ -214,7 +237,7 @@ export function useRealtimeRow<T = any>(
             .subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            supabase!.removeChannel(channel);
         };
     }, [options.table, options.id, column]);
 

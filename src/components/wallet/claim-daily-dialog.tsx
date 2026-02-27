@@ -22,6 +22,14 @@ export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) 
 
     const handleClaim = async () => {
         if (!userProfile?.id) return;
+        if (!supabase) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Supabase is not configured.',
+            });
+            return;
+        }
         setIsLoading(true);
 
         try {

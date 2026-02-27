@@ -43,6 +43,10 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
+      if (!supabase) {
+        throw new Error('Supabase is not configured. Please check your environment variables.');
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,
