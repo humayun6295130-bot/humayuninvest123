@@ -1,16 +1,17 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from 'react';
-import { supabase } from './config';
+import { supabase, isSupabaseConfigured } from './config';
 import type { SupabaseClient, User, Session } from '@supabase/supabase-js';
 
 interface SupabaseContextState {
-    supabase: SupabaseClient;
+    supabase: SupabaseClient | null;
     user: User | null;
     session: Session | null;
     isLoading: boolean;
     userProfile: any | null;
     isProfileLoading: boolean;
+    isConfigured: boolean;
 }
 
 const SupabaseContext = createContext<SupabaseContextState | undefined>(undefined);
@@ -21,8 +22,14 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const [userProfile, setUserProfile] = useState<any | null>(null);
     const [isProfileLoading, setIsProfileLoading] = useState(true);
+    const isConfigured = isSupabaseConfigured();
 
     useEffect(() => {
+        if (!isConfigured || !supabase) {
+            setIsLoading(false);
+            return;
+        }
+
         // Get initial session
         supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
             setSession(currentSession);
@@ -40,11 +47,11 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
         );
 
         return () => subscription.unsubscribe();
-    }, []);
+    }, [isConfigured]);
 
     // Fetch user profile when user changes
     useEffect(() => {
-        if (!user) {
+        if (!isConfigured || !user || !supabase) {
             setUserProfile(null);
             setIsProfileLoading(false);
             return;
@@ -54,6 +61,7 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
 
         // Initial fetch
         const fetchProfile = async () => {
+            if (!supabase) return;
             const { data, error } = await supabase
                 .from('users')
                 .select('*')
@@ -90,9 +98,11 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
             .subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            if (supabase) {
+                supabase.removeChannel(channel);
+            }
         };
-    }, [user]);
+    }, [user, isConfigured]);
 
     const contextValue = useMemo((): SupabaseContextState => ({
         supabase,
@@ -101,7 +111,8 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
         isLoading,
         userProfile,
         isProfileLoading,
-    }), [user, session, isLoading, userProfile, isProfileLoading]);
+        isConfigured,
+    }), [user, session, isLoading, userProfile, isProfileLoading, isConfigured]);
 
     return (
         <SupabaseContext.Provider value={contextValue}>
