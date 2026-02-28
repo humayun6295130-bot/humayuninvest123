@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -103,7 +102,13 @@ export function RegisterForm() {
         title: "Registration Successful",
         description: `Your account has been created. ${isAdmin ? "You have been assigned admin privileges." : ""}`,
       });
-      router.push("/dashboard");
+
+      setIsLoading(false);
+
+      // Use window.location for full page navigation to ensure auth state is fresh
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 100);
 
     } catch (error: any) {
       toast({
@@ -111,7 +116,6 @@ export function RegisterForm() {
         title: "Registration Failed",
         description: error.message || "An unexpected error occurred.",
       });
-    } finally {
       setIsLoading(false);
     }
   }

@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -47,25 +46,37 @@ export function LoginForm() {
         throw new Error('Supabase is not configured. Please check your environment variables.');
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,
       });
 
       if (error) throw error;
 
-      toast({
-        title: "Login Successful",
-        description: "Welcome back! Redirecting you to your dashboard.",
-      });
-      router.push("/dashboard");
+      // Wait for session to be established before redirecting
+      // This ensures the auth state is propagated to the provider
+      if (data.session) {
+        toast({
+          title: "Login Successful",
+          description: "Welcome back! Redirecting you to your dashboard.",
+        });
+
+        setIsLoading(false);
+
+        // Small delay to ensure auth state propagates through context
+        // Then use window.location for a full page navigation to ensure fresh state
+        setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 100);
+      } else {
+        throw new Error("No session returned after login.");
+      }
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Login Failed",
         description: error.message || "An unexpected error occurred.",
       });
-    } finally {
       setIsLoading(false);
     }
   }
