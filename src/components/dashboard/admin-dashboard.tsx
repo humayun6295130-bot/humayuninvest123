@@ -4,29 +4,51 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminOverview } from "@/components/admin/admin-overview";
 import { UserManager } from "@/components/admin/user-manager";
 import { TransactionManager } from "@/components/admin/transaction-manager";
-import { LayoutDashboard, Users, ArrowDownUp } from "lucide-react";
+import { PlanManager } from "@/components/admin/plan-manager";
+import { KYCManager } from "@/components/admin/kyc-manager";
+import { SupportManager } from "@/components/admin/support-manager";
+import {
+  LayoutDashboard,
+  Users,
+  ArrowDownUp,
+  TrendingUp,
+  ShieldCheck,
+  Headphones
+} from "lucide-react";
 
 export function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold">Admin Panel</h1>
-        <p className="text-muted-foreground">Manage users, transactions, and platform statistics.</p>
+        <p className="text-muted-foreground">Full control center for platform management</p>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 lg:w-auto">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
-            Overview
+            <span className="hidden sm:inline">Overview</span>
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Users
+            <span className="hidden sm:inline">Users</span>
           </TabsTrigger>
           <TabsTrigger value="transactions" className="flex items-center gap-2">
             <ArrowDownUp className="h-4 w-4" />
-            Transactions
+            <span className="hidden sm:inline">Transactions</span>
+          </TabsTrigger>
+          <TabsTrigger value="plans" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            <span className="hidden sm:inline">Plans</span>
+          </TabsTrigger>
+          <TabsTrigger value="kyc" className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" />
+            <span className="hidden sm:inline">KYC</span>
+          </TabsTrigger>
+          <TabsTrigger value="support" className="flex items-center gap-2">
+            <Headphones className="h-4 w-4" />
+            <span className="hidden sm:inline">Support</span>
           </TabsTrigger>
         </TabsList>
 
@@ -40,6 +62,18 @@ export function AdminDashboard() {
 
         <TabsContent value="transactions">
           <TransactionManager />
+        </TabsContent>
+
+        <TabsContent value="plans">
+          <PlanManager />
+        </TabsContent>
+
+        <TabsContent value="kyc">
+          <KYCManager />
+        </TabsContent>
+
+        <TabsContent value="support">
+          <SupportManager />
         </TabsContent>
       </Tabs>
     </div>
