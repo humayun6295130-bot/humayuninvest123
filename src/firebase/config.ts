@@ -5,14 +5,14 @@ import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAQslQz5Pt2Mfo_RdDo2FY7JZ4_EMZj7ak",
-    authDomain: "invest-1e4f7.firebaseapp.com",
-    databaseURL: "https://invest-1e4f7-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "invest-1e4f7",
-    storageBucket: "invest-1e4f7.firebasestorage.app",
-    messagingSenderId: "40597371033",
-    appId: "1:40597371033:web:2a1a4fb2c899bf3feca008",
-    measurementId: "G-73Z7WKS6VG"
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAQslQz5Pt2Mfo_RdDo2FY7JZ4_EMZj7ak",
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "invest-1e4f7.firebaseapp.com",
+    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || "https://invest-1e4f7-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "invest-1e4f7",
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "invest-1e4f7.firebasestorage.app",
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "40597371033",
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:40597371033:web:2a1a4fb2c899bf3feca008",
+    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-73Z7WKS6VG"
 };
 
 // Initialize Firebase only if config is available
