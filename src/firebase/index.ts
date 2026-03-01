@@ -1,8 +1,8 @@
-// Supabase barrel exports
-export { supabase } from './config';
-export { SupabaseProvider, useSupabaseContext } from './provider';
+// Firebase barrel exports
+export { auth, db, storage, isFirebaseConfigured } from './config';
+export { FirebaseProvider, useFirebaseContext } from './provider';
 export {
-    useSupabase,
+    useFirebase,
     useUser,
     useAuth,
     useRealtimeCollection,
@@ -17,5 +17,7 @@ export {
     fetchRow,
     batchUpdate,
     incrementBalance,
+    type FetchOptions,
+    type BatchOperation,
 } from './database';
 export { uploadFile, getPublicUrl } from './storage';

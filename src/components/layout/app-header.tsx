@@ -15,12 +15,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useUser, useSupabase } from "@/supabase";
+import { useUser, useAuth } from "@/firebase";
 
 export function AppHeader() {
   const pathname = usePathname();
-  const { user } = useUser();
-  const supabase = useSupabase();
+  const { user, userProfile } = useUser();
+  const { signOut } = useAuth();
 
   const getPageTitle = () => {
     if (pathname.startsWith('/dashboard')) return "Dashboard";
@@ -31,8 +31,11 @@ export function AppHeader() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
   };
+
+  const displayName = userProfile?.display_name || user?.displayName || "My Account";
+  const userId = user?.uid;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
@@ -56,15 +59,15 @@ export function AppHeader() {
             <Avatar className="h-9 w-9">
               <AvatarImage
                 data-ai-hint="person face"
-                src={`https://picsum.photos/seed/${user?.id}/40/40`}
-                alt={user?.user_metadata?.display_name || "User Avatar"}
+                src={`https://picsum.photos/seed/${userId}/40/40`}
+                alt={displayName}
               />
-              <AvatarFallback>{user?.user_metadata?.display_name?.[0] || 'U'}</AvatarFallback>
+              <AvatarFallback>{displayName?.[0] || 'U'}</AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>{user?.user_metadata?.display_name || "My Account"}</DropdownMenuLabel>
+          <DropdownMenuLabel>{displayName}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
             <Link href="/settings">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRealtimeCollection } from "@/supabase";
+import { useRealtimeCollection } from "@/firebase";
 import {
   Card,
   CardContent,
@@ -22,8 +22,8 @@ export default function PublicProfilePage({
 }) {
   const publicProfileOptions = useMemo(() => ({
     table: 'public_profiles',
-    filters: [{ column: 'username', operator: 'eq', value: params.username }],
-    limit: 1,
+    filters: [{ column: 'username', operator: '==' as const, value: params.username }],
+    limitCount: 1,
     enabled: true,
   }), [params.username]);
 

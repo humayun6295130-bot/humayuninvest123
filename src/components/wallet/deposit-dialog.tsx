@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, insertRow, uploadFile } from "@/supabase";
+import { useUser, insertRow, uploadFile } from "@/firebase";
 
 const walletAddress = "0x362A4533B0E745d339ff4fdb98E96BDb838FAa85";
 

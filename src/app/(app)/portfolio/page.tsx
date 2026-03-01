@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useUser, useRealtimeCollection } from "@/supabase";
+import { useUser, useRealtimeCollection } from "@/firebase";
 import { AssetsTable } from "@/components/portfolio/assets-table";
 import { Wallet, TrendingUp, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +13,8 @@ export default function PortfolioPage() {
 
   const portfoliosOptions = useMemo(() => ({
     table: 'portfolios',
-    filters: user ? [{ column: 'user_id', operator: 'eq', value: user.id }] : [],
-    limit: 1,
+    filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
+    limitCount: 1,
     enabled: !!user,
   }), [user]);
 
@@ -23,7 +23,7 @@ export default function PortfolioPage() {
 
   const assetsOptions = useMemo(() => ({
     table: 'assets',
-    filters: portfolio ? [{ column: 'portfolio_id', operator: 'eq', value: portfolio.id }] : [],
+    filters: portfolio ? [{ column: 'portfolio_id', operator: '==' as const, value: portfolio.id }] : [],
     enabled: !!user && !!portfolio,
   }), [user, portfolio]);
 

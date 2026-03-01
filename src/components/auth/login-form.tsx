@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useSupabase } from "@/supabase";
+import { useAuth, useFirebase } from "@/firebase";
 import { useState } from "react";
 
 const formSchema = z.object({
@@ -28,7 +29,8 @@ const formSchema = z.object({
 export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const supabase = useSupabase();
+  const { isConfigured } = useFirebase();
+  const { signIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -42,20 +44,13 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      if (!supabase) {
-        throw new Error('Supabase is not configured. Please check your environment variables.');
+      if (!isConfigured) {
+        throw new Error('Firebase is not configured. Please check your environment variables.');
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
-      });
+      const userCredential = await signIn(values.email, values.password);
 
-      if (error) throw error;
-
-      // Wait for session to be established before redirecting
-      // This ensures the auth state is propagated to the provider
-      if (data.session) {
+      if (userCredential.user) {
         toast({
           title: "Login Successful",
           description: "Welcome back! Redirecting you to your dashboard.",
@@ -69,7 +64,7 @@ export function LoginForm() {
           window.location.href = "/dashboard";
         }, 100);
       } else {
-        throw new Error("No session returned after login.");
+        throw new Error("No user returned after login.");
       }
     } catch (error: any) {
       toast({
@@ -118,7 +113,7 @@ export function LoginForm() {
               {isLoading ? "Signing In..." : "Sign In"}
             </Button>
             <p className="text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
+              Don't have an account?{" "}
               <Button variant="link" asChild className="p-0 h-auto">
                 <Link href="/register">Sign up</Link>
               </Button>

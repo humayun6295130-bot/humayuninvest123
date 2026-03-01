@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useUser } from "@/supabase";
+import { useUser } from "@/firebase";
 import { AdminSettings } from "@/components/settings/admin-settings";
 import { UserSettings } from "@/components/settings/user-settings";
 

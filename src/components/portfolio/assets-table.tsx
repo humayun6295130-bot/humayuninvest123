@@ -19,7 +19,7 @@ import { MoreHorizontal, Pencil, Trash2, Coins, TrendingUp, Layers } from "lucid
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AddAssetDialog } from "./add-asset-dialog";
-import { deleteRow } from "@/supabase";
+import { deleteRow } from "@/firebase";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("en-US", {

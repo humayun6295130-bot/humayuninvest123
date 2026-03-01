@@ -1,6 +1,6 @@
 "use client";
 
-import { useRealtimeCollection } from "@/supabase";
+import { useRealtimeCollection } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, DollarSign, ArrowDownUp, ShieldCheck } from "lucide-react";
 import { useMemo } from "react";
@@ -18,7 +18,7 @@ export function AdminOverview() {
 
   const pendingTxOptions = useMemo(() => ({
     table: 'transactions',
-    filters: [{ column: 'status', operator: 'eq', value: 'pending' }],
+    filters: [{ column: 'status', operator: '==' as const, value: 'pending' }],
     enabled: true,
   }), []);
 

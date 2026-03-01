@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { DollarSign, LayoutDashboard, Settings, Briefcase, Wallet, Newspaper, ShieldCheck } from "lucide-react";
-import { useUser } from "@/supabase";
+import { useUser } from "@/firebase";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

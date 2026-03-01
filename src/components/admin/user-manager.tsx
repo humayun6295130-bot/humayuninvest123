@@ -1,6 +1,6 @@
 "use client";
 
-import { useRealtimeCollection, updateRow, useUser } from "@/supabase";
+import { useRealtimeCollection, updateRow, useUser } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -30,8 +30,8 @@ import { AssetsTable } from "@/components/portfolio/assets-table";
 function PortfoliosWrapper({ user: targetUser }: { user: any }) {
   const portfoliosOptions = useMemo(() => ({
     table: 'portfolios',
-    filters: [{ column: 'user_id', operator: 'eq', value: targetUser.id }],
-    limit: 1,
+    filters: [{ column: 'user_id', operator: '==' as const, value: targetUser.id }],
+    limitCount: 1,
     enabled: !!targetUser,
   }), [targetUser]);
 
@@ -40,7 +40,7 @@ function PortfoliosWrapper({ user: targetUser }: { user: any }) {
 
   const assetsOptions = useMemo(() => ({
     table: 'assets',
-    filters: portfolio ? [{ column: 'portfolio_id', operator: 'eq', value: portfolio.id }] : [],
+    filters: portfolio ? [{ column: 'portfolio_id', operator: '==' as const, value: portfolio.id }] : [],
     enabled: !!targetUser && !!portfolio,
   }), [targetUser, portfolio]);
 

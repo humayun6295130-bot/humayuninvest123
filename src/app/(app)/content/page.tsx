@@ -1,6 +1,6 @@
 "use client";
 
-import { useRealtimeCollection } from "@/supabase";
+import { useRealtimeCollection } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +12,8 @@ import { useMemo } from "react";
 export default function ContentPage() {
   const publishedPostsOptions = useMemo(() => ({
     table: 'published_posts',
-    orderBy: { column: 'published_date', ascending: false },
-    limit: 10,
+    orderByColumn: { column: 'published_date', direction: 'desc' as const },
+    limitCount: 10,
     enabled: true,
   }), []);
 

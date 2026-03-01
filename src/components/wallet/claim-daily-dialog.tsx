@@ -13,45 +13,79 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Gift } from 'lucide-react';
-import { supabase } from '@/supabase/config';
+import { useFirebase, fetchRow, insertRow, incrementBalance } from '@/firebase';
 
 export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+    const { isConfigured } = useFirebase();
 
     const handleClaim = async () => {
         if (!userProfile?.id) return;
-        if (!supabase) {
+        if (!isConfigured) {
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: 'Supabase is not configured.',
+                description: 'Firebase is not configured.',
             });
             return;
         }
         setIsLoading(true);
 
         try {
-            const { data, error } = await supabase.rpc('process_daily_claim', {
-                user_id: userProfile.id,
-            });
+            // Check if user has already claimed today
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const claims = await fetchRow('daily_claims', `${userProfile.id}_${today}`);
 
-            if (error) throw error;
-
-            if (data && data.success) {
-                toast({
-                    title: 'Claim Successful!',
-                    description: data.message,
-                });
-                setOpen(false);
-            } else {
+            if (claims) {
                 toast({
                     variant: 'destructive',
-                    title: 'Claim Failed',
-                    description: data?.message || 'Could not process claim.',
+                    title: 'Already Claimed',
+                    description: 'You have already claimed your daily reward today. Come back tomorrow!',
                 });
+                setIsLoading(false);
+                return;
             }
+
+            const claimAmount = userProfile?.daily_claim_amount || 0;
+
+            if (claimAmount <= 0) {
+                toast({
+                    variant: 'destructive',
+                    title: 'No Claim Available',
+                    description: 'You do not have an active plan or a valid claim amount.',
+                });
+                setIsLoading(false);
+                return;
+            }
+
+            // Process the claim
+            await incrementBalance(userProfile.id, claimAmount);
+
+            // Record the claim
+            await insertRow('daily_claims', {
+                id: `${userProfile.id}_${today}`,
+                user_id: userProfile.id,
+                date: today,
+                amount: claimAmount,
+                claimed_at: new Date().toISOString(),
+            });
+
+            // Record transaction
+            await insertRow('transactions', {
+                user_id: userProfile.id,
+                type: 'daily_claim',
+                amount: claimAmount,
+                status: 'completed',
+                description: `Daily claim for ${today}`,
+            });
+
+            toast({
+                title: 'Claim Successful!',
+                description: `You have claimed $${claimAmount.toFixed(2)}. It has been added to your balance.`,
+            });
+            setOpen(false);
         } catch (error: any) {
             toast({
                 variant: 'destructive',

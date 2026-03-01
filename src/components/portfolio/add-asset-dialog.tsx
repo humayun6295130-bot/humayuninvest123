@@ -32,7 +32,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { PlusCircle } from "lucide-react";
-import { insertRow } from "@/supabase";
+import { insertRow } from "@/firebase";
 import { useState } from "react";
 
 const formSchema = z.object({

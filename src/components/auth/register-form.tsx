@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useSupabase, insertRow, fetchRows } from "@/supabase";
+import { useAuth, useFirebase, insertRow } from "@/firebase";
 import { useState } from "react";
 
 const formSchema = z.object({
@@ -30,7 +31,8 @@ const formSchema = z.object({
 export function RegisterForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const supabase = useSupabase();
+  const { isConfigured } = useFirebase();
+  const { signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -47,32 +49,22 @@ export function RegisterForm() {
     setIsLoading(true);
 
     try {
-      if (!supabase) {
-        throw new Error('Supabase is not configured. Please check your environment variables.');
+      if (!isConfigured) {
+        throw new Error('Firebase is not configured. Please check your environment variables.');
       }
 
       // Check if this user should be an admin based on their email
       const isAdmin = values.email.toLowerCase() === "humayunlbb@gmail.com";
 
-      // Create user with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
-        options: {
-          data: {
-            display_name: values.name,
-          },
-        },
-      });
+      // Create user with Firebase Auth
+      const userCredential = await signUp(values.email, values.password);
+      const user = userCredential.user;
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("User creation failed.");
-
-      const user = authData.user;
+      if (!user) throw new Error("User creation failed.");
 
       // Create user profile in database
       await insertRow("users", {
-        id: user.id,
+        id: user.uid,
         email: values.email,
         username: values.username,
         display_name: values.name,
@@ -86,13 +78,13 @@ export function RegisterForm() {
 
       // Create a default portfolio for the new user
       await insertRow("portfolios", {
-        user_id: user.id,
+        user_id: user.uid,
         name: "My First Portfolio",
       });
 
       if (isAdmin) {
         await insertRow("roles_admin", {
-          user_id: user.id,
+          user_id: user.uid,
           email: values.email,
           display_name: values.name,
         });

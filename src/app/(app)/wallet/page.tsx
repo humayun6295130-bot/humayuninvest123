@@ -11,7 +11,7 @@ import {
   Wallet as WalletIcon,
   ArrowDownUp,
 } from 'lucide-react';
-import { useUser, useRealtimeCollection } from '@/supabase';
+import { useUser, useRealtimeCollection } from '@/firebase';
 import {
   Table,
   TableBody,
@@ -32,8 +32,8 @@ export default function WalletPage() {
 
   const transactionsOptions = useMemo(() => ({
     table: 'transactions',
-    filters: user ? [{ column: 'user_id', operator: 'eq', value: user.id }] : [],
-    orderBy: { column: 'created_at', ascending: false },
+    filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
+    orderByColumn: { column: 'created_at', direction: 'desc' as const },
     enabled: !!user,
   }), [user]);
 

@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, insertRow } from "@/supabase";
+import { useUser, insertRow } from "@/firebase";
 import { slugify } from "@/lib/utils";
 import { useState } from "react";
 
@@ -59,7 +59,7 @@ export function CreatePostForm() {
                 title: values.title,
                 slug: slugify(values.title),
                 content_html: values.content,
-                author_id: user.id,
+                author_id: user.uid,
                 published_date: null,
                 status: 'draft',
                 summary: values.content.substring(0, 150),

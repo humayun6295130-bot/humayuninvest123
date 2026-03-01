@@ -1,6 +1,6 @@
 "use client";
 
-import { useUser } from "@/supabase";
+import { useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";

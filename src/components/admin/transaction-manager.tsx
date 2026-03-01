@@ -1,6 +1,6 @@
 "use client";
 
-import { useRealtimeCollection, updateRow, incrementBalance } from "@/supabase";
+import { useRealtimeCollection, updateRow, incrementBalance } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -24,9 +24,9 @@ export function TransactionManager() {
     const transactionsOptions = useMemo(() => ({
         table: 'transactions',
         filters: filterStatus !== "all"
-            ? [{ column: 'status', operator: 'eq', value: filterStatus }]
+            ? [{ column: 'status', operator: '==' as const, value: filterStatus }]
             : [],
-        orderBy: { column: 'created_at', ascending: false },
+        orderByColumn: { column: 'created_at', direction: 'desc' as const },
         enabled: true,
     }), [filterStatus]);
 

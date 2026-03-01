@@ -1,6 +1,6 @@
 
 "use client";
-import { useUser, useRealtimeCollection } from "@/supabase";
+import { useUser, useRealtimeCollection } from "@/firebase";
 
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart';
@@ -53,8 +53,8 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
 
     const portfoliosOptions = useMemo(() => ({
         table: 'portfolios',
-        filters: user ? [{ column: 'user_id', operator: 'eq', value: user.id }] : [],
-        limit: 1,
+        filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
+        limitCount: 1,
         enabled: !!user,
     }), [user]);
 
@@ -63,7 +63,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
 
     const assetsOptions = useMemo(() => ({
         table: 'assets',
-        filters: portfolio ? [{ column: 'portfolio_id', operator: 'eq', value: portfolio.id }] : [],
+        filters: portfolio ? [{ column: 'portfolio_id', operator: '==' as const, value: portfolio.id }] : [],
         enabled: !!user && !!portfolio,
     }), [user, portfolio]);
 
@@ -71,9 +71,9 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
 
     const transactionsOptions = useMemo(() => ({
         table: 'transactions',
-        filters: user ? [{ column: 'user_id', operator: 'eq', value: user.id }] : [],
-        orderBy: { column: 'created_at', ascending: false },
-        limit: 3,
+        filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
+        orderByColumn: { column: 'created_at', direction: 'desc' as const },
+        limitCount: 3,
         enabled: !!user,
     }), [user]);
 
