@@ -17,7 +17,8 @@ import {
     orderBy,
     limit,
     QueryConstraint,
-    getDoc
+    getDoc,
+    getDocs
 } from 'firebase/firestore';
 import { auth, db } from './config';
 import { useFirebaseContext } from './provider';
@@ -130,7 +131,26 @@ export function useRealtimeCollection<T = any>(
             ? query(collection(db, options.table), ...constraints)
             : query(collection(db, options.table));
 
-        // Set up real-time listener
+        // Fetch data immediately first (faster initial load)
+        const fetchData = async () => {
+            try {
+                const snapshot = await getDocs(q);
+                const items = snapshot.docs.map(doc => ({
+                    ...doc.data(),
+                    id: doc.id,
+                })) as T[];
+                setData(items);
+                setIsLoading(false);
+            } catch (err: any) {
+                console.error('Error fetching data:', err);
+                setError(err);
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+
+        // Set up real-time listener for updates
         const unsubscribe = onSnapshot(
             q,
             (snapshot) => {
@@ -142,8 +162,12 @@ export function useRealtimeCollection<T = any>(
                 setIsLoading(false);
             },
             (err) => {
-                setError(err);
-                setIsLoading(false);
+                console.error('Realtime error:', err);
+                // Don't set error if we already have data
+                if (!data) {
+                    setError(err);
+                    setIsLoading(false);
+                }
             }
         );
 
