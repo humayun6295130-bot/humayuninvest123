@@ -17,7 +17,7 @@ import {
   SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/layout/app-header";
-import { DollarSign, LayoutDashboard, Settings, Briefcase, Wallet, Newspaper, ShieldCheck } from "lucide-react";
+import { DollarSign, LayoutDashboard, Settings, Briefcase, Wallet, Newspaper, ShieldCheck, TrendingUp, History, Users, BadgeCheck, HelpCircle, Bell } from "lucide-react";
 import { useUser } from "@/firebase";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -88,10 +88,72 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/invest'} tooltip="Invest">
+                  <Link href="/invest">
+                    <TrendingUp />
+                    <span>Invest</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/earnings'} tooltip="Earnings">
+                  <Link href="/earnings">
+                    <DollarSign />
+                    <span>Earnings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/transactions'} tooltip="Transactions">
+                  <Link href="/transactions">
+                    <History />
+                    <span>Transactions</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/referrals'} tooltip="Referrals">
+                  <Link href="/referrals">
+                    <Users />
+                    <span>Referrals</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={pathname === '/content'} tooltip="Market Insights">
                   <Link href="/content">
                     <Newspaper />
                     <span>Market Insights</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel>Account</SidebarGroupLabel>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/kyc'} tooltip="KYC Verification">
+                  <Link href="/kyc">
+                    <BadgeCheck />
+                    <span>KYC Verification</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/support'} tooltip="Support">
+                  <Link href="/support">
+                    <HelpCircle />
+                    <span>Support</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/notifications'} tooltip="Notifications">
+                  <Link href="/notifications">
+                    <Bell />
+                    <span>Notifications</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -138,5 +200,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 function NoSsr({ children }: { children: React.ReactNode }) {
   const [isClient, setIsClient] = useState(false);
   useEffect(() => { setIsClient(true) }, []);
-  return isClient ? <>{children}</> : null;
+  if (!isClient) return null;
+  return <>{children}</>;
 }
