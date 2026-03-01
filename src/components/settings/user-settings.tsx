@@ -5,9 +5,12 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser, updateRow, upsertRow, deleteRow } from "@/firebase";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Copy, Check, Hash, Headphones, AlertCircle } from "lucide-react";
+import { formatSupportId } from "@/lib/support-id";
 
 export function UserSettings({ userProfile }: { userProfile: any }) {
   const { user } = useUser();
@@ -16,6 +19,28 @@ export function UserSettings({ userProfile }: { userProfile: any }) {
   const [displayName, setDisplayName] = useState(userProfile.display_name || "");
   const [bio, setBio] = useState(userProfile.bio || "");
   const [isSaving, setIsSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Handle copy support ID
+  const handleCopySupportId = async () => {
+    if (!userProfile.support_id) return;
+
+    try {
+      await navigator.clipboard.writeText(userProfile.support_id);
+      setCopied(true);
+      toast({
+        title: "Support ID Copied!",
+        description: "Support ID copied to clipboard. You can paste it when contacting support.",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Copy Failed",
+        description: "Failed to copy Support ID. Please copy manually.",
+      });
+    }
+  };
 
   const handleUpdateProfile = async () => {
     if (!user) return;
@@ -73,8 +98,73 @@ export function UserSettings({ userProfile }: { userProfile: any }) {
     setBio(userProfile.bio || "");
   }, [userProfile]);
 
+  const formattedSupportId = userProfile.support_id ? formatSupportId(userProfile.support_id) : "Not Available";
+
   return (
     <div className="space-y-8">
+      {/* Support Reference ID Card */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-full bg-primary/10">
+              <Headphones className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle>Support Reference ID</CardTitle>
+              <CardDescription>
+                Use this ID when contacting our support team for any issues
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-lg border bg-card">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="p-3 rounded-full bg-primary/10 shrink-0">
+                <Hash className="w-5 h-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-muted-foreground">Your Support ID</p>
+                <p className="text-2xl font-bold tracking-wider text-primary font-mono">
+                  {formattedSupportId}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Share this ID when contacting support
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopySupportId}
+              className="shrink-0"
+              disabled={!userProfile.support_id}
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy ID
+                </>
+              )}
+            </Button>
+          </div>
+
+          <div className="mt-4 flex items-start gap-2 text-sm text-muted-foreground">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-yellow-500" />
+            <p>
+              When you contact support for payment issues, technical problems, or account inquiries,
+              please provide this Support ID so we can quickly locate your account and assist you faster.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6">
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Profile Information</h3>

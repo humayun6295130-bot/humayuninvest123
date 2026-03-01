@@ -42,9 +42,22 @@ const formSchema = z.object({
     averageCost: z.coerce.number().positive("Price must be positive."),
 });
 
-export function AddAssetDialog({ portfolioId, userId }: { portfolioId: string, userId: string }) {
+export function AddAssetDialog({
+    portfolioId,
+    userId,
+    open,
+    onOpenChange
+}: {
+    portfolioId: string,
+    userId: string,
+    open?: boolean,
+    onOpenChange?: (open: boolean) => void
+}) {
     const { toast } = useToast();
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+
+    const isOpen = open !== undefined ? open : internalOpen;
+    const setIsOpen = onOpenChange || setInternalOpen;
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -83,7 +96,7 @@ export function AddAssetDialog({ portfolioId, userId }: { portfolioId: string, u
             });
 
             form.reset();
-            setOpen(false);
+            setIsOpen(false);
         } catch (err: any) {
             toast({
                 variant: "destructive",
@@ -94,7 +107,7 @@ export function AddAssetDialog({ portfolioId, userId }: { portfolioId: string, u
     }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
                 <Button>
                     <PlusCircle className="mr-2 h-4 w-4" />

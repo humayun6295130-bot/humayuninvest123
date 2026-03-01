@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, Pencil, UserCog, Briefcase, Ban, CheckCircle } from "lucide-react";
+import { Search, Pencil, UserCog, Briefcase, Ban, CheckCircle, Hash, Copy, Check } from "lucide-react";
+import { formatSupportId } from "@/lib/support-id";
 import {
   Dialog,
   DialogContent,
@@ -70,6 +71,7 @@ export function UserManager() {
   const [newBalance, setNewBalance] = useState<string>("");
   const [newClaimAmount, setNewClaimAmount] = useState<string>("");
   const [newPlan, setNewPlan] = useState<string>("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const usersOptions = useMemo(() => ({
     table: 'users',
@@ -79,9 +81,11 @@ export function UserManager() {
   const { data: users, isLoading } = useRealtimeCollection(usersOptions);
 
   const filteredUsers = users?.filter((u: any) => {
-    const matchesSearch = u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.username?.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = u.email?.toLowerCase().includes(searchLower) ||
+      u.display_name?.toLowerCase().includes(searchLower) ||
+      u.username?.toLowerCase().includes(searchLower) ||
+      u.support_id?.toString().includes(searchTerm); // Search by Support ID
 
     const matchesPlan = filterRole === "all" || u.active_plan === filterRole;
 
@@ -147,8 +151,8 @@ export function UserManager() {
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search users..."
-                  className="pl-8 w-full sm:w-[250px]"
+                  placeholder="Search by name, email, or Support ID..."
+                  className="pl-8 w-full sm:w-[280px]"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -173,6 +177,7 @@ export function UserManager() {
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
+                <TableHead>Support ID</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Plan</TableHead>
@@ -183,7 +188,7 @@ export function UserManager() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading users...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="h-24 text-center">Loading users...</TableCell></TableRow>
               ) : filteredUsers && filteredUsers.length > 0 ? (
                 filteredUsers.map((user: any) => (
                   <TableRow key={user.id} className={user.status === 'suspended' ? "opacity-50 grayscale" : ""}>
@@ -198,6 +203,33 @@ export function UserManager() {
                           <div className="text-xs text-muted-foreground">{user.email}</div>
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {user.support_id ? (
+                        <div className="flex items-center gap-2">
+                          <code className="px-2 py-1 bg-primary/10 rounded text-xs font-mono font-semibold text-primary">
+                            {formatSupportId(user.support_id)}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(user.support_id);
+                              setCopiedId(user.id);
+                              setTimeout(() => setCopiedId(null), 2000);
+                            }}
+                          >
+                            {copiedId === user.id ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">No ID</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={user.status === 'suspended' ? 'destructive' : 'default'} className="text-[10px]">
@@ -250,7 +282,7 @@ export function UserManager() {
                   </TableRow>
                 ))
               ) : (
-                <TableRow><TableCell colSpan={6} className="h-24 text-center">No users found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="h-24 text-center">No users found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -266,6 +298,35 @@ export function UserManager() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {/* Support ID Display */}
+              {editingUser?.support_id && (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <label className="text-sm font-medium text-primary flex items-center gap-2">
+                    <Hash className="w-4 h-4" />
+                    Support ID
+                  </label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="text-lg font-mono font-bold text-primary">
+                      {formatSupportId(editingUser.support_id)}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(editingUser.support_id);
+                        toast({ title: "Copied", description: "Support ID copied to clipboard" });
+                      }}
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    User provides this ID when contacting support
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Account Balance (USD)</label>
                 <Input

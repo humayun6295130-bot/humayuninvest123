@@ -115,55 +115,57 @@ export default function WalletPage() {
               A record of your recent account activity.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions && transactions.length > 0 ? (
-                  transactions.map((tx: any) => (
-                    <TableRow key={tx.id}>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {tx.created_at ? format(new Date(tx.created_at), 'PPpp') : ''}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={getTransactionTypeBadgeVariant(tx.type) as any}
-                          className="capitalize"
-                        >
-                          {tx.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{tx.description || 'N/A'}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={getStatusBadgeVariant(tx.status) as any}
-                          className="capitalize"
-                        >
-                          {tx.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(tx.amount)}
+          <CardContent className="p-0 sm:p-6">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions && transactions.length > 0 ? (
+                    transactions.map((tx: any) => (
+                      <TableRow key={tx.id}>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {tx.created_at ? format(new Date(tx.created_at), 'PPpp') : ''}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={getTransactionTypeBadgeVariant(tx.type) as any}
+                            className="capitalize"
+                          >
+                            {tx.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{tx.description || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={getStatusBadgeVariant(tx.status) as any}
+                            className="capitalize"
+                          >
+                            {tx.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(tx.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center">
+                        No transactions yet.
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
-                      No transactions yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -20,6 +20,38 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useFirebase, insertRow } from "@/firebase";
 import { useState } from "react";
+import { generateSupportId } from "@/lib/support-id";
+import { query, collection, where, getDocs } from "firebase/firestore";
+import { db } from "@/firebase/config";
+
+// Function to generate unique support ID
+async function generateUniqueSupportId(): Promise<string> {
+  if (!db) throw new Error("Firebase not configured");
+
+  let supportId = generateSupportId();
+  let isUnique = false;
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  while (!isUnique && attempts < maxAttempts) {
+    // Check if this ID already exists
+    const q = query(
+      collection(db, "users"),
+      where("support_id", "==", supportId)
+    );
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      isUnique = true;
+    } else {
+      // Generate new ID if exists
+      supportId = generateSupportId();
+      attempts++;
+    }
+  }
+
+  return supportId;
+}
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -62,6 +94,9 @@ export function RegisterForm() {
 
       if (!user) throw new Error("User creation failed.");
 
+      // Generate unique support ID for this user
+      const supportId = await generateUniqueSupportId();
+
       // Create user profile in database
       await insertRow("users", {
         id: user.uid,
@@ -74,6 +109,7 @@ export function RegisterForm() {
         balance: 0,
         role: isAdmin ? "admin" : "user",
         currency_preference: "USD",
+        support_id: supportId, // Unique support reference number
       });
 
       // Create a default portfolio for the new user

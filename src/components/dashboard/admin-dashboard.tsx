@@ -7,13 +7,17 @@ import { TransactionManager } from "@/components/admin/transaction-manager";
 import { PlanManager } from "@/components/admin/plan-manager";
 import { KYCManager } from "@/components/admin/kyc-manager";
 import { SupportManager } from "@/components/admin/support-manager";
+import { ReferralManager } from "@/components/admin/referral-manager";
+import { InvestmentApproval } from "@/components/admin/investment-approval";
 import {
   LayoutDashboard,
   Users,
   ArrowDownUp,
   TrendingUp,
   ShieldCheck,
-  Headphones
+  Headphones,
+  Gift,
+  Wallet
 } from "lucide-react";
 
 export function AdminDashboard() {
@@ -25,7 +29,7 @@ export function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 lg:w-auto">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 lg:w-auto">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -41,6 +45,14 @@ export function AdminDashboard() {
           <TabsTrigger value="plans" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             <span className="hidden sm:inline">Plans</span>
+          </TabsTrigger>
+          <TabsTrigger value="investments" className="flex items-center gap-2">
+            <Wallet className="h-4 w-4" />
+            <span className="hidden sm:inline">Investments</span>
+          </TabsTrigger>
+          <TabsTrigger value="referrals" className="flex items-center gap-2">
+            <Gift className="h-4 w-4" />
+            <span className="hidden sm:inline">Referrals</span>
           </TabsTrigger>
           <TabsTrigger value="kyc" className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4" />
@@ -74,6 +86,14 @@ export function AdminDashboard() {
 
         <TabsContent value="support">
           <SupportManager />
+        </TabsContent>
+
+        <TabsContent value="investments">
+          <InvestmentApproval />
+        </TabsContent>
+
+        <TabsContent value="referrals">
+          <ReferralManager />
         </TabsContent>
       </Tabs>
     </div>
