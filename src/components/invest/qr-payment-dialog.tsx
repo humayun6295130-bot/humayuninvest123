@@ -142,16 +142,16 @@ export function QrPaymentDialog({
             return;
         }
 
-        if (!screenshot) {
-            toast({ variant: "destructive", title: "Screenshot Required", description: "Please upload a screenshot of your payment as proof" });
-            return;
-        }
+        // Screenshot is optional - only Transaction ID is mandatory
 
         setIsSubmitting(true);
         try {
-            // Upload screenshot first
-            toast({ title: "Uploading proof...", description: "Please wait while we upload your screenshot" });
-            const screenshotUrl = await uploadScreenshot();
+            // Upload screenshot if provided (optional)
+            let screenshotUrl = null;
+            if (screenshot) {
+                toast({ title: "Uploading proof...", description: "Please wait while we upload your screenshot" });
+                screenshotUrl = await uploadScreenshot();
+            }
 
             // Create pending investment record
             await insertRow('pending_investments', {
@@ -296,7 +296,7 @@ export function QrPaymentDialog({
                         <CardContent className="p-4 space-y-4">
                             <h4 className="font-medium flex items-center gap-2 text-sm">
                                 <Upload className="h-4 w-4 text-yellow-600" />
-                                Payment Proof (Required)
+                                Payment Proof
                             </h4>
 
                             {/* Transaction ID */}
@@ -316,10 +316,10 @@ export function QrPaymentDialog({
                                 </p>
                             </div>
 
-                            {/* Screenshot Upload */}
+                            {/* Screenshot Upload - Optional */}
                             <div className="space-y-2">
                                 <Label className="text-sm">
-                                    Screenshot Proof <span className="text-red-500">*</span>
+                                    Screenshot Proof <span className="text-muted-foreground">(Optional)</span>
                                 </Label>
 
                                 {!screenshotPreview ? (
@@ -328,7 +328,7 @@ export function QrPaymentDialog({
                                         onClick={() => fileInputRef.current?.click()}
                                     >
                                         <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                                        <p className="text-sm text-muted-foreground">Click to upload screenshot</p>
+                                        <p className="text-sm text-muted-foreground">Click to upload screenshot (Optional)</p>
                                         <p className="text-xs text-muted-foreground mt-1">PNG, JPG up to 5MB</p>
                                     </div>
                                 ) : (

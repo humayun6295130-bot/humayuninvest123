@@ -1,6 +1,6 @@
 "use client";
 
-import { useRealtimeCollection, updateRow, useUser } from "@/firebase";
+import { useRealtimeCollection, updateRow, deleteRow, useUser } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, Pencil, UserCog, Briefcase, Ban, CheckCircle, Hash, Copy, Check } from "lucide-react";
+import { Search, Pencil, UserCog, Briefcase, Ban, CheckCircle, Hash, Copy, Check, Trash2 } from "lucide-react";
 import { formatSupportId } from "@/lib/support-id";
 import {
   Dialog,
@@ -133,6 +133,18 @@ export function UserManager() {
     try {
       await updateRow("users", user.id, { role: newRole });
       toast({ title: "Role Updated", description: `${user.display_name} is now an ${newRole}.` });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    }
+  };
+
+  const handleDeleteUser = async (user: any) => {
+    if (!confirm(`Are you sure you want to delete ${user.display_name}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await deleteRow("users", user.id);
+      toast({ title: "User Deleted", description: `${user.display_name} has been permanently deleted.` });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error", description: e.message });
     }
@@ -276,6 +288,9 @@ export function UserManager() {
                         </Button>
                         <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Toggle Admin Role" onClick={() => handleToggleRole(user)}>
                           <UserCog className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-700" title="Delete User" onClick={() => handleDeleteUser(user)}>
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
