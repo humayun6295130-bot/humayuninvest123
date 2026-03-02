@@ -4,7 +4,8 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Upload, Copy, X, ImageIcon, Download } from "lucide-react";
+import { Upload, Copy, X, ImageIcon, Download, QrCode } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,7 +37,7 @@ const formSchema = z.object({
 
 export default function DepositDialog({ userProfile }: { userProfile: any }) {
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, isUserLoading, isProfileLoading } = useUser();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -67,23 +68,35 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!user || !userProfile) {
-      toast({ variant: "destructive", title: "Error", description: "User not authenticated." });
+    // Wait for auth to finish loading
+    if (isUserLoading || isProfileLoading) {
+      toast({ variant: "destructive", title: "Please wait", description: "Authentication is loading..." });
       return;
     }
+
+    if (!user) {
+      toast({ variant: "destructive", title: "Error", description: "User not authenticated. Please log in again." });
+      return;
+    }
+
+    // Use userProfile from props or fallback to user data
+    const profile = userProfile || {
+      display_name: user.displayName || user.email?.split('@')[0] || 'User',
+      email: user.email
+    };
 
     setIsLoading(true);
 
     try {
       let proofUrl = "";
       if (selectedFile) {
-        proofUrl = await uploadFile(selectedFile, user.id);
+        proofUrl = await uploadFile(selectedFile, user.uid);
       }
 
       await insertRow("transactions", {
-        user_id: user.id,
-        user_display_name: userProfile.display_name,
-        user_email: userProfile.email,
+        user_id: user.uid,
+        user_display_name: profile.display_name,
+        user_email: profile.email,
         type: "deposit",
         amount: values.amount,
         currency: "USD",
@@ -137,6 +150,24 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+
+          {/* QR Code Section */}
+          <div className="p-4 bg-white rounded-xl border border-gray-200 flex flex-col items-center">
+            <p className="text-xs font-semibold text-gray-500 uppercase mb-3">Scan QR Code to Pay</p>
+            <div className="bg-white p-3 rounded-lg border-2 border-dashed border-gray-200">
+              <Image
+                src="/qr-code.png"
+                alt="Payment QR Code"
+                width={200}
+                height={200}
+                className="rounded-lg"
+                priority
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-2 text-center">
+              Scan this QR code with your crypto wallet app
+            </p>
           </div>
 
           <Form {...form}>

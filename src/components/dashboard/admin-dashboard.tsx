@@ -2,13 +2,14 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminOverview } from "@/components/admin/admin-overview";
-import { UserManager } from "@/components/admin/user-manager";
+import { UserControlPanel } from "@/components/admin/user-control-panel";
 import { TransactionManager } from "@/components/admin/transaction-manager";
 import { PlanManager } from "@/components/admin/plan-manager";
 import { KYCManager } from "@/components/admin/kyc-manager";
 import { SupportManager } from "@/components/admin/support-manager";
 import { ReferralManager } from "@/components/admin/referral-manager";
 import { InvestmentApproval } from "@/components/admin/investment-approval";
+import { PaymentVerificationManager } from "@/components/admin/payment-verification-manager";
 import {
   LayoutDashboard,
   Users,
@@ -17,7 +18,9 @@ import {
   ShieldCheck,
   Headphones,
   Gift,
-  Wallet
+  Wallet,
+  UserCog,
+  Shield
 } from "lucide-react";
 
 export function AdminDashboard() {
@@ -29,14 +32,18 @@ export function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 lg:w-auto">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-10 lg:w-auto">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Users</span>
+            <UserCog className="h-4 w-4" />
+            <span className="hidden sm:inline">User Control</span>
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Verifications</span>
           </TabsTrigger>
           <TabsTrigger value="transactions" className="flex items-center gap-2">
             <ArrowDownUp className="h-4 w-4" />
@@ -69,7 +76,11 @@ export function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="users">
-          <UserManager />
+          <UserControlPanel />
+        </TabsContent>
+
+        <TabsContent value="payments">
+          <PaymentVerificationManager />
         </TabsContent>
 
         <TabsContent value="transactions">

@@ -260,15 +260,16 @@ export function QrPaymentDialog({
 
                         <div className="flex justify-center">
                             <div className="bg-white p-4 rounded-xl border-2 border-dashed">
-                                {/* QR Code Placeholder */}
-                                <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center relative overflow-hidden">
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <QrCode className="w-32 h-32 text-foreground opacity-20" />
-                                    </div>
-                                    <div className="text-center z-10">
-                                        <p className="text-xs text-muted-foreground">QR Code</p>
-                                        <p className="text-[10px] text-muted-foreground">Replace with actual image</p>
-                                    </div>
+                                {/* QR Code Image */}
+                                <div className="w-48 h-48 rounded-lg flex items-center justify-center relative overflow-hidden">
+                                    <Image
+                                        src="/qr-code.png"
+                                        alt="Payment QR Code"
+                                        width={192}
+                                        height={192}
+                                        className="rounded-lg"
+                                        priority
+                                    />
                                 </div>
                             </div>
                         </div>

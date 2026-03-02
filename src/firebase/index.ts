@@ -7,6 +7,7 @@ export {
     useAuth,
     useRealtimeCollection,
     useRealtimeRow,
+    useDashboardData,
 } from './hooks';
 export {
     insertRow,

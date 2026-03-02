@@ -1,6 +1,6 @@
 
 "use client";
-import { useUser, useRealtimeCollection } from "@/firebase";
+import { useUser, useDashboardData } from "@/firebase";
 
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart';
@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { CheckCircle, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { EarningCounter } from '@/components/invest/EarningCounter';
-import { useMemo } from "react";
 
 const plans = [
     {
@@ -51,35 +50,9 @@ const plans = [
 export function UserDashboard({ userProfile }: { userProfile: any }) {
     const { user } = useUser();
 
-    const portfoliosOptions = useMemo(() => ({
-        table: 'portfolios',
-        filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        limitCount: 1,
-        enabled: !!user,
-    }), [user]);
-
-    const { data: portfolios, isLoading: isPortfoliosLoading } = useRealtimeCollection(portfoliosOptions);
-    const portfolio = portfolios?.[0];
-
-    const assetsOptions = useMemo(() => ({
-        table: 'assets',
-        filters: portfolio ? [{ column: 'portfolio_id', operator: '==' as const, value: portfolio.id }] : [],
-        enabled: !!user && !!portfolio,
-    }), [user, portfolio]);
-
-    const { data: assets, isLoading: isAssetsLoading } = useRealtimeCollection(assetsOptions);
-
-    const transactionsOptions = useMemo(() => ({
-        table: 'transactions',
-        filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'created_at', direction: 'desc' as const },
-        limitCount: 3,
-        enabled: !!user,
-    }), [user]);
-
-    const { data: recentTransactions } = useRealtimeCollection(transactionsOptions);
-
-    const isLoading = isPortfoliosLoading || (!!portfolio && isAssetsLoading);
+    // Use optimized dashboard data hook - fetches all data in parallel
+    const { data: dashboardData, isLoading } = useDashboardData(user?.uid);
+    const { portfolio, assets, transactions } = dashboardData;
 
     return (
         <div className="space-y-8">
@@ -100,7 +73,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                 </div>
                 <div className="lg:col-span-1 space-y-6">
                     <AssetAllocation assets={assets || []} />
-                    <RecentTransactionsSmall transactions={recentTransactions || []} />
+                    <RecentTransactionsSmall transactions={transactions || []} />
                     <TopHoldings assets={assets || []} />
                 </div>
             </div>

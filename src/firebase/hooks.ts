@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     onAuthStateChanged,
     signInWithEmailAndPassword,
@@ -65,6 +65,186 @@ async function firebaseSignOut(auth: any) {
     return signOut(auth);
 }
 
+// ─── Optimized Dashboard Data Hook ─────────────────────
+
+interface DashboardData {
+    portfolio: any | null;
+    assets: any[];
+    transactions: any[];
+}
+
+interface UseDashboardDataResult {
+    data: DashboardData;
+    isLoading: boolean;
+    error: Error | null;
+}
+
+export function useDashboardData(userId: string | undefined): UseDashboardDataResult {
+    const [data, setData] = useState<DashboardData>({
+        portfolio: null,
+        assets: [],
+        transactions: []
+    });
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const dataCache = useRef<DashboardData | null>(null);
+    const unsubscribers = useRef<(() => void)[]>([]);
+
+    useEffect(() => {
+        // Clear previous unsubscribers
+        unsubscribers.current.forEach(unsub => unsub());
+        unsubscribers.current = [];
+
+        if (!userId || !db) {
+            setData({ portfolio: null, assets: [], transactions: [] });
+            setIsLoading(false);
+            return;
+        }
+
+        // Use cached data immediately if available (stale-while-revalidate)
+        if (dataCache.current) {
+            setData(dataCache.current);
+            setIsLoading(false);
+        } else {
+            setIsLoading(true);
+        }
+
+        setError(null);
+
+        const firestoreDb = db; // Type guard - we know db is not null here
+
+        // Parallel data fetching for faster initial load
+        const fetchAllData = async () => {
+            try {
+                // Fetch portfolio and transactions in parallel
+                const portfolioQuery = query(
+                    collection(firestoreDb, 'portfolios'),
+                    where('user_id', '==' as const, userId),
+                    limit(1)
+                );
+                const transactionsQuery = query(
+                    collection(firestoreDb, 'transactions'),
+                    where('user_id', '==' as const, userId),
+                    orderBy('created_at', 'desc'),
+                    limit(3)
+                );
+
+                const [portfolioSnapshot, transactionsSnapshot] = await Promise.all([
+                    getDocs(portfolioQuery),
+                    getDocs(transactionsQuery)
+                ]);
+
+                const portfolio = portfolioSnapshot.docs[0]
+                    ? { ...portfolioSnapshot.docs[0].data(), id: portfolioSnapshot.docs[0].id }
+                    : null;
+
+                const transactions = transactionsSnapshot.docs.map(doc => ({
+                    ...doc.data(),
+                    id: doc.id
+                }));
+
+                // Fetch assets if portfolio exists
+                let assets: any[] = [];
+                if (portfolio) {
+                    const assetsQuery = query(
+                        collection(firestoreDb, 'assets'),
+                        where('portfolio_id', '==' as const, portfolio.id)
+                    );
+                    const assetsSnapshot = await getDocs(assetsQuery);
+                    assets = assetsSnapshot.docs.map(doc => ({
+                        ...doc.data(),
+                        id: doc.id
+                    }));
+                }
+
+                const newData = { portfolio, assets, transactions };
+                dataCache.current = newData;
+                setData(newData);
+                setIsLoading(false);
+
+                // Set up real-time listeners after initial fetch
+                setupRealtimeListeners(firestoreDb, userId, portfolio?.id);
+
+            } catch (err: any) {
+                console.error('Error fetching dashboard data:', err);
+                setError(err);
+                setIsLoading(false);
+            }
+        };
+
+        const setupRealtimeListeners = (firestoreDb: any, uid: string, portfolioId?: string) => {
+            // Portfolio listener
+            const portfolioQuery = query(
+                collection(firestoreDb, 'portfolios'),
+                where('user_id', '==' as const, uid),
+                limit(1)
+            );
+
+            const portfolioUnsub = onSnapshot(portfolioQuery, (snapshot: any) => {
+                const portfolio = snapshot.docs[0]
+                    ? { ...snapshot.docs[0].data(), id: snapshot.docs[0].id }
+                    : null;
+
+                setData(prev => {
+                    const updated = { ...prev, portfolio };
+                    dataCache.current = updated;
+                    return updated;
+                });
+            });
+            unsubscribers.current.push(portfolioUnsub);
+
+            // Assets listener (if portfolio exists)
+            if (portfolioId) {
+                const assetsQuery = query(
+                    collection(firestoreDb, 'assets'),
+                    where('portfolio_id', '==' as const, portfolioId)
+                );
+                const assetsUnsub = onSnapshot(assetsQuery, (snapshot: any) => {
+                    const assets = snapshot.docs.map((doc: any) => ({
+                        ...doc.data(),
+                        id: doc.id
+                    }));
+                    setData(prev => {
+                        const updated = { ...prev, assets };
+                        dataCache.current = updated;
+                        return updated;
+                    });
+                });
+                unsubscribers.current.push(assetsUnsub);
+            }
+
+            // Transactions listener
+            const transactionsQuery = query(
+                collection(firestoreDb, 'transactions'),
+                where('user_id', '==' as const, uid),
+                orderBy('created_at', 'desc'),
+                limit(3)
+            );
+            const transactionsUnsub = onSnapshot(transactionsQuery, (snapshot: any) => {
+                const transactions = snapshot.docs.map((doc: any) => ({
+                    ...doc.data(),
+                    id: doc.id
+                }));
+                setData(prev => {
+                    const updated = { ...prev, transactions };
+                    dataCache.current = updated;
+                    return updated;
+                });
+            });
+            unsubscribers.current.push(transactionsUnsub);
+        };
+
+        fetchAllData();
+
+        return () => {
+            unsubscribers.current.forEach(unsub => unsub());
+            unsubscribers.current = [];
+        };
+    }, [userId]);
+
+    return { data, isLoading, error };
+}
+
 // ─── Real-time Collection Hook ─────────────────────────
 
 interface UseRealtimeCollectionOptions {
@@ -87,6 +267,7 @@ export function useRealtimeCollection<T = any>(
     const [data, setData] = useState<T[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+    const hasInitialData = useRef(false);
 
     const optionsKey = useMemo(
         () => JSON.stringify(options),
@@ -98,6 +279,7 @@ export function useRealtimeCollection<T = any>(
             setData(null);
             setIsLoading(false);
             setError(null);
+            hasInitialData.current = false;
             return;
         }
 
@@ -107,7 +289,10 @@ export function useRealtimeCollection<T = any>(
             return;
         }
 
-        setIsLoading(true);
+        // Only show loading if we don't have data yet
+        if (!hasInitialData.current) {
+            setIsLoading(true);
+        }
         setError(null);
 
         // Build query constraints
@@ -115,7 +300,7 @@ export function useRealtimeCollection<T = any>(
 
         if (options.filters) {
             for (const filter of options.filters) {
-                constraints.push(where(filter.column, filter.operator, filter.value));
+                constraints.push(where(filter.column, filter.operator as any, filter.value));
             }
         }
 
@@ -141,6 +326,7 @@ export function useRealtimeCollection<T = any>(
                 })) as T[];
                 setData(items);
                 setIsLoading(false);
+                hasInitialData.current = true;
             } catch (err: any) {
                 console.error('Error fetching data:', err);
                 setError(err);
@@ -160,6 +346,7 @@ export function useRealtimeCollection<T = any>(
                 })) as T[];
                 setData(items);
                 setIsLoading(false);
+                hasInitialData.current = true;
             },
             (err) => {
                 console.error('Realtime error:', err);
@@ -198,16 +385,10 @@ export function useRealtimeRow<T = any>(
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
-        if (!options.id) {
+        if (!options.id || !db) {
             setData(null);
             setIsLoading(false);
             setError(null);
-            return;
-        }
-
-        if (!db) {
-            setError(new Error('Firebase not configured'));
-            setIsLoading(false);
             return;
         }
 
@@ -215,6 +396,25 @@ export function useRealtimeRow<T = any>(
         setError(null);
 
         const docRef = doc(db, options.table, options.id);
+
+        // Fetch immediately first
+        const fetchData = async () => {
+            try {
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    setData({ ...docSnap.data(), id: docSnap.id } as T);
+                } else {
+                    setData(null);
+                }
+                setIsLoading(false);
+            } catch (err: any) {
+                console.error('Error fetching row:', err);
+                setError(err);
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
 
         // Set up real-time listener
         const unsubscribe = onSnapshot(
@@ -228,6 +428,7 @@ export function useRealtimeRow<T = any>(
                 setIsLoading(false);
             },
             (err) => {
+                console.error('Realtime row error:', err);
                 setError(err);
                 setIsLoading(false);
             }

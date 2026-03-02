@@ -17,7 +17,8 @@ export default function DashboardPage() {
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || isProfileLoading || !userProfile) {
+  // Show loading only on initial auth check
+  if (isUserLoading) {
     return (
       <div className="flex h-[80vh] w-full items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -26,6 +27,26 @@ export default function DashboardPage() {
         </div>
       </div>
     );
+  }
+
+  // Don't wait for profile loading - let UserDashboard handle data fetching
+  // This allows the dashboard to render immediately and show skeleton loaders
+  if (!userProfile) {
+    return (
+      <div className="flex h-[80vh] w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <DollarSign className="h-12 w-12 animate-pulse text-primary" />
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if admin
+  const isAdmin = userProfile?.role === 'admin';
+
+  if (isAdmin) {
+    return <AdminDashboard />;
   }
 
   return <UserDashboard userProfile={userProfile} />;
