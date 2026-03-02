@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Upload, Copy, X, ImageIcon, Download, QrCode } from "lucide-react";
+import { Upload, Copy, X, ImageIcon, Download, QrCode as QrCodeIcon } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +41,7 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [qrError, setQrError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -156,14 +157,25 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
           <div className="p-4 bg-white rounded-xl border border-gray-200 flex flex-col items-center">
             <p className="text-xs font-semibold text-gray-500 uppercase mb-3">Scan QR Code to Pay</p>
             <div className="bg-white p-3 rounded-lg border-2 border-dashed border-gray-200">
-              <Image
-                src="/qr-code.png"
-                alt="Payment QR Code"
-                width={200}
-                height={200}
-                className="rounded-lg"
-                priority
-              />
+              {!qrError ? (
+                <Image
+                  src="/qr-code.png"
+                  alt="Payment QR Code"
+                  width={200}
+                  height={200}
+                  className="rounded-lg"
+                  priority
+                  onError={() => setQrError(true)}
+                />
+              ) : (
+                <div className="w-[200px] h-[200px] flex flex-col items-center justify-center bg-gray-50 rounded-lg">
+                  <QrCodeIcon className="w-16 h-16 text-gray-300 mb-2" />
+                  <p className="text-xs text-gray-400 text-center px-4">
+                    QR Code not found.<br />
+                    Please contact support.
+                  </p>
+                </div>
+              )}
             </div>
             <p className="text-xs text-gray-400 mt-2 text-center">
               Scan this QR code with your crypto wallet app

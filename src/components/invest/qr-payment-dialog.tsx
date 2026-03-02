@@ -269,6 +269,20 @@ export function QrPaymentDialog({
                                         height={192}
                                         className="rounded-lg"
                                         priority
+                                        onError={(e) => {
+                                            // If image fails to load, show placeholder
+                                            const target = e.target as HTMLImageElement;
+                                            target.style.display = 'none';
+                                            const parent = target.parentElement;
+                                            if (parent) {
+                                                parent.innerHTML = `
+                                                    <div class="flex flex-col items-center justify-center w-full h-full bg-gray-50">
+                                                        <svg class="w-16 h-16 text-gray-300 mb-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                                                        <p class="text-xs text-gray-400 text-center">QR Code not found</p>
+                                                    </div>
+                                                `;
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>
