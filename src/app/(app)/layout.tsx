@@ -17,7 +17,7 @@ import {
   SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/layout/app-header";
-import { DollarSign, LayoutDashboard, Settings, Briefcase, Wallet, Newspaper, ShieldCheck, TrendingUp, History, Users, BadgeCheck, HelpCircle, Bell } from "lucide-react";
+import { DollarSign, LayoutDashboard, Settings, Briefcase, Wallet, Newspaper, ShieldCheck, TrendingUp, History, Users, BadgeCheck, HelpCircle, Bell, User } from "lucide-react";
 import { useUser, useAuth } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut } from "lucide-react";
@@ -149,6 +149,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarGroup>
             <SidebarGroupLabel>Account</SidebarGroupLabel>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/profile'} tooltip="My Profile">
+                  <Link href="/profile">
+                    <User />
+                    <span>My Profile</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={pathname === '/kyc'} tooltip="KYC Verification">
                   <Link href="/kyc">

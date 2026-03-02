@@ -10,7 +10,7 @@ import { Watchlist } from '@/components/dashboard/watchlist';
 import { RecentTransactionsSmall } from '@/components/dashboard/recent-transactions-small';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, TrendingUp } from "lucide-react";
+import { CheckCircle, TrendingUp, DollarSign } from "lucide-react";
 import Link from "next/link";
 import { EarningCounter } from '@/components/invest/EarningCounter';
 
@@ -48,14 +48,31 @@ const plans = [
 ];
 
 export function UserDashboard({ userProfile }: { userProfile: any }) {
-    const { user } = useUser();
+    const { user, isUserLoading } = useUser();
 
     // Use optimized dashboard data hook - fetches all data in parallel
-    const { data: dashboardData, isLoading } = useDashboardData(user?.uid);
+    const { data: dashboardData, isLoading: isDashboardLoading } = useDashboardData(user?.uid);
     const { portfolio, assets, transactions } = dashboardData;
 
+    // Show main loading only when user is loading
+    if (isUserLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 h-12 w-12 animate-ping rounded-full bg-primary/20" />
+                        <DollarSign className="relative h-12 w-12 animate-pulse text-primary" />
+                    </div>
+                    <p className="text-muted-foreground animate-pulse">Loading your dashboard...</p>
+                </div>
+            </div>
+        );
+    }
+
+    const isLoading = isDashboardLoading;
+
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 animate-in fade-in duration-500">
             {isLoading ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <Card><CardHeader><CardTitle>Total Portfolio Value</CardTitle></CardHeader><CardContent><div className="h-8 w-24 animate-pulse rounded-md bg-muted" /></CardContent></Card>
