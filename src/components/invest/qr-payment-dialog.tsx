@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Note: Tabs removed - USDT TRC-20 is the only payment method
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -52,7 +52,19 @@ interface QrPaymentDialogProps {
     userEmail?: string;
 }
 
-const WALLET_ADDRESS = "0x362A4533B0E745d339ff4fdb98E96BDb838FAa85";
+// TRON TRC-20 USDT Wallet Address
+const WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS;
+
+// Validate wallet address is configured
+if (!WALLET_ADDRESS) {
+    console.error('[QR Payment] NEXT_PUBLIC_ADMIN_WALLET_ADDRESS is not configured');
+}
+
+// QR Code Generation URL (using QRServer API)
+const generateQRCodeURL = (address: string, amount: number) => {
+    const paymentData = `tron://transfer?to=${address}&amount=${amount}&token=USDT`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(paymentData)}`;
+};
 
 export function QrPaymentDialog({
     open,
@@ -64,7 +76,6 @@ export function QrPaymentDialog({
     const { toast } = useToast();
     const [copied, setCopied] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<'eth' | 'usdt'>('usdt');
     const [transactionId, setTransactionId] = useState("");
     const [screenshot, setScreenshot] = useState<File | null>(null);
     const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
@@ -75,6 +86,10 @@ export function QrPaymentDialog({
     const expectedReturn = plan?.total_return || investmentAmount * 2;
 
     const copyWalletAddress = () => {
+        if (!WALLET_ADDRESS) {
+            toast({ title: "Error", description: "Wallet address not configured", variant: "destructive" });
+            return;
+        }
         navigator.clipboard.writeText(WALLET_ADDRESS);
         setCopied(true);
         toast({ title: "Copied!", description: "Wallet address copied to clipboard" });
@@ -163,7 +178,7 @@ export function QrPaymentDialog({
                 expected_return: expectedReturn,
                 wallet_address: WALLET_ADDRESS,
                 status: 'pending_payment_confirmation',
-                payment_method: paymentMethod,
+                payment_method: 'usdt_trc20',
                 transaction_id: transactionId.trim(),
                 proof_image_url: screenshotUrl,
                 created_at: new Date().toISOString(),
@@ -224,29 +239,13 @@ export function QrPaymentDialog({
                         </CardContent>
                     </Card>
 
-                    {/* Payment Method Tabs */}
-                    <Tabs value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as 'eth' | 'usdt')}>
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="usdt">USDT (TRC20)</TabsTrigger>
-                            <TabsTrigger value="eth">ETH / BNB</TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="usdt" className="space-y-4">
-                            <div className="text-center p-4 bg-blue-500/5 rounded-lg">
-                                <p className="text-sm text-muted-foreground mb-1">Send Exactly</p>
-                                <p className="text-2xl font-bold text-blue-600">{investmentAmount} USDT</p>
-                                <p className="text-xs text-muted-foreground mt-1">Network: TRC20 (Tron)</p>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="eth" className="space-y-4">
-                            <div className="text-center p-4 bg-purple-500/5 rounded-lg">
-                                <p className="text-sm text-muted-foreground mb-1">Send Equivalent of</p>
-                                <p className="text-2xl font-bold text-purple-600">${investmentAmount}</p>
-                                <p className="text-xs text-muted-foreground mt-1">In ETH or BNB</p>
-                            </div>
-                        </TabsContent>
-                    </Tabs>
+                    {/* Payment Info */}
+                    <div className="text-center p-4 bg-blue-500/5 rounded-lg border border-blue-200">
+                        <p className="text-sm text-muted-foreground mb-1">Send Exactly</p>
+                        <p className="text-2xl font-bold text-blue-600">{investmentAmount} USDT</p>
+                        <p className="text-xs text-muted-foreground mt-1">Network: TRC20 (TRON)</p>
+                        <Badge variant="outline" className="mt-2 bg-blue-50">Automatic Verification Enabled</Badge>
+                    </div>
 
                     {/* QR Code Section */}
                     <div className="space-y-3">
@@ -255,20 +254,18 @@ export function QrPaymentDialog({
                                 <QrCode className="h-4 w-4" />
                                 Scan QR Code
                             </h4>
-                            <Badge variant="outline" className="text-xs">Crypto Payment</Badge>
+                            <Badge variant="outline" className="text-xs">USDT TRC-20</Badge>
                         </div>
 
                         <div className="flex justify-center">
-                            <div className="bg-white p-4 rounded-xl border-2 border-dashed">
-                                {/* QR Code Image */}
-                                <div className="w-48 h-48 rounded-lg flex items-center justify-center relative overflow-hidden">
-                                    <Image
-                                        src="/qr-code.png"
+                            <div className="bg-white p-4 rounded-xl border-2 border-dashed border-primary/30 shadow-sm">
+                                {/* QR Code Image - Using img tag for better compatibility */}
+                                <div className="w-[200px] h-[200px] rounded-lg flex items-center justify-center relative overflow-hidden bg-white">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={WALLET_ADDRESS ? generateQRCodeURL(WALLET_ADDRESS, investmentAmount) : ''}
                                         alt="Payment QR Code"
-                                        width={192}
-                                        height={192}
-                                        className="rounded-lg"
-                                        priority
+                                        className="w-full h-full object-contain rounded-lg"
                                         onError={(e) => {
                                             // If image fails to load, show placeholder
                                             const target = e.target as HTMLImageElement;
@@ -276,15 +273,18 @@ export function QrPaymentDialog({
                                             const parent = target.parentElement;
                                             if (parent) {
                                                 parent.innerHTML = `
-                                                    <div class="flex flex-col items-center justify-center w-full h-full bg-gray-50">
+                                                    <div class="flex flex-col items-center justify-center w-full h-full bg-gray-50 rounded-lg">
                                                         <svg class="w-16 h-16 text-gray-300 mb-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-                                                        <p class="text-xs text-gray-400 text-center">QR Code not found</p>
+                                                        <p class="text-xs text-gray-400 text-center px-2">QR Code Loading...</p>
                                                     </div>
                                                 `;
                                             }
                                         }}
                                     />
                                 </div>
+                                <p className="text-xs text-center text-muted-foreground mt-2">
+                                    Scan with your crypto wallet
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -406,13 +406,13 @@ export function QrPaymentDialog({
                     </Button>
                     <Button
                         onClick={handleConfirmPayment}
-                        disabled={isSubmitting || !transactionId.trim() || !screenshot}
+                        disabled={isSubmitting || !transactionId.trim()}
                         className="w-full sm:w-auto"
                     >
                         {isSubmitting ? (
-                            <><Clock className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
+                            <><Clock className="mr-2 h-4 w-4 animate-spin" /> Verifying...</>
                         ) : (
-                            <><CheckCircle className="mr-2 h-4 w-4" /> Submit Payment Proof</>
+                            <><CheckCircle className="mr-2 h-4 w-4" /> Verify & Activate Plan</>
                         )}
                     </Button>
                 </DialogFooter>

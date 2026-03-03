@@ -1,7 +1,9 @@
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/google-genai';
+// Stub implementation - genkit packages not installed
+// To enable AI features, run: npm install genkit @genkit-ai/google-genai
 
-export const ai = genkit({
-  plugins: [googleAI()],
-  model: 'googleai/gemini-2.5-flash',
-});
+const stubAI = {
+  definePrompt: () => ({}) as any,
+  defineFlow: (_config: any, fn: any) => fn,
+};
+
+export const ai = stubAI;

@@ -23,32 +23,12 @@ async function updatePlans() {
         const batch = writeBatch(db);
         const timestamp = new Date().toISOString();
 
-        // Fixed amount plans - Double profit at end of month (100% return)
+        // Fixed amount plans - 100% profit at end of month
         const plans = [
-            {
-                id: 'plan-20',
-                name: 'Starter $20 Plan',
-                description: 'Invest $20 and get $40 at month end (100% profit)',
-                min_amount: 20,
-                max_amount: 20,
-                fixed_amount: 20,
-                daily_roi_percent: 0, // No daily ROI, all at end
-                return_percent: 100, // 100% total return (double)
-                duration_days: 30,
-                total_return: 40, // $20 + $20 profit
-                profit_amount: 20,
-                payout_schedule: 'end_of_term', // All at end
-                category: 'fixed',
-                is_active: true,
-                capital_return: true,
-                features: ['Double your money', 'Fixed $20 investment', '30 days duration', 'Guaranteed return'],
-                created_at: timestamp,
-                updated_at: timestamp,
-            },
             {
                 id: 'plan-30',
                 name: 'Growth $30 Plan',
-                description: 'Invest $30 and get $60 at month end (100% profit)',
+                description: 'Invest $30 and get 100% Return Guaranteed in 30 days',
                 min_amount: 30,
                 max_amount: 30,
                 fixed_amount: 30,
@@ -61,14 +41,14 @@ async function updatePlans() {
                 category: 'fixed',
                 is_active: true,
                 capital_return: true,
-                features: ['Double your money', 'Fixed $30 investment', '30 days duration', 'Guaranteed return'],
+                features: ['100% Return Guaranteed', 'Fixed $30 Investment', 'Daily Profit Claim', 'Capital Protection'],
                 created_at: timestamp,
                 updated_at: timestamp,
             },
             {
                 id: 'plan-50',
                 name: 'Pro $50 Plan',
-                description: 'Invest $50 and get $100 at month end (100% profit)',
+                description: 'Invest $50 and get 100% Return Guaranteed in 30 days',
                 min_amount: 50,
                 max_amount: 50,
                 fixed_amount: 50,
@@ -81,16 +61,36 @@ async function updatePlans() {
                 category: 'fixed',
                 is_active: true,
                 capital_return: true,
-                features: ['Double your money', 'Fixed $50 investment', '30 days duration', 'Guaranteed return'],
+                features: ['100% Return Guaranteed', 'Fixed $50 Investment', 'Daily Profit Claim', 'Capital Protection'],
+                created_at: timestamp,
+                updated_at: timestamp,
+            },
+            {
+                id: 'plan-100',
+                name: 'Elite $100 Plan',
+                description: 'Invest $100 and get 100% Return Guaranteed in 30 days',
+                min_amount: 100,
+                max_amount: 100,
+                fixed_amount: 100,
+                daily_roi_percent: 0,
+                return_percent: 100,
+                duration_days: 30,
+                total_return: 200,
+                profit_amount: 100,
+                payout_schedule: 'end_of_term',
+                category: 'fixed',
+                is_active: true,
+                capital_return: true,
+                features: ['100% Return Guaranteed', 'Fixed $100 Investment', 'Daily Profit Claim', 'Capital Protection', 'VIP Support'],
                 created_at: timestamp,
                 updated_at: timestamp,
             },
             {
                 id: 'custom-plan',
                 name: 'Custom Plan',
-                description: 'Choose your amount (Min $10, Max $1000) - Double at month end',
-                min_amount: 10,
-                max_amount: 1000,
+                description: 'Choose any amount $30-$10000 with 100% Return Guaranteed',
+                min_amount: 30,
+                max_amount: 10000,
                 custom_amount: true,
                 daily_roi_percent: 0,
                 return_percent: 100,
@@ -99,7 +99,7 @@ async function updatePlans() {
                 category: 'custom',
                 is_active: true,
                 capital_return: true,
-                features: ['Double your money', 'Custom amount', '30 days duration', 'Guaranteed return', 'Flexible investment'],
+                features: ['100% Return Guaranteed', 'Custom Investment Amount', 'Daily Profit Claim', 'Capital Protection', 'Flexible $30-$10000'],
                 created_at: timestamp,
                 updated_at: timestamp,
             },
@@ -111,7 +111,7 @@ async function updatePlans() {
         }
 
         // Deactivate old plans
-        const oldPlans = ['starter', 'growth', 'pro', 'vip'];
+        const oldPlans = ['starter', 'growth', 'pro', 'vip', 'plan-20', 'plan-25', 'elite', 'premium'];
         for (const oldId of oldPlans) {
             const oldRef = doc(db, 'investment_plans', oldId);
             batch.set(oldRef, { is_active: false, updated_at: timestamp }, { merge: true });
@@ -122,17 +122,17 @@ async function updatePlans() {
 
         console.log("\n📊 NEW PLANS:");
         console.log("===================");
-        console.log("✅ $20 Plan → $40 at month end (100% profit)");
         console.log("✅ $30 Plan → $60 at month end (100% profit)");
         console.log("✅ $50 Plan → $100 at month end (100% profit)");
-        console.log("✅ Custom Plan → $10-$1000, double at month end");
+        console.log("✅ $100 Plan → $200 at month end (100% profit)");
+        console.log("✅ Custom Plan → $30-$10000");
         console.log("===================");
         console.log("\n💡 Features:");
         console.log("  • No daily ROI - All profit at end of 30 days");
-        console.log("  • 100% guaranteed return (double your money)");
+        console.log("  • 100% guaranteed return");
         console.log("  • Capital returned + Profit");
-        console.log("  • Fixed amounts for $20, $30, $50");
-        console.log("  • Custom amount option available");
+        console.log("  • Fixed amounts for $30, $50, $100");
+        console.log("  • Custom amount option available ($30-$10000)");
 
         process.exit(0);
     } catch (error) {

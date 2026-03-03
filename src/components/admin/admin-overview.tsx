@@ -2,7 +2,7 @@
 
 import { useRealtimeCollection } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, DollarSign, ArrowDownUp, ShieldCheck } from "lucide-react";
+import { Users, DollarSign, ArrowDownUp, ShieldCheck, Link, CheckCircle2 } from "lucide-react";
 import { useMemo } from "react";
 
 export function AdminOverview() {
@@ -32,6 +32,11 @@ export function AdminOverview() {
     .reduce((acc: number, t: any) => acc + t.amount, 0) || 0;
   const pendingCount = pendingTxs?.length || 0;
 
+  // Blockchain stats
+  const blockchainVerifiedCount = transactions?.filter((t: any) => t.blockchain_verified).length || 0;
+  const totalTxCount = transactions?.length || 0;
+  const verificationRate = totalTxCount > 0 ? Math.round((blockchainVerifiedCount / totalTxCount) * 100) : 0;
+
   const stats = [
     {
       title: "Total Users",
@@ -57,11 +62,24 @@ export function AdminOverview() {
       icon: <ShieldCheck className="h-5 w-5 text-primary" />,
       description: "Transactions awaiting review",
       highlight: pendingCount > 0
+    },
+    {
+      title: "Blockchain Verified",
+      value: blockchainVerifiedCount,
+      icon: <CheckCircle2 className="h-5 w-5 text-green-500" />,
+      description: `${verificationRate}% verification rate`,
+      highlight: blockchainVerifiedCount > 0
+    },
+    {
+      title: "Auto-Verified Tx",
+      value: verificationRate + "%",
+      icon: <Link className="h-5 w-5 text-blue-500" />,
+      description: "Auto-verified via TRON blockchain"
     }
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {stats.map((stat, index) => (
         <Card key={index} className={stat.highlight ? "border-primary/50 shadow-md" : ""}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

@@ -57,7 +57,7 @@ const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
 
     try {
       await insertRow("transactions", {
-        user_id: user.id,
+        user_id: user.uid,
         user_display_name: userProfile.display_name,
         user_email: userProfile.email,
         type: "withdrawal",

@@ -233,10 +233,10 @@ export function SupportManager() {
                             <p className="text-sm">{selectedTicket?.message}</p>
                         </div>
 
-                        {selectedTicket?.responses?.length > 0 && (
+                        {selectedTicket?.responses && selectedTicket.responses.length > 0 && (
                             <div className="space-y-2">
                                 <p className="text-sm font-medium">Conversation:</p>
-                                {selectedTicket.responses.map((response, idx) => (
+                                {selectedTicket?.responses?.map((response, idx) => (
                                     <div key={idx} className={`p-3 rounded-lg ${response.from === 'support' ? 'bg-blue-50 ml-4' : 'bg-gray-50'}`}>
                                         <p className="text-xs text-muted-foreground mb-1">
                                             {response.from === 'support' ? 'Support Team' : 'User'} • {format(new Date(response.created_at), 'PPp')}

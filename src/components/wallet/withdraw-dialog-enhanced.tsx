@@ -1,0 +1,430 @@
+"use client";
+
+/**
+ * Enhanced Withdraw Dialog with TRON Blockchain Features
+ * 
+ * Features:
+ * - TRON address validation
+ * - Network fee calculator
+ * - Real-time balance checking
+ * - Withdrawal preview
+ */
+
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {
+    Landmark,
+    AlertCircle,
+    CheckCircle2,
+    Loader2,
+    ArrowRight,
+    Wallet,
+    Zap,
+    Gauge,
+    Info,
+} from "lucide-react";
+import { useUser, insertRow } from "@/firebase";
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+    FormDescription,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { useAddressValidator, useFeeCalculator } from "@/hooks/use-tron";
+import { isValidTronAddress } from "@/lib/tron";
+
+interface WithdrawDialogEnhancedProps {
+    userProfile: any;
+}
+
+const formSchema = z.object({
+    walletAddress: z.string()
+        .min(34, "TRON address must be 34 characters")
+        .max(34, "TRON address must be 34 characters")
+        .regex(/^T[a-zA-Z0-9]{33}$/, "Invalid TRON address format. Must start with 'T'"),
+    amount: z.coerce
+        .number()
+        .positive("Amount must be a positive number")
+        .min(10, "Minimum withdrawal amount is 10 USDT")
+        .max(10000, "Maximum withdrawal amount is 10,000 USDT"),
+});
+
+export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedProps) {
+    const { user } = useUser();
+    const { toast } = useToast();
+    const [open, setOpen] = useState(false);
+    const [step, setStep] = useState<'form' | 'preview' | 'processing' | 'success'>('form');
+    const [withdrawalData, setWithdrawalData] = useState<any>(null);
+
+    // Address validation hook
+    const { isValid: addressValid, isValidating, validate } = useAddressValidator();
+
+    // Fee calculator hook
+    const { fee, isCalculating, calculate } = useFeeCalculator();
+
+    const form = useForm<z.infer<typeof formSchema>>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            walletAddress: "",
+            amount: 0,
+        },
+    });
+
+    // Watch form values for real-time validation
+    const watchAddress = form.watch("walletAddress");
+    const watchAmount = form.watch("amount");
+
+    // Validate address on change
+    useEffect(() => {
+        if (watchAddress && watchAddress.length === 34) {
+            const isValid = isValidTronAddress(watchAddress);
+            validate(watchAddress);
+
+            if (!isValid) {
+                form.setError("walletAddress", {
+                    type: "manual",
+                    message: "Invalid TRON address format",
+                });
+            } else {
+                form.clearErrors("walletAddress");
+            }
+        }
+    }, [watchAddress, form, validate]);
+
+    // Calculate fee when amount changes
+    useEffect(() => {
+        if (watchAddress && watchAmount && watchAmount > 0 && isValidTronAddress(watchAddress)) {
+            // Use admin wallet as sender for fee estimation
+            const senderAddress = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS;
+            if (senderAddress) {
+                calculate(senderAddress, watchAddress, watchAmount);
+            }
+        }
+    }, [watchAddress, watchAmount, calculate]);
+
+    const onSubmit = async (values: z.infer<typeof formSchema>) => {
+        if (!user || !userProfile) {
+            toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
+            return;
+        }
+
+        // Check balance
+        if (values.amount > userProfile.balance) {
+            toast({ variant: "destructive", title: "Insufficient Balance", description: "Withdrawal amount exceeds your balance." });
+            return;
+        }
+
+        // Validate address
+        if (!isValidTronAddress(values.walletAddress)) {
+            toast({ variant: "destructive", title: "Invalid Address", description: "Please enter a valid TRON address." });
+            return;
+        }
+
+        setWithdrawalData(values);
+        setStep('preview');
+    };
+
+    const processWithdrawal = async () => {
+        setStep('processing');
+
+        try {
+            await insertRow("transactions", {
+                user_id: user?.uid,
+                user_display_name: userProfile.display_name,
+                user_email: userProfile.email,
+                type: "withdrawal",
+                amount: withdrawalData.amount,
+                currency: "USDT",
+                status: "pending",
+                description: `Withdrawal to ${withdrawalData.walletAddress}`,
+                recipient_address: withdrawalData.walletAddress,
+                network_fee_estimate: fee?.estimatedTrxFee || 0,
+                metadata: {
+                    network: "TRC20",
+                    fee_data: fee,
+                    address_validated: true,
+                },
+            });
+
+            setStep('success');
+
+            toast({
+                title: "Withdrawal Request Submitted",
+                description: `Your request to withdraw ${withdrawalData.amount} USDT has been submitted for processing.`,
+            });
+
+            // Close dialog after success
+            setTimeout(() => {
+                setOpen(false);
+                setStep('form');
+                form.reset();
+            }, 3000);
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Error", description: err.message || "Failed to submit withdrawal." });
+            setStep('preview');
+        }
+    };
+
+    const getTotalDeduction = () => {
+        return withdrawalData?.amount || 0;
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <Landmark className="mr-2 h-4 w-4" />
+                    Withdraw Funds
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                    <DialogTitle>
+                        {step === 'form' && "Request a Withdrawal"}
+                        {step === 'preview' && "Confirm Withdrawal"}
+                        {step === 'processing' && "Processing..."}
+                        {step === 'success' && "Success!"}
+                    </DialogTitle>
+                    <DialogDescription>
+                        {step === 'form' && "Enter your withdrawal details. Transactions are processed within 24 hours."}
+                        {step === 'preview' && "Review your withdrawal details before confirming."}
+                        {step === 'processing' && "Please wait while we process your request..."}
+                        {step === 'success' && "Your withdrawal request has been submitted successfully."}
+                    </DialogDescription>
+                </DialogHeader>
+
+                {step === 'form' && (
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                            {/* Available Balance */}
+                            <Card className="bg-muted">
+                                <CardContent className="pt-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-muted-foreground">Available Balance</span>
+                                        <span className="font-bold text-lg">
+                                            {userProfile?.balance?.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) || '$0.00'}
+                                        </span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Wallet Address Field */}
+                            <FormField
+                                control={form.control}
+                                name="walletAddress"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="flex items-center gap-2">
+                                            <Wallet className="w-4 h-4" />
+                                            TRON Wallet Address (TRC20)
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="T... (34 characters)"
+                                                {...field}
+                                                className="font-mono"
+                                                maxLength={34}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Enter a valid TRON TRC-20 address
+                                        </FormDescription>
+                                        <FormMessage />
+
+                                        {/* Address Validation Indicator */}
+                                        {watchAddress.length === 34 && (
+                                            <div className="flex items-center gap-2 mt-1">
+                                                {isValidating ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin text-yellow-500" />
+                                                ) : addressValid ? (
+                                                    <>
+                                                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                                        <span className="text-xs text-green-600">Valid TRON address</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <AlertCircle className="w-4 h-4 text-red-500" />
+                                                        <span className="text-xs text-red-600">Invalid address format</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Amount Field */}
+                            <FormField
+                                control={form.control}
+                                name="amount"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="flex items-center gap-2">
+                                            <Zap className="w-4 h-4" />
+                                            Amount (USDT)
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                placeholder="Enter amount"
+                                                {...field}
+                                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Min: 10 USDT • Max: 10,000 USDT
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Network Fee Estimate */}
+                            {fee && watchAmount > 0 && (
+                                <Card className="bg-blue-50 border-blue-200">
+                                    <CardContent className="pt-4 space-y-3">
+                                        <div className="flex items-center gap-2 text-blue-800 font-medium">
+                                            <Gauge className="w-4 h-4" />
+                                            Network Fee Estimate
+                                        </div>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Bandwidth Required</span>
+                                                <span>{fee.bandwidthRequired} points</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Energy Required</span>
+                                                <span>{fee.energyRequired.toLocaleString()} units</span>
+                                            </div>
+                                            <div className="flex justify-between font-medium">
+                                                <span className="text-muted-foreground">Estimated TRX Fee</span>
+                                                <span>~{fee.estimatedTrxFee} TRX</span>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-blue-600">
+                                            This fee is paid to the TRON network, not to us.
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            <Alert variant="default" className="bg-yellow-50 border-yellow-200">
+                                <Info className="h-4 w-4 text-yellow-600" />
+                                <AlertDescription className="text-yellow-700 text-xs">
+                                    Double-check your wallet address. Transactions on the blockchain are irreversible.
+                                </AlertDescription>
+                            </Alert>
+
+                            <Button
+                                type="submit"
+                                className="w-full"
+                                disabled={!addressValid || isValidating}
+                            >
+                                Continue
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </form>
+                    </Form>
+                )}
+
+                {step === 'preview' && withdrawalData && (
+                    <div className="space-y-5">
+                        <Card>
+                            <CardContent className="pt-6 space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground">Recipient Address</span>
+                                    <code className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                                        {withdrawalData.walletAddress.slice(0, 8)}...{withdrawalData.walletAddress.slice(-8)}
+                                    </code>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground">Amount</span>
+                                    <span className="font-bold text-lg">{withdrawalData.amount} USDT</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground">Network</span>
+                                    <Badge variant="secondary">TRC-20 (TRON)</Badge>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground">Est. Network Fee</span>
+                                    <span className="text-sm">~{fee?.estimatedTrxFee || 0} TRX</span>
+                                </div>
+                                <div className="border-t pt-4 flex justify-between items-center">
+                                    <span className="font-medium">Total Deduction</span>
+                                    <span className="font-bold text-xl text-primary">{getTotalDeduction()} USDT</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Alert variant="default" className="bg-blue-50 border-blue-200">
+                            <Info className="h-4 w-4 text-blue-600" />
+                            <AlertDescription className="text-blue-700 text-sm">
+                                Withdrawals are processed within 24 hours. You will receive a notification once completed.
+                            </AlertDescription>
+                        </Alert>
+
+                        <div className="flex gap-3">
+                            <Button
+                                variant="outline"
+                                className="flex-1"
+                                onClick={() => setStep('form')}
+                            >
+                                Back
+                            </Button>
+                            <Button
+                                className="flex-1"
+                                onClick={processWithdrawal}
+                            >
+                                Confirm Withdrawal
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {step === 'processing' && (
+                    <div className="py-8 flex flex-col items-center">
+                        <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+                        <p className="text-muted-foreground">Processing your withdrawal request...</p>
+                    </div>
+                )}
+
+                {step === 'success' && (
+                    <div className="py-8 flex flex-col items-center">
+                        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                            <CheckCircle2 className="w-8 h-8 text-green-600" />
+                        </div>
+                        <h3 className="text-xl font-bold text-green-800 mb-2">Request Submitted!</h3>
+                        <p className="text-center text-muted-foreground">
+                            Your withdrawal request has been submitted and is being processed.
+                        </p>
+                    </div>
+                )}
+
+                <DialogFooter className="text-xs text-muted-foreground">
+                    Network fees are estimates and may vary based on network conditions.
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}

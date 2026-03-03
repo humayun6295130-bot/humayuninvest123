@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QrPaymentDialog } from "@/components/invest/qr-payment-dialog";
+import { InvestmentProgress } from "@/components/invest/InvestmentProgress";
 import {
     TrendingUp,
     Wallet,
@@ -573,7 +574,7 @@ export default function InvestPage() {
                                                         <span className="font-bold text-green-600 text-lg">${displayReturn}</span>
                                                     </div>
                                                     <div className="text-center py-2 bg-green-500/20 rounded-lg">
-                                                        <span className="font-bold text-green-600">DOUBLE YOUR MONEY!</span>
+                                                        <span className="font-bold text-green-600">100% Return Guaranteed</span>
                                                     </div>
                                                 </>
                                             ) : (
@@ -676,12 +677,15 @@ export default function InvestPage() {
                                                         </div>
                                                     </div>
 
-                                                    <div className="mt-4 space-y-2">
-                                                        <div className="flex justify-between text-sm">
-                                                            <span className="text-muted-foreground">Progress ({investment.days_claimed || 0}/{investment.duration_days || 30} days)</span>
-                                                            <span className="text-muted-foreground">{daysRemaining} days remaining</span>
-                                                        </div>
-                                                        <Progress value={progressPercent} className="h-2" />
+                                                    {/* Investment Progress Tracker */}
+                                                    <div className="mt-4">
+                                                        <InvestmentProgress
+                                                            amount={investment.amount}
+                                                            totalReturn={investment.total_return}
+                                                            startDate={investment.start_date}
+                                                            endDate={investment.end_date}
+                                                            status={investment.status}
+                                                        />
                                                     </div>
 
                                                     <div className="mt-4 flex items-center justify-between">

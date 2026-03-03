@@ -14,18 +14,21 @@ import { PortfolioChart } from "@/components/dashboard/portfolio-chart";
 import { TopHoldings } from "@/components/dashboard/top-holdings";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { useMemo } from "react";
+import React from "react";
 
 export default function PublicProfilePage({
   params,
 }: {
-  params: { username: string };
+  params: Promise<{ username: string }>;
 }) {
+  const resolvedParams = React.use(params);
+  const username = resolvedParams.username;
   const publicProfileOptions = useMemo(() => ({
     table: 'public_profiles',
-    filters: [{ column: 'username', operator: '==' as const, value: params.username }],
+    filters: [{ column: 'username', operator: '==' as const, value: username }],
     limitCount: 1,
     enabled: true,
-  }), [params.username]);
+  }), [username]);
 
   const {
     data: profileData,
@@ -78,13 +81,13 @@ export default function PublicProfilePage({
       </header>
 
       <main className="space-y-6">
-        <StatsCards />
+        <StatsCards assets={[]} balance={0} />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <PortfolioChart />
           </div>
           <div className="lg:col-span-1">
-            <TopHoldings />
+            <TopHoldings assets={[]} />
           </div>
         </div>
       </main>

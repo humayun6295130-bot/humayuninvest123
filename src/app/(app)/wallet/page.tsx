@@ -22,9 +22,11 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import WithdrawDialog from '@/components/wallet/withdraw-dialog';
+import { WithdrawDialogEnhanced } from '@/components/wallet/withdraw-dialog-enhanced';
 import DepositDialog from '@/components/wallet/deposit-dialog';
 import ClaimDailyDialog from '@/components/wallet/claim-daily-dialog';
+import { DailyProfitClaim } from '@/components/wallet/daily-profit-claim';
+import { ShieldCheck, ExternalLink } from 'lucide-react';
 import { useMemo } from 'react';
 
 export default function WalletPage() {
@@ -98,11 +100,14 @@ export default function WalletPage() {
           </CardHeader>
           <CardContent className="flex items-center gap-4 flex-wrap">
             <DepositDialog userProfile={userProfile} />
-            <WithdrawDialog userProfile={userProfile} />
+            <WithdrawDialogEnhanced userProfile={userProfile} />
             <ClaimDailyDialog userProfile={userProfile} />
           </CardContent>
         </Card>
       </div>
+
+      {/* Daily Profit Claim Section */}
+      <DailyProfitClaim />
 
       <div className="grid grid-cols-1">
         <Card>
@@ -142,7 +147,27 @@ export default function WalletPage() {
                             {tx.type}
                           </Badge>
                         </TableCell>
-                        <TableCell>{tx.description || 'N/A'}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p>{tx.description || 'N/A'}</p>
+                            {tx.blockchain_verified && (
+                              <div className="flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3 text-green-500" />
+                                <span className="text-xs text-green-600">Verified</span>
+                                {tx.transaction_hash && (
+                                  <a
+                                    href={`https://tronscan.org/#/transaction/${tx.transaction_hash}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline"
+                                  >
+                                    <ExternalLink className="w-3 h-3 inline" />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge
                             variant={getStatusBadgeVariant(tx.status) as any}
