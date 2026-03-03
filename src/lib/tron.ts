@@ -17,11 +17,6 @@ import { fetchRow, upsertRow } from '@/firebase/database';
 const TRONGRID_API_KEY = process.env.NEXT_PUBLIC_TRONGRID_API_KEY;
 const TRONGRID_API_URL = "https://api.trongrid.io";
 
-// Validate API key at module load
-if (!TRONGRID_API_KEY) {
-    console.warn('[TRON] Warning: NEXT_PUBLIC_TRONGRID_API_KEY not set. TronGrid API calls will fail.');
-}
-
 // USDT TRC-20 Contract Address
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 
@@ -94,22 +89,11 @@ export function isValidTronAddress(address: string): boolean {
 }
 
 // ==========================================
-// Environment Validation (after function definitions)
+// Environment Configuration
 // ==========================================
 
 // Admin wallet address - MUST be configured in environment
-const configuredAdminWallet = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS;
-
-// Validate admin wallet address at module load
-if (typeof window === 'undefined') { // Only run on server
-    if (!configuredAdminWallet) {
-        console.warn('[TRON] Warning: NEXT_PUBLIC_ADMIN_WALLET_ADDRESS is not set. Payment verification will fail.');
-    } else if (!isValidTronAddress(configuredAdminWallet)) {
-        console.warn('[TRON] Warning: NEXT_PUBLIC_ADMIN_WALLET_ADDRESS is invalid. Payment verification will fail.');
-    }
-}
-
-export const ADMIN_WALLET_ADDRESS = configuredAdminWallet || '';
+export const ADMIN_WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '';
 
 /**
  * Validate TRON transaction hash

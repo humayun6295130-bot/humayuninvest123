@@ -53,12 +53,7 @@ interface QrPaymentDialogProps {
 }
 
 // TRON TRC-20 USDT Wallet Address
-const WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS;
-
-// Validate wallet address is configured
-if (!WALLET_ADDRESS) {
-    console.error('[QR Payment] NEXT_PUBLIC_ADMIN_WALLET_ADDRESS is not configured');
-}
+const WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '';
 
 // QR Code Generation URL (using QRServer API)
 const generateQRCodeURL = (address: string, amount: number) => {

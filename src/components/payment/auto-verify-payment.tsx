@@ -39,12 +39,7 @@ import {
     XCircle,
 } from "lucide-react";
 
-const ADMIN_WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS;
-
-// Validate wallet address is configured
-if (!ADMIN_WALLET_ADDRESS) {
-    console.error('[Auto Verify] NEXT_PUBLIC_ADMIN_WALLET_ADDRESS is not configured');
-}
+const ADMIN_WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '';
 
 interface AutoVerifyPaymentProps {
     amount: number;
