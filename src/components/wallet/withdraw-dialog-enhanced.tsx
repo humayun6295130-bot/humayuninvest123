@@ -66,9 +66,12 @@ const formSchema = z.object({
     amount: z.coerce
         .number()
         .positive("Amount must be a positive number")
-        .min(10, "Minimum withdrawal amount is 10 USDT")
+        .min(50, "Minimum withdrawal amount is $50 USD")
         .max(10000, "Maximum withdrawal amount is 10,000 USDT"),
 });
+
+// Withdrawal fee percentage
+const WITHDRAWAL_FEE_PERCENTAGE = 8;
 
 export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedProps) {
     const { user } = useUser();
@@ -83,13 +86,30 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
     // Fee calculator hook
     const { fee, isCalculating, calculate } = useFeeCalculator();
 
+    // Get user's saved TRON wallet address
+    const savedWalletAddress = userProfile?.tron_wallet_address || "";
+
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            walletAddress: "",
+            walletAddress: savedWalletAddress,
             amount: 0,
         },
     });
+
+    // Check if user has a saved wallet address
+    const hasSavedWallet = !!savedWalletAddress;
+
+    // Show warning if user doesn't have a saved wallet
+    useEffect(() => {
+        if (!hasSavedWallet && open) {
+            toast({
+                title: "Wallet Not Connected",
+                description: "Please add your TRON wallet address in Settings before withdrawing.",
+                variant: "default",
+            });
+        }
+    }, [open, hasSavedWallet]);
 
     // Watch form values for real-time validation
     const watchAddress = form.watch("walletAddress");
@@ -148,6 +168,8 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
     const processWithdrawal = async () => {
         setStep('processing');
 
+        const feeAmount = getFeeAmount();
+
         try {
             await insertRow("transactions", {
                 user_id: user?.uid,
@@ -160,6 +182,9 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                 description: `Withdrawal to ${withdrawalData.walletAddress}`,
                 recipient_address: withdrawalData.walletAddress,
                 network_fee_estimate: fee?.estimatedTrxFee || 0,
+                withdrawal_fee: feeAmount,
+                withdrawal_fee_percentage: WITHDRAWAL_FEE_PERCENTAGE,
+                total_deduction: getTotalDeduction(),
                 metadata: {
                     network: "TRC20",
                     fee_data: fee,
@@ -186,8 +211,17 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
         }
     };
 
+    // Calculate total deduction with 8% fee
     const getTotalDeduction = () => {
-        return withdrawalData?.amount || 0;
+        if (!withdrawalData?.amount) return 0;
+        const fee = withdrawalData.amount * (WITHDRAWAL_FEE_PERCENTAGE / 100);
+        return withdrawalData.amount + fee;
+    };
+
+    // Calculate just the fee amount
+    const getFeeAmount = () => {
+        if (!withdrawalData?.amount) return 0;
+        return withdrawalData.amount * (WITHDRAWAL_FEE_PERCENTAGE / 100);
     };
 
     return (
@@ -247,9 +281,16 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                                                 maxLength={34}
                                             />
                                         </FormControl>
-                                        <FormDescription>
-                                            Enter a valid TRON TRC-20 address
-                                        </FormDescription>
+                                        {hasSavedWallet && !watchAddress && (
+                                            <FormDescription className="text-green-600">
+                                                Using your saved wallet address from Settings
+                                            </FormDescription>
+                                        )}
+                                        {!hasSavedWallet && (
+                                            <FormDescription>
+                                                Add your wallet in Settings to auto-fill this field
+                                            </FormDescription>
+                                        )}
                                         <FormMessage />
 
                                         {/* Address Validation Indicator */}
@@ -293,7 +334,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                                             />
                                         </FormControl>
                                         <FormDescription>
-                                            Min: 10 USDT • Max: 10,000 USDT
+                                            Min: $50 USD • Max: 10,000 USDT • 8% fee applies
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
@@ -366,13 +407,16 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                                     <span className="text-muted-foreground">Network</span>
                                     <Badge variant="secondary">TRC-20 (TRON)</Badge>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-muted-foreground">Est. Network Fee</span>
-                                    <span className="text-sm">~{fee?.estimatedTrxFee || 0} TRX</span>
+                                <div className="flex justify-between items-center text-orange-500">
+                                    <span className="flex items-center gap-1">
+                                        <Zap className="h-3 w-3" />
+                                        Withdrawal Fee (8%)
+                                    </span>
+                                    <span className="font-medium">-{getFeeAmount().toFixed(2)} USDT</span>
                                 </div>
                                 <div className="border-t pt-4 flex justify-between items-center">
                                     <span className="font-medium">Total Deduction</span>
-                                    <span className="font-bold text-xl text-primary">{getTotalDeduction()} USDT</span>
+                                    <span className="font-bold text-xl text-primary">{getTotalDeduction().toFixed(2)} USDT</span>
                                 </div>
                             </CardContent>
                         </Card>
@@ -380,7 +424,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                         <Alert variant="default" className="bg-blue-50 border-blue-200">
                             <Info className="h-4 w-4 text-blue-600" />
                             <AlertDescription className="text-blue-700 text-sm">
-                                Withdrawals are processed within 24 hours. You will receive a notification once completed.
+                                Withdrawals are processed within 24 hours. You will receive {withdrawalData.amount} USDT to your wallet after the 8% fee is deducted.
                             </AlertDescription>
                         </Alert>
 
