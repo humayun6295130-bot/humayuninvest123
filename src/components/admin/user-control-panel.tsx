@@ -48,6 +48,14 @@ interface User {
     wallet_address?: string;
     total_invested?: number;
     total_earned?: number;
+    // Level system fields
+    current_level?: number;
+    income_percent?: number;
+    level_name?: string;
+    // System control fields
+    auto_daily_earnings?: boolean;
+    auto_level_upgrade?: boolean;
+    team_commission_enabled?: boolean;
 }
 
 export function UserControlPanel() {
@@ -349,6 +357,7 @@ export function UserControlPanel() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>User</TableHead>
+                                    <TableHead>Level</TableHead>
                                     <TableHead>Support ID</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Role</TableHead>
@@ -361,7 +370,7 @@ export function UserControlPanel() {
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="h-24 text-center">Loading users...</TableCell>
+                                        <TableCell colSpan={9} className="h-24 text-center">Loading users...</TableCell>
                                     </TableRow>
                                 ) : filteredUsers.length > 0 ? (
                                     filteredUsers.map((user) => (
@@ -380,6 +389,17 @@ export function UserControlPanel() {
                                                         )}
                                                     </div>
                                                 </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge className={`
+                                                    ${user.current_level === 1 ? 'bg-gray-500' :
+                                                        user.current_level === 2 ? 'bg-blue-500' :
+                                                            user.current_level === 3 ? 'bg-slate-400' :
+                                                                user.current_level === 4 ? 'bg-yellow-500' :
+                                                                    user.current_level === 5 ? 'bg-purple-500' : 'bg-gray-500'} text-white text-[10px]`}
+                                                >
+                                                    L{user.current_level || 1}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell>
                                                 {user.support_id ? (
@@ -468,7 +488,7 @@ export function UserControlPanel() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                                             No users found matching your criteria.
                                         </TableCell>
                                     </TableRow>
@@ -678,6 +698,52 @@ export function UserControlPanel() {
                                     {selectedUser.username && <p className="text-sm text-muted-foreground">@{selectedUser.username}</p>}
                                 </div>
                             </div>
+                            <Separator />
+
+                            {/* Level & System Status */}
+                            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-4">
+                                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                    <TrendingUp className="w-4 h-4" />
+                                    Level & System Status
+                                </h4>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded">
+                                        <span className="text-muted-foreground">Level:</span>
+                                        <Badge className={`
+                                            ${selectedUser.current_level === 1 ? 'bg-gray-500' :
+                                                selectedUser.current_level === 2 ? 'bg-blue-500' :
+                                                    selectedUser.current_level === 3 ? 'bg-slate-400' :
+                                                        selectedUser.current_level === 4 ? 'bg-yellow-500' :
+                                                            selectedUser.current_level === 5 ? 'bg-purple-500' : 'bg-gray-500'} text-white`}
+                                        >
+                                            {selectedUser.current_level || 1} - {selectedUser.level_name || 'Starter'}
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded">
+                                        <span className="text-muted-foreground">Daily %:</span>
+                                        <span className="font-semibold text-green-600">{selectedUser.income_percent || 1.5}%</span>
+                                    </div>
+                                    <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded">
+                                        <span className="text-muted-foreground">Auto Earnings:</span>
+                                        <Badge variant={selectedUser.auto_daily_earnings !== false ? 'default' : 'secondary'}>
+                                            {selectedUser.auto_daily_earnings !== false ? 'ON' : 'OFF'}
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded">
+                                        <span className="text-muted-foreground">Auto Level:</span>
+                                        <Badge variant={selectedUser.auto_level_upgrade !== false ? 'default' : 'secondary'}>
+                                            {selectedUser.auto_level_upgrade !== false ? 'ON' : 'OFF'}
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded col-span-2">
+                                        <span className="text-muted-foreground">Team Commission:</span>
+                                        <Badge variant={selectedUser.team_commission_enabled !== false ? 'default' : 'secondary'}>
+                                            {selectedUser.team_commission_enabled !== false ? 'ENABLED' : 'DISABLED'}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </div>
+
                             <Separator />
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>

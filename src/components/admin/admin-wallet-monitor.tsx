@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-const ADMIN_WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '';
+import { ADMIN_WALLET_ADDRESS, getAdminWalletAddress, isWalletConfigured } from "@/lib/wallet-config";
 
 export function AdminWalletMonitor() {
     const { toast } = useToast();
@@ -49,8 +49,10 @@ export function AdminWalletMonitor() {
     const [copied, setCopied] = useState(false);
     const [lastCheckedTx, setLastCheckedTx] = useState<string>("");
 
+    const adminAddress = getAdminWalletAddress();
+
     // Validate wallet address is configured
-    if (!ADMIN_WALLET_ADDRESS) {
+    if (!isWalletConfigured()) {
         return (
             <Card className="border-destructive">
                 <CardHeader>
@@ -68,7 +70,7 @@ export function AdminWalletMonitor() {
 
     // Real-time balance with auto-refresh every 30 seconds
     const { balance, isLoading: balanceLoading, refresh: refreshBalance } = useWalletBalance(
-        ADMIN_WALLET_ADDRESS,
+        adminAddress,
         { autoRefresh: true, refreshInterval: 30000 }
     );
 
@@ -77,7 +79,7 @@ export function AdminWalletMonitor() {
         transactions,
         isLoading: txLoading,
         refresh: refreshTx,
-    } = useTransactionHistory(ADMIN_WALLET_ADDRESS, {
+    } = useTransactionHistory(adminAddress, {
         limit: 50,
         type: 'all',
     });
@@ -92,7 +94,7 @@ export function AdminWalletMonitor() {
     // Check for new deposits
     useEffect(() => {
         const incomingTx = transactions.filter(
-            tx => tx.to_address.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()
+            tx => tx.to_address.toLowerCase() === adminAddress.toLowerCase()
         );
 
         if (incomingTx.length > 0 && incomingTx[0].transaction_id !== lastCheckedTx) {
@@ -111,7 +113,7 @@ export function AdminWalletMonitor() {
     }, [transactions, lastCheckedTx, toast]);
 
     const copyAddress = () => {
-        navigator.clipboard.writeText(ADMIN_WALLET_ADDRESS);
+        navigator.clipboard.writeText(adminAddress);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
         toast({ title: "Copied!", description: "Wallet address copied to clipboard" });
@@ -123,11 +125,11 @@ export function AdminWalletMonitor() {
     };
 
     const incomingTx = transactions.filter(
-        tx => tx.to_address.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()
+        tx => tx.to_address.toLowerCase() === adminAddress.toLowerCase()
     );
 
     const outgoingTx = transactions.filter(
-        tx => tx.from_address.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()
+        tx => tx.from_address.toLowerCase() === adminAddress.toLowerCase()
     );
 
     const totalIncoming = incomingTx.reduce(
@@ -151,7 +153,7 @@ export function AdminWalletMonitor() {
                     <div>
                         <h2 className="text-2xl font-bold">Admin Wallet</h2>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <code className="text-xs">{ADMIN_WALLET_ADDRESS}</code>
+                            <code className="text-xs">{adminAddress}</code>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyAddress}>
                                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                             </Button>
@@ -258,7 +260,7 @@ export function AdminWalletMonitor() {
                                         <p className="text-center text-muted-foreground py-8">No transactions found</p>
                                     ) : (
                                         transactions.map((tx) => {
-                                            const isIncoming = tx.to_address.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
+                                            const isIncoming = tx.to_address.toLowerCase() === adminAddress.toLowerCase();
                                             const amount = parseInt(tx.quant) / 1e6;
 
                                             return (

@@ -39,7 +39,10 @@ import {
     XCircle,
 } from "lucide-react";
 
-const ADMIN_WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '';
+import { getAdminWalletAddress, isWalletConfigured } from "@/lib/wallet-config";
+
+// Get safe version for internal usage
+const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
 
 interface AutoVerifyPaymentProps {
     amount: number;
@@ -67,7 +70,7 @@ export function AutoVerifyPayment({
     const [verifiedTxData, setVerifiedTxData] = useState<any>(null);
 
     // Validate admin wallet is configured
-    if (!ADMIN_WALLET_ADDRESS) {
+    if (!isWalletConfigured()) {
         return (
             <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -279,6 +282,10 @@ export function AutoVerifyPayment({
     };
 
     const copyWalletAddress = () => {
+        if (!ADMIN_WALLET_ADDRESS) {
+            toast({ title: "Error", description: "Wallet address not configured", variant: "destructive" });
+            return;
+        }
         navigator.clipboard.writeText(ADMIN_WALLET_ADDRESS);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);

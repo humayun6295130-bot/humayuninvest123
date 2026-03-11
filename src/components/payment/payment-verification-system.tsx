@@ -27,14 +27,10 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
+import { getAdminWalletAddress, WALLET_ADDRESSES, generateTRC20QRCode, generateGenericQRCode } from "@/lib/wallet-config";
 
-const WALLET_ADDRESSES = {
-    usdt_trc20: "TXYZ1234567890ABCDEFGHIJKLMNOPQRSTUV",
-    usdt_erc20: "0x362A4533B0E745d339ff4fdb98E96BDb838FAa85",
-    btc: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-    eth: "0x362A4533B0E745d339ff4fdb98E96BDb838FAa85",
-    bnb: "0x362A4533B0E745d339ff4fdb98E96BDb838FAa85",
-};
+// Get safe version for internal usage
+const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
 
 interface PaymentVerificationProps {
     amount: number;

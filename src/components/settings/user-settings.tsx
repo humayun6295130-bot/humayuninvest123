@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useUser, updateRow, upsertRow, deleteRow } from "@/firebase";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Check, Hash, Headphones, AlertCircle, Bell, Shield, Moon, Globe, Trash2, Mail, Smartphone, Lock, User, TrendingUp } from "lucide-react";
+import { Copy, Check, Hash, Headphones, AlertCircle, Bell, Shield, Moon, Globe, Trash2, Mail, Smartphone, Lock, User, TrendingUp, Zap, Gift, Settings } from "lucide-react";
 import { formatSupportId } from "@/lib/support-id";
 import {
   Select,
@@ -47,6 +47,11 @@ export function UserSettings({ userProfile }: { userProfile: any }) {
   const [investmentAlerts, setInvestmentAlerts] = useState(userProfile?.investment_alerts !== false);
   const [marketingEmails, setMarketingEmails] = useState(userProfile?.marketing_emails || false);
   const [smsAlerts, setSmsAlerts] = useState(userProfile?.sms_alerts || false);
+
+  // System Control States
+  const [autoDailyEarnings, setAutoDailyEarnings] = useState(userProfile?.auto_daily_earnings !== false);
+  const [autoLevelUpgrade, setAutoLevelUpgrade] = useState(userProfile?.auto_level_upgrade !== false);
+  const [teamCommissionEnabled, setTeamCommissionEnabled] = useState(userProfile?.team_commission_enabled !== false);
 
   // Security states
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(userProfile?.two_factor_enabled || false);
@@ -138,6 +143,21 @@ export function UserSettings({ userProfile }: { userProfile: any }) {
       toast({ title: "Preferences Saved", description: "Your preferences have been updated" });
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "Failed to save preferences" });
+    }
+  };
+
+  // Handle System Controls Update
+  const handleUpdateSystemControls = async () => {
+    if (!userId) return;
+    try {
+      await updateRow("users", userId, {
+        auto_daily_earnings: autoDailyEarnings,
+        auto_level_upgrade: autoLevelUpgrade,
+        team_commission_enabled: teamCommissionEnabled,
+      });
+      toast({ title: "System Controls Saved", description: "Your system settings have been updated" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to save system controls" });
     }
   };
 
@@ -493,6 +513,60 @@ export function UserSettings({ userProfile }: { userProfile: any }) {
           </div>
 
           <Button onClick={handleUpdatePreferences}>Save Preferences</Button>
+        </CardContent>
+      </Card>
+
+      {/* System Controls */}
+      <Card className="border-l-4 border-l-blue-500">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Settings className="w-5 h-5 text-blue-500" />
+            <CardTitle>System Controls</CardTitle>
+          </div>
+          <CardDescription>Control automatic and manual features</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Automatic Features */}
+          <div className="space-y-4">
+            <h4 className="font-medium text-sm text-muted-foreground">Automatic Features</h4>
+
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Zap className="w-5 h-5 text-yellow-500" />
+                <div className="space-y-0.5">
+                  <Label>Auto Daily Earnings</Label>
+                  <p className="text-sm text-muted-foreground">Automatically add daily earnings based on level</p>
+                </div>
+              </div>
+              <Switch checked={autoDailyEarnings} onCheckedChange={setAutoDailyEarnings} />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="w-5 h-5 text-green-500" />
+                <div className="space-y-0.5">
+                  <Label>Auto Level Upgrade</Label>
+                  <p className="text-sm text-muted-foreground">Automatically upgrade level based on balance</p>
+                </div>
+              </div>
+              <Switch checked={autoLevelUpgrade} onCheckedChange={setAutoLevelUpgrade} />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Gift className="w-5 h-5 text-purple-500" />
+                <div className="space-y-0.5">
+                  <Label>Team Commission</Label>
+                  <p className="text-sm text-muted-foreground">Enable team commission from referrals</p>
+                </div>
+              </div>
+              <Switch checked={teamCommissionEnabled} onCheckedChange={setTeamCommissionEnabled} />
+            </div>
+          </div>
+
+          <Button onClick={handleUpdateSystemControls} className="w-full">
+            Save System Controls
+          </Button>
         </CardContent>
       </Card>
 

@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminOverview } from "@/components/admin/admin-overview";
 import { UserControlPanel } from "@/components/admin/user-control-panel";
 import { TransactionManager } from "@/components/admin/transaction-manager";
-import { PlanManager } from "@/components/admin/plan-manager";
 import { KYCManager } from "@/components/admin/kyc-manager";
 import { SupportManager } from "@/components/admin/support-manager";
 import { ReferralManager } from "@/components/admin/referral-manager";
@@ -49,10 +48,6 @@ export function AdminDashboard() {
             <ArrowDownUp className="h-4 w-4" />
             <span className="hidden sm:inline">Transactions</span>
           </TabsTrigger>
-          <TabsTrigger value="plans" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            <span className="hidden sm:inline">Plans</span>
-          </TabsTrigger>
           <TabsTrigger value="investments" className="flex items-center gap-2">
             <Wallet className="h-4 w-4" />
             <span className="hidden sm:inline">Investments</span>
@@ -85,10 +80,6 @@ export function AdminDashboard() {
 
         <TabsContent value="transactions">
           <TransactionManager />
-        </TabsContent>
-
-        <TabsContent value="plans">
-          <PlanManager />
         </TabsContent>
 
         <TabsContent value="kyc">
