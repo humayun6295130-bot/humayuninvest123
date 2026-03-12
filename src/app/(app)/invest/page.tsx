@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QrPaymentDialog } from "@/components/invest/qr-payment-dialog";
 import { InvestmentProgress } from "@/components/invest/InvestmentProgress";
+import { ActiveMiningDialog } from "@/components/mining/active-mining-dialog";
 import {
     TrendingUp,
     Wallet,
@@ -30,7 +31,8 @@ import {
     DollarSign,
     Percent,
     TrendingDown,
-    QrCode
+    QrCode,
+    Pickaxe
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -98,6 +100,8 @@ export default function InvestPage() {
     const [isClaiming, setIsClaiming] = useState(false);
     const [showQrPayment, setShowQrPayment] = useState(false);
     const [planForPayment, setPlanForPayment] = useState<InvestmentPlan | null>(null);
+    const [showMiningDialog, setShowMiningDialog] = useState(false);
+    const [selectedInvestmentForMining, setSelectedInvestmentForMining] = useState<UserInvestment | null>(null);
 
     // Fetch investment plans
     const plansOptions = useMemo(() => ({
@@ -535,14 +539,6 @@ export default function InvestPage() {
                                                     </div>
                                                 </>
                                             )}
-                                            <div className="bg-muted/50 p-3 rounded-lg">
-                                                <p className="text-xs text-muted-foreground">Duration</p>
-                                                <p className="font-semibold">{plan.duration_days} Days</p>
-                                            </div>
-                                            <div className="bg-muted/50 p-3 rounded-lg">
-                                                <p className="text-xs text-muted-foreground">Return</p>
-                                                <p className="font-semibold text-green-600">{plan.return_percent}%</p>
-                                            </div>
                                         </div>
 
                                         {plan.features && plan.features.length > 0 && (
@@ -558,38 +554,6 @@ export default function InvestPage() {
                                                 </div>
                                             </div>
                                         )}
-
-                                        <div className={cn(
-                                            "rounded-lg p-3",
-                                            isEndOfTerm ? "bg-green-500/10 border border-green-500/30" : "bg-green-500/5 border border-green-500/20"
-                                        )}>
-                                            {isEndOfTerm ? (
-                                                <>
-                                                    <div className="flex justify-between text-sm mb-2">
-                                                        <span className="text-muted-foreground">You Invest</span>
-                                                        <span className="font-semibold">${amount}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm mb-2">
-                                                        <span className="text-muted-foreground">You Get</span>
-                                                        <span className="font-bold text-green-600 text-lg">${displayReturn}</span>
-                                                    </div>
-                                                    <div className="text-center py-2 bg-green-500/20 rounded-lg">
-                                                        <span className="font-bold text-green-600">100% Return Guaranteed</span>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div className="flex justify-between text-sm mb-1">
-                                                        <span className="text-muted-foreground">Est. Daily Return</span>
-                                                        <span className="font-semibold text-green-600">${dailyRoi.toFixed(2)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-muted-foreground">Total Return</span>
-                                                        <span className="font-semibold">${displayReturn.toFixed(2)}</span>
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
                                     </CardContent>
                                     <CardFooter>
                                         <Button
@@ -600,7 +564,7 @@ export default function InvestPage() {
                                             }}
                                         >
                                             <QrCode className="mr-2 h-4 w-4" />
-                                            Pay with QR Code
+                                            Start Invest
                                         </Button>
                                     </CardFooter>
                                 </Card>
@@ -689,15 +653,29 @@ export default function InvestPage() {
                                                     </div>
 
                                                     <div className="mt-4 flex items-center justify-between">
-                                                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                            <span className="flex items-center gap-1">
-                                                                <Calendar className="h-4 w-4" />
-                                                                Started: {new Date(investment.start_date).toLocaleDateString()}
-                                                            </span>
-                                                            <span className="flex items-center gap-1">
-                                                                <Clock className="h-4 w-4" />
-                                                                Ends: {new Date(investment.end_date).toLocaleDateString()}
-                                                            </span>
+                                                        <div className="flex items-center gap-4">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+                                                                onClick={() => {
+                                                                    setSelectedInvestmentForMining(investment);
+                                                                    setShowMiningDialog(true);
+                                                                }}
+                                                            >
+                                                                <Pickaxe className="mr-2 h-4 w-4" />
+                                                                View Mining
+                                                            </Button>
+                                                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                                                <span className="flex items-center gap-1">
+                                                                    <Calendar className="h-4 w-4" />
+                                                                    Started: {new Date(investment.start_date).toLocaleDateString()}
+                                                                </span>
+                                                                <span className="flex items-center gap-1">
+                                                                    <Clock className="h-4 w-4" />
+                                                                    Ends: {new Date(investment.end_date).toLocaleDateString()}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                         <Button
                                                             size="sm"
@@ -954,6 +932,13 @@ export default function InvestPage() {
                 plan={planForPayment}
                 userId={user?.uid || ''}
                 userEmail={userProfile?.email}
+            />
+
+            {/* Active Mining Dialog */}
+            <ActiveMiningDialog
+                investment={selectedInvestmentForMining}
+                open={showMiningDialog}
+                onOpenChange={setShowMiningDialog}
             />
         </div>
     );
