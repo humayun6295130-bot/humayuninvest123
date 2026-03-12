@@ -60,9 +60,9 @@ interface WithdrawDialogEnhancedProps {
 
 const formSchema = z.object({
     walletAddress: z.string()
-        .min(34, "TRON address must be 34 characters")
-        .max(34, "TRON address must be 34 characters")
-        .regex(/^T[a-zA-Z0-9]{33}$/, "Invalid TRON address format. Must start with 'T'"),
+        .min(42, "BEP20 address must be 42 characters")
+        .max(42, "BEP20 address must be 42 characters")
+        .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid BEP20 address format. Must start with '0x'"),
     amount: z.coerce
         .number()
         .positive("Amount must be a positive number")
@@ -186,7 +186,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                 withdrawal_fee_percentage: WITHDRAWAL_FEE_PERCENTAGE,
                 total_deduction: getTotalDeduction(),
                 metadata: {
-                    network: "TRC20",
+                    network: "BEP20",
                     fee_data: fee,
                     address_validated: true,
                 },
@@ -271,14 +271,14 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                                     <FormItem>
                                         <FormLabel className="flex items-center gap-2">
                                             <Wallet className="w-4 h-4" />
-                                            TRON Wallet Address (TRC20)
+                                            BEP20 Wallet Address (BNB Smart Chain)
                                         </FormLabel>
                                         <FormControl>
                                             <Input
-                                                placeholder="T... (34 characters)"
+                                                placeholder="0x... (42 characters)"
                                                 {...field}
                                                 className="font-mono"
-                                                maxLength={34}
+                                                maxLength={42}
                                             />
                                         </FormControl>
                                         {hasSavedWallet && !watchAddress && (
@@ -405,7 +405,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground">Network</span>
-                                    <Badge variant="secondary">TRC-20 (TRON)</Badge>
+                                    <Badge variant="secondary">BEP20 (BNB Smart Chain)</Badge>
                                 </div>
                                 <div className="flex justify-between items-center text-orange-500">
                                     <span className="flex items-center gap-1">
