@@ -45,7 +45,6 @@ export function UserSettings({ userProfile }: { userProfile: any }) {
   // Notification states
   const [emailNotifications, setEmailNotifications] = useState(userProfile?.email_notifications !== false);
   const [investmentAlerts, setInvestmentAlerts] = useState(userProfile?.investment_alerts !== false);
-  const [marketingEmails, setMarketingEmails] = useState(userProfile?.marketing_emails || false);
   const [smsAlerts, setSmsAlerts] = useState(userProfile?.sms_alerts || false);
 
   // System Control States
@@ -110,7 +109,7 @@ export function UserSettings({ userProfile }: { userProfile: any }) {
       await updateRow("users", userId, {
         email_notifications: emailNotifications,
         investment_alerts: investmentAlerts,
-        marketing_emails: marketingEmails,
+        marketing_emails: false,
         sms_alerts: smsAlerts,
       });
       toast({ title: "Preferences Saved", description: "Notification settings updated" });
@@ -204,7 +203,6 @@ export function UserSettings({ userProfile }: { userProfile: any }) {
     setPhone(userProfile?.phone || "");
     setEmailNotifications(userProfile?.email_notifications !== false);
     setInvestmentAlerts(userProfile?.investment_alerts !== false);
-    setMarketingEmails(userProfile?.marketing_emails || false);
     setSmsAlerts(userProfile?.sms_alerts || false);
     setTwoFactorEnabled(userProfile?.two_factor_enabled || false);
     setLoginAlerts(userProfile?.login_alerts !== false);
@@ -397,11 +395,11 @@ export function UserSettings({ userProfile }: { userProfile: any }) {
             <div className="flex items-center gap-3">
               <Mail className="w-4 h-4 text-muted-foreground" />
               <div className="space-y-0.5">
-                <Label>Marketing Emails</Label>
-                <p className="text-sm text-muted-foreground">Receive promotional offers and news</p>
+                <Label>Email Alerts</Label>
+                <p className="text-sm text-muted-foreground">Receive email notifications for important updates</p>
               </div>
             </div>
-            <Switch checked={marketingEmails} onCheckedChange={setMarketingEmails} />
+            <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
           </div>
 
           <Button onClick={handleUpdateNotifications}>Save Notification Preferences</Button>

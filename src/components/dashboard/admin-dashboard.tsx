@@ -31,7 +31,7 @@ export function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-10 lg:w-auto">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 lg:w-auto">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -91,7 +91,7 @@ export function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="investments">
-          <InvestmentApproval />
+          <UserControlPanel />
         </TabsContent>
 
         <TabsContent value="referrals">

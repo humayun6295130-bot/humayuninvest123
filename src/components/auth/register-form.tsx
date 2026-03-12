@@ -165,6 +165,8 @@ export function RegisterForm() {
         level1_count: 0,
         level2_count: 0,
         level3_count: 0,
+        level4_count: 0,
+        level5_count: 0,
         total_team_investment: 0,
         total_commission_earned: 0,
         current_level: 1,

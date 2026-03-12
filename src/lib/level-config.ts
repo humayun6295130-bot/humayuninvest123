@@ -118,3 +118,45 @@ export function getUserLevel(totalInvested: number): LevelConfig {
     const levels = [...INVESTMENT_LEVELS].reverse(); // Start from highest
     return levels.find(level => totalInvested >= level.minInvestment) || INVESTMENT_LEVELS[0];
 }
+
+/**
+ * Get level info - alias for getUserLevel
+ */
+export function getLevelInfo(totalInvested: number): LevelConfig {
+    return getUserLevel(totalInvested);
+}
+
+/**
+ * Get next level based on current investment
+ */
+export function getNextLevel(totalInvested: number): LevelConfig | null {
+    const currentLevel = getUserLevel(totalInvested);
+    if (currentLevel.level >= 5) return null; // Already at max level
+    return getLevelByNumber(currentLevel.level + 1) || null;
+}
+
+/**
+ * Calculate daily earnings based on investment
+ */
+export function calculateDailyEarnings(amount: number): number {
+    return calculateDailyIncome(amount);
+}
+
+/**
+ * Calculate weekly earnings based on investment
+ */
+export function calculateWeeklyEarnings(amount: number): number {
+    return calculateDailyIncome(amount) * 7;
+}
+
+/**
+ * Calculate monthly earnings based on investment
+ */
+export function calculateMonthlyEarnings(amount: number): number {
+    return calculateDailyIncome(amount) * 30;
+}
+
+/**
+ * Export LEVEL_CONFIG for backward compatibility
+ */
+export const LEVEL_CONFIG = INVESTMENT_LEVELS;

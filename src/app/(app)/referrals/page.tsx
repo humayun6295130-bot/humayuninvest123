@@ -115,6 +115,8 @@ export default function ReferralsPage() {
     const level1Referrals = referrals?.filter(r => r.level === 1) || [];
     const level2Referrals = referrals?.filter(r => r.level === 2) || [];
     const level3Referrals = referrals?.filter(r => r.level === 3) || [];
+    const level4Referrals = referrals?.filter(r => r.level === 4) || [];
+    const level5Referrals = referrals?.filter(r => r.level === 5) || [];
 
     const activeReferrals = referrals?.filter(r => r.status === 'active').length || 0;
     const totalCommission = bonuses?.filter(b => b.status === 'approved').reduce((sum, b) => sum + b.amount, 0) || 0;
@@ -190,7 +192,7 @@ export default function ReferralsPage() {
     };
 
     const getCommissionRates = () => {
-        const settings = userProfile?.referral_settings || { level1: 5, level2: 2, level3: 1 };
+        const settings = userProfile?.referral_settings || { level1: 1, level2: 2, level3: 3, level4: 4, level5: 5 };
         return settings;
     };
 
@@ -352,6 +354,28 @@ export default function ReferralsPage() {
                                     <p className="text-xs text-muted-foreground mt-1">Extended network</p>
                                     <Badge className="mt-2" variant="secondary">{level3Referrals.length} users</Badge>
                                 </div>
+
+                                {/* Level 4 */}
+                                <div className="p-4 bg-muted/50 rounded-lg text-center">
+                                    <div className="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <TrendingUp className="h-6 w-6 text-yellow-500" />
+                                    </div>
+                                    <h4 className="font-semibold text-lg">{rates.level4 || 4}%</h4>
+                                    <p className="text-sm text-muted-foreground">Level 4</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Extended network</p>
+                                    <Badge className="mt-2" variant="secondary">{level4Referrals.length} users</Badge>
+                                </div>
+
+                                {/* Level 5 */}
+                                <div className="p-4 bg-muted/50 rounded-lg text-center">
+                                    <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <TrendingUp className="h-6 w-6 text-purple-500" />
+                                    </div>
+                                    <h4 className="font-semibold text-lg">{rates.level5 || 5}%</h4>
+                                    <p className="text-sm text-muted-foreground">Level 5</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Extended network</p>
+                                    <Badge className="mt-2" variant="secondary">{level5Referrals.length} users</Badge>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -363,6 +387,8 @@ export default function ReferralsPage() {
                             <TabsTrigger value="level1">Level 1 ({level1Referrals.length})</TabsTrigger>
                             <TabsTrigger value="level2">Level 2 ({level2Referrals.length})</TabsTrigger>
                             <TabsTrigger value="level3">Level 3 ({level3Referrals.length})</TabsTrigger>
+                            <TabsTrigger value="level4">Level 4 ({level4Referrals.length})</TabsTrigger>
+                            <TabsTrigger value="level5">Level 5 ({level5Referrals.length})</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="all">
@@ -376,6 +402,12 @@ export default function ReferralsPage() {
                         </TabsContent>
                         <TabsContent value="level3">
                             <ReferralsList referrals={level3Referrals} level={3} />
+                        </TabsContent>
+                        <TabsContent value="level4">
+                            <ReferralsList referrals={level4Referrals} level={4} />
+                        </TabsContent>
+                        <TabsContent value="level5">
+                            <ReferralsList referrals={level5Referrals} level={5} />
                         </TabsContent>
                     </Tabs>
                 </div>
@@ -484,7 +516,7 @@ export default function ReferralsPage() {
                                 </div>
                                 <div>
                                     <p className="font-medium text-sm">Earn Commission</p>
-                                    <p className="text-xs text-muted-foreground">Get up to {rates.level1}% on their investments</p>
+                                    <p className="text-xs text-muted-foreground">Get up to {rates.level1 || 1}% + {rates.level2 || 2}% + {rates.level3 || 3}% + {rates.level4 || 4}% + {rates.level5 || 5}% on their investments</p>
                                 </div>
                             </div>
                         </CardContent>

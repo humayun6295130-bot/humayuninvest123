@@ -50,8 +50,8 @@ const LEVEL_CONFIG = [
     { level: 1, min: 30, max: 250, income_percent: 1.5, name: 'Starter' },
     { level: 2, min: 251, max: 500, income_percent: 2.0, name: 'Basic' },
     { level: 3, min: 501, max: 1000, income_percent: 2.5, name: 'Silver' },
-    { level: 4, min: 1001, max: 5000, income_percent: 3.1, name: 'Gold' },
-    { level: 5, min: 5001, max: 10000, income_percent: 4.0, name: 'VIP' }
+    { level: 4, min: 1001, max: 2500, income_percent: 3.1, name: 'Gold' },
+    { level: 5, min: 5000, max: 10000, income_percent: 4.0, name: 'VIP' }
 ];
 
 // Function to calculate level based on balance
