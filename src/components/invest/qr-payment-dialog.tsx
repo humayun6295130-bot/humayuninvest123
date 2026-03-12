@@ -52,6 +52,7 @@ interface QrPaymentDialogProps {
     plan: InvestmentPlan | null;
     userId: string;
     userEmail?: string;
+    customAmount?: number;
 }
 
 export function QrPaymentDialog({
@@ -59,7 +60,8 @@ export function QrPaymentDialog({
     onOpenChange,
     plan,
     userId,
-    userEmail
+    userEmail,
+    customAmount
 }: QrPaymentDialogProps) {
     const { toast } = useToast();
     const [copied, setCopied] = useState(false);
@@ -71,7 +73,7 @@ export function QrPaymentDialog({
 
     const walletInfo = getWalletInfo();
 
-    const investmentAmount = plan?.fixed_amount || plan?.min_amount || 0;
+    const investmentAmount = customAmount || plan?.fixed_amount || plan?.min_amount || 0;
     const expectedReturn = plan?.total_return || investmentAmount * 2;
 
     const copyWalletAddress = () => {
@@ -165,7 +167,7 @@ export function QrPaymentDialog({
                 expected_return: expectedReturn,
                 wallet_address: ADMIN_WALLET_ADDRESS,
                 status: 'pending_payment_confirmation',
-                payment_method: 'usdt_trc20',
+                payment_method: 'usdt_bep20',
                 transaction_id: transactionId.trim(),
                 proof_image_url: screenshotUrl,
                 created_at: new Date().toISOString(),

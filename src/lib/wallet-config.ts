@@ -13,13 +13,13 @@ export const getAdminWalletAddress = (): string => {
     return address || '';
 };
 
-// Admin's USDT TRC-20 Wallet Address (TRON Network)
+// Admin's USDT BEP20 Wallet Address (BNB Smart Chain)
 export const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
 
 // Fallback addresses for different networks (if needed)
 export const WALLET_ADDRESSES = {
-    // TRC-20 (TRON) - Primary
-    usdt_trc20: ADMIN_WALLET_ADDRESS,
+    // BEP20 (BNB Smart Chain) - Primary
+    usdt_bep20: ADMIN_WALLET_ADDRESS,
 
     // ERC-20 (Ethereum) - Secondary (leave empty if not used)
     usdt_erc20: process.env.NEXT_PUBLIC_ADMIN_ERC20_ADDRESS || '',
@@ -36,15 +36,15 @@ export const isWalletConfigured = (): boolean => {
 };
 
 /**
- * Generate QR Code URL for TRC-20 USDT payment
+ * Generate QR Code URL for BEP20 USDT payment
  * @param amount - Payment amount in USDT
  * @returns QR code image URL
  */
 export const generateTRC20QRCode = (amount: number): string => {
     if (!ADMIN_WALLET_ADDRESS) return '';
 
-    // TRON-style payment URI
-    const paymentData = `tron://transfer?to=${ADMIN_WALLET_ADDRESS}&amount=${amount}&token=USDT`;
+    // BEP20/BSC-style payment URI
+    const paymentData = `binance:${ADMIN_WALLET_ADDRESS}?amount=${amount}&token=USDT`;
     return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(paymentData)}`;
 };
 
@@ -91,11 +91,11 @@ export const generateBTCQRCode = (amount: number): string => {
  * Get wallet info for display
  */
 export const getWalletInfo = () => ({
-    network: 'TRC-20 (TRON)',
+    network: 'BEP20 (BNB SMART CHAIN)',
     currency: 'USDT',
     address: ADMIN_WALLET_ADDRESS || '',
     symbol: '₮',
     scanInstructions: ADMIN_WALLET_ADDRESS
-        ? 'Scan with Trust Wallet, MetaMask, or any TRC-20 compatible wallet'
+        ? 'Scan with Trust Wallet, MetaMask, or any BEP20 compatible wallet'
         : 'Wallet address not configured. Please contact support.'
 });

@@ -147,7 +147,7 @@ export default function InvestPage() {
     const totalPending = activeInvestments.reduce((sum, inv) => sum + (inv.earned_so_far - (inv.claimed_so_far || 0)), 0);
     const dailyEarning = activeInvestments.reduce((sum, inv) => sum + inv.daily_roi, 0);
 
-    // Handle new investment
+    // Handle new investment - show QR payment dialog
     const handleInvest = async () => {
         if (!user || !selectedPlan || !investAmount) return;
 
@@ -156,82 +156,15 @@ export default function InvestPage() {
             toast({
                 variant: "destructive",
                 title: "Invalid Amount",
-                description: `Investment amount must be between $${selectedPlan.min_amount} and $${selectedPlan.max_amount}`,
+                description: `Investment amount must be between ${selectedPlan.min_amount} and ${selectedPlan.max_amount}`,
             });
             return;
         }
 
-        if ((userProfile?.balance || 0) < amount) {
-            toast({
-                variant: "destructive",
-                title: "Insufficient Balance",
-                description: "Please deposit funds to your wallet first.",
-            });
-            return;
-        }
-
-        setIsInvesting(true);
-        try {
-            const startDate = new Date();
-            const endDate = new Date();
-            endDate.setDate(endDate.getDate() + selectedPlan.duration_days);
-
-            const dailyRoi = (amount * selectedPlan.daily_roi_percent) / 100;
-            const totalProfit = dailyRoi * selectedPlan.duration_days;
-            const totalReturn = totalProfit + (selectedPlan.capital_return ? amount : 0);
-
-            // Create investment record
-            await insertRow('user_investments', {
-                user_id: user.uid,
-                plan_id: selectedPlan.id,
-                plan_name: selectedPlan.name,
-                amount: amount,
-                daily_roi: dailyRoi,
-                daily_roi_percent: selectedPlan.daily_roi_percent,
-                total_return: totalReturn,
-                total_profit: totalProfit,
-                earned_so_far: 0,
-                claimed_so_far: 0,
-                days_claimed: 0,
-                start_date: startDate.toISOString(),
-                end_date: endDate.toISOString(),
-                status: 'active',
-                auto_compound: false,
-                capital_return: selectedPlan.capital_return,
-            });
-
-            // Deduct from user balance
-            await updateRow('users', user.uid, {
-                balance: (userProfile?.balance || 0) - amount,
-                total_invested: (userProfile?.total_invested || 0) + amount,
-            });
-
-            // Record transaction
-            await insertRow('transactions', {
-                user_id: user.uid,
-                type: 'investment',
-                amount: -amount,
-                status: 'completed',
-                description: `Investment in ${selectedPlan.name}`,
-                reference_id: selectedPlan.id,
-            });
-
-            toast({
-                title: "Investment Successful! 🎉",
-                description: `You invested $${amount} in ${selectedPlan.name}. Daily ROI: $${dailyRoi.toFixed(2)}`,
-            });
-
-            setSelectedPlan(null);
-            setInvestAmount("");
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Investment Failed",
-                description: error.message,
-            });
-        } finally {
-            setIsInvesting(false);
-        }
+        // Instead of direct investment, show QR payment dialog for deposit
+        setPlanForPayment(selectedPlan);
+        setShowQrPayment(true);
+        setSelectedPlan(null);
     };
 
     // Handle claim earnings
@@ -515,7 +448,7 @@ export default function InvestPage() {
                                             <Badge className={cn(
                                                 isEndOfTerm ? "bg-green-500/20 text-green-600" : "bg-primary/10 text-primary"
                                             )}>
-                                                {isEndOfTerm ? '2X Return' : `${plan.daily_roi_percent}% Daily`}
+                                                {plan.daily_roi_percent}% Daily
                                             </Badge>
                                         </div>
                                         <CardDescription>{plan.description}</CardDescription>
@@ -559,8 +492,8 @@ export default function InvestPage() {
                                         <Button
                                             className="w-full"
                                             onClick={() => {
-                                                setPlanForPayment(plan);
-                                                setShowQrPayment(true);
+                                                setSelectedPlan(plan);
+                                                setInvestAmount(plan.fixed_amount ? plan.fixed_amount.toString() : '');
                                             }}
                                         >
                                             <QrCode className="mr-2 h-4 w-4" />
@@ -800,10 +733,6 @@ export default function InvestPage() {
                                                     </span>
                                                 </div>
                                                 <Separator />
-                                                <div className="text-xs text-muted-foreground">
-                                                    Duration: {plan.duration_days} days
-                                                    {plan.capital_return && " • Capital Returned"}
-                                                </div>
                                             </CardContent>
                                         </Card>
                                     );
@@ -932,6 +861,7 @@ export default function InvestPage() {
                 plan={planForPayment}
                 userId={user?.uid || ''}
                 userEmail={userProfile?.email}
+                customAmount={investAmount ? parseFloat(investAmount) : undefined}
             />
 
             {/* Active Mining Dialog */}
