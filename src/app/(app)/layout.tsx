@@ -69,7 +69,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="group-data-[state=collapsed]:hidden overflow-hidden">
               <h1 className="text-xl font-bold bg-gradient-to-r from-sidebar-foreground to-sidebar-foreground/80 bg-clip-text text-transparent">
-                AscendFolio
+                BTCMine
               </h1>
               <p className="text-[10px] text-sidebar-foreground/50 font-medium uppercase tracking-wider">Investment Platform</p>
             </div>

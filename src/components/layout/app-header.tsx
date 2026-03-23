@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LogOut, Search, User as UserIcon, Menu, Bell, X } from "lucide-react";
+import { LogOut, Search, User as UserIcon, Menu, Bell, X, Briefcase, History, Newspaper, BadgeCheck, HelpCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +44,7 @@ export function AppHeader() {
     for (const [path, title] of Object.entries(titles)) {
       if (pathname.startsWith(path)) return title;
     }
-    return "AscendFolio";
+    return "BTCMine";
   };
 
   const handleLogout = async () => {
@@ -61,6 +61,15 @@ export function AppHeader() {
     { href: '/portfolio', label: 'Portfolio', icon: 'Briefcase' },
     { href: '/wallet', label: 'Wallet', icon: 'Wallet' },
     { href: '/invest', label: 'Invest', icon: 'TrendingUp' },
+    { href: '/earnings', label: 'Earnings', icon: 'DollarSign' },
+    { href: '/transactions', label: 'Transactions', icon: 'History' },
+    { href: '/referrals', label: 'Referrals', icon: 'Users' },
+    { href: '/content', label: 'Market Insights', icon: 'Newspaper' },
+    { href: '/profile', label: 'My Profile', icon: 'User' },
+    { href: '/kyc', label: 'KYC Verification', icon: 'BadgeCheck' },
+    { href: '/support', label: 'Support', icon: 'HelpCircle' },
+    { href: '/notifications', label: 'Notifications', icon: 'Bell' },
+    { href: '/settings', label: 'Settings', icon: 'Settings' },
   ];
 
   return (
@@ -84,24 +93,47 @@ export function AppHeader() {
                 <span className="text-xl font-bold">$</span>
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
-                AscendFolio
+                BTCMine
               </span>
             </SheetTitle>
           </SheetHeader>
-          <nav className="flex flex-col gap-1 p-4">
+          <nav className="flex flex-col gap-1 p-4 overflow-y-auto">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 ${pathname === item.href
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
               >
                 <span>{item.label}</span>
               </Link>
             ))}
+            <div className="border-t my-2" />
+            <Link
+              href="/notifications"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 ${pathname === '/notifications'
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+            >
+              <Bell className="h-5 w-5" />
+              <span>Notifications</span>
+            </Link>
+            <Link
+              href="/settings"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 ${pathname === '/settings'
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+            >
+              <LogOut className="h-5 w-5" />
+              <span>Settings</span>
+            </Link>
           </nav>
         </SheetContent>
       </Sheet>
@@ -123,16 +155,15 @@ export function AppHeader() {
         />
       </div>
 
-      {/* Notifications */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="relative hidden sm:flex hover:bg-muted transition-all duration-200 hover:scale-105"
+      {/* Notifications - Visible on all screens */}
+      <Link
+        href="/notifications"
+        className="relative flex items-center justify-center hover:bg-muted transition-all duration-200 rounded-lg p-2"
       >
         <Bell className="h-5 w-5" />
         <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
         <span className="sr-only">Notifications</span>
-      </Button>
+      </Link>
 
       {/* User Dropdown */}
       <DropdownMenu>
