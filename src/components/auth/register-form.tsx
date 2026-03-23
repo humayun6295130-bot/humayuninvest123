@@ -173,6 +173,16 @@ export function RegisterForm() {
         created_at: new Date().toISOString(),
       });
 
+      // Create welcome notification
+      await insertRow("notifications", {
+        user_id: user.uid,
+        title: "Welcome to BTCMine!",
+        message: "Your account has been created successfully. Start exploring our BTC mining investment plans to start earning.",
+        type: "system",
+        is_read: false,
+        created_at: new Date().toISOString(),
+      });
+
       if (isAdmin) {
         await insertRow("roles_admin", {
           user_id: user.uid,
@@ -224,13 +234,13 @@ export function RegisterForm() {
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full max-w-md mx-auto bg-slate-900 border-slate-800 shadow-2xl shadow-black/50">
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-bold text-center">
-          Join BTCMine 2026
+          Join BTCMine
         </CardTitle>
         <p className="text-sm text-muted-foreground text-center">
-          Create your account and start mining Bitcoin
+          Create your account and start mining BTC
         </p>
 
         {/* Show referral info if valid */}
@@ -255,9 +265,14 @@ export function RegisterForm() {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel className="text-slate-300">Full Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="John Doe" {...field} disabled={isLoading} />
+                    <Input
+                      placeholder="Enter your full name"
+                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:ring-orange-500 focus:border-orange-500"
+                      {...field}
+                      disabled={isLoading}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -268,9 +283,14 @@ export function RegisterForm() {
               name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Username</FormLabel>
+                  <FormLabel className="text-slate-300">Username</FormLabel>
                   <FormControl>
-                    <Input placeholder="john_doe" {...field} disabled={isLoading} />
+                    <Input
+                      placeholder="Enter your username"
+                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:ring-orange-500 focus:border-orange-500"
+                      {...field}
+                      disabled={isLoading}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -281,9 +301,15 @@ export function RegisterForm() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel className="text-slate-300">Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="name@example.com" type="email" {...field} disabled={isLoading} />
+                    <Input
+                      placeholder="Enter your email"
+                      type="email"
+                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:ring-orange-500 focus:border-orange-500"
+                      {...field}
+                      disabled={isLoading}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -294,9 +320,15 @@ export function RegisterForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel className="text-slate-300">Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
+                    <Input
+                      type="password"
+                      placeholder="Create a password"
+                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:ring-orange-500 focus:border-orange-500"
+                      {...field}
+                      disabled={isLoading}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

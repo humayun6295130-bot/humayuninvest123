@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Bitcoin, ShieldCheck, Zap, ArrowRight, Pickaxe, TrendingUp, Users, Globe, Hash, Cpu } from 'lucide-react';
+import { Bitcoin, ShieldCheck, Zap, ArrowRight, TrendingUp, Users, Globe, Hash, Cpu } from 'lucide-react';
 import { PublicHeader } from '@/components/layout/public-header';
 import { PublicFooter } from '@/components/layout/public-footer';
 import { MiningVisualization } from '@/components/mining/mining-visualization';
@@ -12,43 +12,43 @@ export default function LandingPage() {
     <div className="flex flex-col min-h-screen bg-slate-950 text-foreground">
       <PublicHeader />
 
-      <main className="flex-1">
+      <main className="flex-1 overflow-x-hidden">
         {/* Hero Section with 3D Mining */}
-        <section className="w-full py-8 md:py-12 lg:py-16 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
-          <div className="container px-4 md:px-6 mx-auto">
-            <div className="flex flex-col items-center space-y-6">
-              <div className="inline-flex items-center rounded-full border border-orange-500/30 px-3 py-1.5 text-sm font-semibold transition-colors bg-slate-800/50 text-orange-400 mb-2">
-                <Zap className="mr-2 h-4 w-4 animate-pulse" />
-                Professional Bitcoin Mining - 2026 Edition
+        <section className="w-full py-6 md:py-12 lg:py-16 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
+          <div className="container px-2 sm:px-4 md:px-6 mx-auto">
+            <div className="flex flex-col items-center space-y-4 sm:space-y-6">
+              <div className="inline-flex items-center rounded-full border border-orange-500/30 px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm font-semibold transition-colors bg-slate-800/50 text-orange-400 mb-1 sm:mb-2">
+                <Zap className="mr-1.5 h-3 w-3 sm:h-4 sm:w-4 animate-pulse" />
+                Professional BTC Mining
               </div>
-              <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl max-w-3xl text-center text-white">
-                Mine Bitcoin with <span className="text-orange-400">Advanced Technology</span>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight text-center text-white px-2">
+                Mine BTC with <span className="text-orange-400">Advanced Technology</span>
               </h1>
-              <p className="mx-auto max-w-[700px] text-slate-400 md:text-lg leading-relaxed text-center">
-                Join the most advanced Bitcoin mining investment platform.
+              <p className="mx-auto max-w-[90%] sm:max-w-[700px] text-sm sm:text-base md:text-lg text-slate-400 leading-relaxed text-center px-2">
+                Join the most advanced BTC mining investment platform.
                 Real-time mining visualization, instant payouts, and professional mining infrastructure.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 mt-4">
-                <Button asChild size="lg" className="px-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-none shadow-lg shadow-orange-500/25">
-                  <Link href="/register">Start Mining Now <ArrowRight className="ml-2 h-4 w-4" /></Link>
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-2 sm:mt-4 w-full px-2 sm:px-0 max-w-md sm:max-w-none">
+                <Button size="lg" className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-none shadow-lg shadow-orange-500/25" asChild>
+                  <Link href="/register">Start Mining Now <ArrowRight className="ml-1.5 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4" /></Link>
                 </Button>
-                <Button variant="outline" size="lg" className="px-8 border-orange-500/30 text-orange-400 hover:bg-orange-500/10" asChild>
+                <Button variant="outline" size="lg" className="w-full sm:w-auto border-orange-500/30 text-orange-400 hover:bg-orange-500/10" asChild>
                   <Link href="/#mining">View Live Demo</Link>
                 </Button>
               </div>
             </div>
 
             {/* 3D Mining Visualization */}
-            <div className="mt-12" id="mining">
+            <div className="mt-8 sm:mt-12" id="mining">
               <MiningVisualization />
             </div>
           </div>
         </section>
 
         {/* Live Mining Stats */}
-        <section className="w-full py-12 bg-slate-900/50 border-y border-orange-500/10">
-          <div className="container px-4 mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <section className="w-full py-8 sm:py-12 bg-slate-900/50 border-y border-orange-500/10 overflow-hidden">
+          <div className="container px-2 sm:px-4 mx-auto">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-6">
               <div className="flex flex-col items-center p-6 bg-slate-800/50 rounded-xl border border-orange-500/20">
                 <Hash className="w-8 h-8 text-orange-400 mb-2" />
                 <div className="text-2xl font-bold text-white">245.6 PH/s</div>
@@ -74,146 +74,56 @@ export default function LandingPage() {
         </section>
 
         {/* Features Section */}
-        <section id="features" className="w-full py-16 md:py-24 bg-slate-950">
-          <div className="container px-4 md:px-6 mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-2xl md:text-4xl font-bold text-white mb-4">
+        <section id="features" className="w-full py-12 md:py-16 lg:py-24 bg-slate-950 overflow-hidden">
+          <div className="container px-2 sm:px-4 md:px-6 mx-auto">
+            <div className="text-center mb-8 sm:mb-10 lg:mb-12">
+              <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-3 sm:mb-4 px-2">
                 Why Choose Our Mining Platform?
               </h2>
-              <p className="text-slate-400 max-w-2xl mx-auto">
-                Professional-grade Bitcoin mining infrastructure with real-time monitoring and instant rewards.
+              <p className="text-slate-400 max-w-xl mx-auto px-2">
+                Professional-grade BTC mining infrastructure with real-time monitoring and instant rewards.
               </p>
             </div>
-            <div className="grid gap-8 lg:grid-cols-3">
-              <div className="flex flex-col items-center space-y-4 text-center p-8 bg-slate-900 rounded-2xl border border-orange-500/20 group hover:border-orange-500/50 transition-colors">
-                <div className="p-4 bg-orange-500/10 rounded-full group-hover:bg-orange-500/20 transition-colors">
-                  <TrendingUp className="h-8 w-8 text-orange-400" />
+            <div className="grid gap-4 sm:gap-6 lg:gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex flex-col items-center space-y-3 sm:space-y-4 text-center p-4 sm:p-6 lg:p-8 bg-slate-900 rounded-xl sm:rounded-2xl border border-orange-500/20 group hover:border-orange-500/50 transition-colors">
+                <div className="p-3 sm:p-4 bg-orange-500/10 rounded-full group-hover:bg-orange-500/20 transition-colors">
+                  <TrendingUp className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-orange-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white">Real-time Analytics</h3>
-                <p className="text-slate-400">Monitor your mining performance with live hash rates, earnings, and detailed statistics dashboard.</p>
+                <h3 className="text-lg sm:text-xl font-bold text-white">Real-time Analytics</h3>
+                <p className="text-sm sm:text-base text-slate-400">Monitor your mining performance with live hash rates, earnings, and detailed statistics dashboard.</p>
               </div>
-              <div className="flex flex-col items-center space-y-4 text-center p-8 bg-slate-900 rounded-2xl border border-orange-500/20 group hover:border-orange-500/50 transition-colors">
-                <div className="p-4 bg-orange-500/10 rounded-full group-hover:bg-orange-500/20 transition-colors">
-                  <ShieldCheck className="h-8 w-8 text-orange-400" />
+              <div className="flex flex-col items-center space-y-3 sm:space-y-4 text-center p-4 sm:p-6 lg:p-8 bg-slate-900 rounded-xl sm:rounded-2xl border border-orange-500/20 group hover:border-orange-500/50 transition-colors">
+                <div className="p-3 sm:p-4 bg-orange-500/10 rounded-full group-hover:bg-orange-500/20 transition-colors">
+                  <ShieldCheck className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-orange-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white">Secure Infrastructure</h3>
-                <p className="text-slate-400">Your investments are protected by enterprise-grade security with cold storage and multi-sig wallets.</p>
+                <h3 className="text-lg sm:text-xl font-bold text-white">Secure Infrastructure</h3>
+                <p className="text-sm sm:text-base text-slate-400">Your investments are protected by enterprise-grade security with cold storage and multi-sig wallets.</p>
               </div>
-              <div className="flex flex-col items-center space-y-4 text-center p-8 bg-slate-900 rounded-2xl border border-orange-500/20 group hover:border-orange-500/50 transition-colors">
-                <div className="p-4 bg-orange-500/10 rounded-full group-hover:bg-orange-500/20 transition-colors">
-                  <Globe className="h-8 w-8 text-orange-400" />
+              <div className="flex flex-col items-center space-y-3 sm:space-y-4 text-center p-4 sm:p-6 lg:p-8 bg-slate-900 rounded-xl sm:rounded-2xl border border-orange-500/20 group hover:border-orange-500/50 transition-colors sm:col-span-2 lg:col-span-1">
+                <div className="p-3 sm:p-4 bg-orange-500/10 rounded-full group-hover:bg-orange-500/20 transition-colors">
+                  <Globe className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-orange-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white">Global Mining Farms</h3>
-                <p className="text-slate-400">Access mining facilities worldwide with optimal electricity costs and environmental conditions.</p>
+                <h3 className="text-lg sm:text-xl font-bold text-white">Global Mining Farms</h3>
+                <p className="text-sm sm:text-base text-slate-400">Access mining facilities worldwide with optimal electricity costs and environmental conditions.</p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Mining Plans Preview */}
-        <section id="plans" className="w-full py-16 bg-slate-900/50 border-y border-orange-500/10">
-          <div className="container px-4 mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-2xl md:text-4xl font-bold text-white mb-4">
-                Mining Investment Plans
-              </h2>
-              <p className="text-slate-400 max-w-2xl mx-auto">
-                Choose a plan that fits your investment goals and start earning BTC immediately.
-              </p>
-            </div>
-            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              {/* Starter Plan */}
-              <div className="p-6 bg-slate-800/50 rounded-xl border border-orange-500/20">
-                <div className="flex items-center gap-2 mb-4">
-                  <Pickaxe className="w-6 h-6 text-orange-400" />
-                  <h3 className="text-lg font-bold text-white">Starter</h3>
-                </div>
-                <div className="text-3xl font-bold text-orange-400 mb-2">$100</div>
-                <div className="text-sm text-slate-400 mb-4">Minimum investment</div>
-                <ul className="space-y-2 text-sm text-slate-300 mb-6">
-                  <li className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-400" /> 10 TH/s Hash Rate
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-400" /> 1% Daily Returns
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-400" /> 30 Days Duration
-                  </li>
-                </ul>
-                <Button className="w-full bg-orange-500 hover:bg-orange-600" asChild>
-                  <Link href="/register">Get Started</Link>
-                </Button>
-              </div>
 
-              {/* Pro Plan */}
-              <div className="p-6 bg-gradient-to-b from-orange-500/20 to-slate-800/50 rounded-xl border border-orange-500/50 relative">
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-orange-500 text-white text-xs px-3 py-1 rounded-full">
-                  Popular
-                </div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Bitcoin className="w-6 h-6 text-orange-400" />
-                  <h3 className="text-lg font-bold text-white">Pro</h3>
-                </div>
-                <div className="text-3xl font-bold text-orange-400 mb-2">$1,000</div>
-                <div className="text-sm text-slate-400 mb-4">Best value plan</div>
-                <ul className="space-y-2 text-sm text-slate-300 mb-6">
-                  <li className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-400" /> 100 TH/s Hash Rate
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-400" /> 1.5% Daily Returns
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-400" /> 60 Days Duration
-                  </li>
-                </ul>
-                <Button className="w-full bg-orange-500 hover:bg-orange-600" asChild>
-                  <Link href="/register">Get Started</Link>
-                </Button>
-              </div>
-
-              {/* Enterprise Plan */}
-              <div className="p-6 bg-slate-800/50 rounded-xl border border-orange-500/20">
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="w-6 h-6 text-orange-400" />
-                  <h3 className="text-lg font-bold text-white">Enterprise</h3>
-                </div>
-                <div className="text-3xl font-bold text-orange-400 mb-2">$10,000</div>
-                <div className="text-sm text-slate-400 mb-4">Maximum returns</div>
-                <ul className="space-y-2 text-sm text-slate-300 mb-6">
-                  <li className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-400" /> 1 PH/s Hash Rate
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-400" /> 2% Daily Returns
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-400" /> 90 Days Duration
-                  </li>
-                </ul>
-                <Button className="w-full bg-orange-500 hover:bg-orange-600" asChild>
-                  <Link href="/register">Get Started</Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="w-full py-20 bg-gradient-to-r from-orange-600 to-orange-700">
-          <div className="container px-4 mx-auto text-center space-y-8">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">
-              Start Mining Bitcoin Today!
+        <section className="w-full py-12 sm:py-16 lg:py-20 bg-gradient-to-r from-orange-600 to-orange-700">
+          <div className="container px-2 sm:px-4 mx-auto text-center space-y-6 sm:space-y-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white px-2">
+              Start Mining BTC Today!
             </h2>
-            <p className="text-orange-100 text-lg max-w-2xl mx-auto">
-              Join 12,000+ miners already earning Bitcoin with our professional mining infrastructure.
+            <p className="text-orange-100 text-sm sm:text-base md:text-lg max-w-xl lg:max-w-2xl mx-auto px-2">
+              Join 12,000+ miners already earning BTC with our professional mining infrastructure.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" variant="secondary" className="px-12 text-orange-600 font-bold" asChild>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-2 sm:px-0">
+              <Button size="lg" variant="secondary" className="w-full sm:w-auto sm:px-10 lg:px-12 text-orange-600 font-bold" asChild>
                 <Link href="/register">Create Free Account</Link>
               </Button>
-              <Button size="lg" variant="outline" className="px-12 border-white text-white hover:bg-white/10" asChild>
+              <Button size="lg" variant="outline" className="w-full sm:w-auto sm:px-10 lg:px-12 border-white text-white hover:bg-white/10" asChild>
                 <Link href="/invest">View Plans</Link>
               </Button>
             </div>

@@ -77,7 +77,7 @@ export function LoginForm() {
   }
 
   return (
-    <Card>
+    <Card className="bg-slate-900 border-slate-800 shadow-2xl shadow-black/50">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-4 pt-6">
@@ -86,9 +86,14 @@ export function LoginForm() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel className="text-slate-300">Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="name@example.com" {...field} disabled={isLoading} />
+                    <Input
+                      placeholder="Enter your email"
+                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:ring-orange-500 focus:border-orange-500"
+                      {...field}
+                      disabled={isLoading}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -99,9 +104,15 @@ export function LoginForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel className="text-slate-300">Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
+                    <Input
+                      type="password"
+                      placeholder="Enter your password"
+                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:ring-orange-500 focus:border-orange-500"
+                      {...field}
+                      disabled={isLoading}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

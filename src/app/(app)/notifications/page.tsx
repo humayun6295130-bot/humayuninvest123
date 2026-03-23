@@ -78,7 +78,7 @@ export default function NotificationsPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-[#334C99]">Notifications</h1>
+                    <h1 className="text-3xl font-bold text-white">Notifications</h1>
                     <p className="text-muted-foreground">
                         {unreadCount > 0 ? `${unreadCount} unread notifications` : 'No new notifications'}
                     </p>
