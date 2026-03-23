@@ -5,7 +5,7 @@ import { FirebaseProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'AscendFolio',
-  description: 'A simple investment tracking application.',
+  description: 'Premium investment platform for strategic wealth growth',
 };
 
 export default function RootLayout({
@@ -18,9 +18,10 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased">
+      <body className="font-body antialiased bg-off-white text-charcoal">
         <FirebaseProvider>
           {children}
           <Toaster />
