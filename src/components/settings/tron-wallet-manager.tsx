@@ -23,15 +23,15 @@ import {
     Unlock
 } from "lucide-react";
 
-interface TronWalletManagerProps {
+interface Bep20WalletManagerProps {
     userProfile: any;
 }
 
-export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
+export function Bep20WalletManager({ userProfile }: Bep20WalletManagerProps) {
     const { user } = useUser();
     const { toast } = useToast();
 
-    const [walletAddress, setWalletAddress] = useState(userProfile?.tron_wallet_address || "");
+    const [walletAddress, setWalletAddress] = useState(userProfile?.bep20_wallet_address || "");
     const [isValidating, setIsValidating] = useState(false);
     const [isValid, setIsValid] = useState<boolean | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -39,7 +39,7 @@ export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
     const [hasChanges, setHasChanges] = useState(false);
 
     // Check if user already has a wallet address
-    const hasWalletAddress = !!userProfile?.tron_wallet_address;
+    const hasWalletAddress = !!userProfile?.bep20_wallet_address;
 
     // Validate address format and check on network
     const validateAddress = async (address: string) => {
@@ -49,16 +49,16 @@ export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
         }
 
         // First check format locally
-        const tronAddressRegex = /^T[a-zA-Z0-9]{33}$/;
-        if (!tronAddressRegex.test(address)) {
+        const bep20AddressRegex = /^0x[a-fA-F0-9]{40}$/;
+        if (!bep20AddressRegex.test(address)) {
             setIsValid(false);
             return;
         }
 
         setIsValidating(true);
         try {
-            // Check with TRON API for network validation
-            const response = await fetch(`/api/tron/validate-address?address=${encodeURIComponent(address)}`);
+            // Check with BEP20/BSC API for network validation
+            const response = await fetch(`/api/bep20/validate-address?address=${encodeURIComponent(address)}`);
             const data = await response.json();
             setIsValid(data.isValid);
         } catch (error) {
@@ -96,14 +96,14 @@ export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
         setIsSaving(true);
         try {
             await updateRow("users", user.uid, {
-                tron_wallet_address: walletAddress,
-                tron_wallet_verified: true,
-                tron_wallet_added_at: new Date().toISOString(),
+                bep20_wallet_address: walletAddress,
+                bep20_wallet_verified: true,
+                bep20_wallet_added_at: new Date().toISOString(),
             });
 
             toast({
                 title: "Wallet Address Saved",
-                description: "Your TRON wallet address has been securely saved for USDT transactions.",
+                description: "Your BNB Smart Chain (BEP20) wallet address has been securely saved for USDT transactions.",
             });
 
             setHasChanges(false);
@@ -133,15 +133,15 @@ export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
     };
 
     return (
-        <Card className="border-orange-500/20">
+        <Card className="border-amber-500/20">
             <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-500/10 rounded-lg">
-                            <Wallet className="h-5 w-5 text-orange-500" />
+                        <div className="p-2 bg-amber-500/10 rounded-lg">
+                            <Wallet className="h-5 w-5 text-amber-500" />
                         </div>
                         <div>
-                            <CardTitle className="text-lg">TRON (TRC20) Wallet</CardTitle>
+                            <CardTitle className="text-lg">BNB Smart Chain (BEP20) Wallet</CardTitle>
                             <CardDescription>
                                 Register your USDT wallet for deposits and withdrawals
                             </CardDescription>
@@ -179,7 +179,7 @@ export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setHasChanges(true)}
-                                className="text-orange-400 hover:text-orange-300"
+                                className="text-amber-400 hover:text-amber-300"
                             >
                                 Update
                             </Button>
@@ -203,7 +203,7 @@ export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
                                 className="shrink-0"
                             >
                                 <a
-                                    href={`https://tronscan.org/#/address/${walletAddress}`}
+                                    href={`https://bscscan.com/address/${walletAddress}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
@@ -221,21 +221,21 @@ export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
                 {(!hasWalletAddress || hasChanges) && (
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="tron-address">
-                                TRC20 Wallet Address
-                                {hasWalletAddress && <span className="text-orange-400 ml-2">(Update)</span>}
+                            <Label htmlFor="bep20-address">
+                                BEP20 Wallet Address
+                                {hasWalletAddress && <span className="text-amber-400 ml-2">(Update)</span>}
                             </Label>
                             <div className="relative">
                                 <Input
-                                    id="tron-address"
-                                    placeholder="T..."
+                                    id="bep20-address"
+                                    placeholder="0x..."
                                     value={walletAddress}
                                     onChange={(e) => handleAddressChange(e.target.value)}
                                     className={`font-mono pr-10 ${isValid === true
-                                            ? "border-green-500 focus:border-green-500"
-                                            : isValid === false
-                                                ? "border-red-500 focus:border-red-500"
-                                                : ""
+                                        ? "border-green-500 focus:border-green-500"
+                                        : isValid === false
+                                            ? "border-red-500 focus:border-red-500"
+                                            : ""
                                         }`}
                                     maxLength={34}
                                 />
@@ -257,7 +257,7 @@ export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
                                 <Alert variant="destructive" className="py-2">
                                     <AlertTriangle className="h-4 w-4" />
                                     <AlertDescription>
-                                        Invalid TRON address. Must start with 'T' and be exactly 34 characters.
+                                        Invalid BEP20 address. Must start with '0x' and be exactly 42 characters.
                                     </AlertDescription>
                                 </Alert>
                             )}
@@ -265,14 +265,14 @@ export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
                             {isValidating && (
                                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                                     <Loader2 className="h-3 w-3 animate-spin" />
-                                    Validating address on TRON network...
+                                    Validating address on BNB Smart Chain network...
                                 </p>
                             )}
 
                             {isValid === true && !isValidating && (
                                 <p className="text-sm text-green-500 flex items-center gap-2">
                                     <CheckCircle2 className="h-3 w-3" />
-                                    Valid TRON address confirmed on network
+                                    Valid BEP20 address confirmed on network
                                 </p>
                             )}
                         </div>
@@ -284,23 +284,23 @@ export function TronWalletManager({ userProfile }: TronWalletManagerProps) {
                                 Wallet Requirements:
                             </p>
                             <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                                <li>Must be a TRON (TRC20) compatible wallet</li>
-                                <li>Supports USDT transactions on TRON network</li>
-                                <li>Address must start with "T" and be 34 characters</li>
+                                <li>Must be a BNB Smart Chain (BEP20) compatible wallet</li>
+                                <li>Supports USDT transactions on BNB Smart Chain network</li>
+                                <li>Address must start with "0x" and be 42 characters</li>
                                 <li>You must have access to this wallet's private keys</li>
                             </ul>
                         </div>
 
                         {/* Fee Information */}
-                        <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg space-y-2">
-                            <p className="text-sm font-medium text-orange-400 flex items-center gap-2">
+                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg space-y-2">
+                            <p className="text-sm font-medium text-amber-400 flex items-center gap-2">
                                 <Info className="h-4 w-4" />
                                 Withdrawal Information:
                             </p>
                             <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
                                 <li><strong>Minimum withdrawal:</strong> $50 USD</li>
                                 <li><strong>Withdrawal fee:</strong> 8% of withdrawal amount</li>
-                                <li>Withdrawals are processed to your registered TRON wallet</li>
+                                <li>Withdrawals are processed to your registered BEP20 wallet</li>
                             </ul>
                         </div>
 

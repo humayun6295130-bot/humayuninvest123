@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Auto-Verify Payment Component with TRON Blockchain Integration
+ * Auto-Verify Payment Component with BEP20 Blockchain Integration
  * 
  * Features:
  * - Automatic TxID verification from blockchain
@@ -25,7 +25,7 @@ import {
     useTransactionVerification,
     useConfirmationTracker,
     useDoubleSpendCheck,
-} from "@/hooks/use-tron";
+} from "@/hooks/use-bep20";
 import {
     CheckCircle2,
     AlertCircle,
@@ -189,7 +189,7 @@ export function AutoVerifyPayment({
                 purpose: purpose,
                 plan_id: planId || null,
                 plan_name: planName || null,
-                payment_method: 'usdt_trc20',
+                payment_method: 'usdt_bep20',
                 wallet_address_used: ADMIN_WALLET_ADDRESS,
                 sender_wallet_address: verifiedTxData?.from_address,
                 transaction_hash: txID,
@@ -215,7 +215,7 @@ export function AutoVerifyPayment({
                 blockchain_verified: true,
                 confirmations: confirmations,
                 metadata: {
-                    payment_method: 'usdt_trc20',
+                    payment_method: 'usdt_bep20',
                     sender_wallet: verifiedTxData?.from_address,
                     auto_verified: true,
                 },
@@ -371,7 +371,7 @@ export function AutoVerifyPayment({
                     <Alert className="bg-yellow-50 border-yellow-200">
                         <Loader2 className="h-4 w-4 animate-spin text-yellow-600" />
                         <AlertDescription className="text-yellow-800">
-                            Verifying transaction on TRON blockchain...
+                            Verifying transaction on BNB Smart Chain blockchain...
                         </AlertDescription>
                     </Alert>
                 )}
@@ -414,13 +414,13 @@ export function AutoVerifyPayment({
                 {/* Blockchain Explorer Link */}
                 {txID.length === 64 && (
                     <a
-                        href={`https://tronscan.org/#/transaction/${txID}`}
+                        href={`https://bscscan.com/tx/${txID}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 text-sm text-primary hover:underline"
                     >
                         <ExternalLink className="w-4 h-4" />
-                        View on TRONScan
+                        View on BscScan
                     </a>
                 )}
 

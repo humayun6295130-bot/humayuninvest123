@@ -10,7 +10,7 @@ import {
 import { useUser } from "@/firebase";
 import { AdminSettings } from "@/components/settings/admin-settings";
 import { UserSettings } from "@/components/settings/user-settings";
-import { TronWalletManager } from "@/components/settings/tron-wallet-manager";
+import { Bep20WalletManager } from "@/components/settings/tron-wallet-manager";
 import Link from "next/link";
 import { Info, MessageCircle, HelpCircle, BookOpen, Shield, ExternalLink } from "lucide-react";
 
@@ -57,8 +57,8 @@ export default function SettingsPage() {
         </Link>
       </div>
 
-      {/* TRON Wallet Section */}
-      <TronWalletManager userProfile={userProfile} />
+      {/* BEP20 Wallet Section */}
+      <Bep20WalletManager userProfile={userProfile} />
 
       <Card>
         <CardHeader>

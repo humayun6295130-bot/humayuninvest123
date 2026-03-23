@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { TrendingUp, Clock, Shield, CheckCircle } from "lucide-react";
+import { TrendingUp, Shield, CheckCircle } from "lucide-react";
 
 interface InvestmentPlan {
     id: string;
@@ -180,22 +180,17 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
 
                 <div className="metric-item">
                     <div className="flex items-center gap-1">
-                        <span className="metric-label">Term</span>
-                        <InfoTooltip content="Investment duration in days" />
-                    </div>
-                    <span className="metric-value flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-muted-foreground" />
-                        {plan.duration_days} days
-                    </span>
-                </div>
-
-                <div className="metric-item">
-                    <div className="flex items-center gap-1">
                         <span className="metric-label">Risk</span>
                         <InfoTooltip content="Risk level assessment" />
                     </div>
-                    <span className="metric-value flex items-center gap-1">
-                        <Shield className="w-3 h-3 text-forest-600" />
+                    <span className={cn(
+                        "metric-value flex items-center gap-1",
+                        plan.daily_roi_percent > 3 ? "text-red-600" : plan.daily_roi_percent > 1.5 ? "text-amber-600" : "text-forest-600"
+                    )}>
+                        <Shield className={cn(
+                            "w-3 h-3",
+                            plan.daily_roi_percent > 3 ? "text-red-600" : plan.daily_roi_percent > 1.5 ? "text-amber-600" : "text-forest-600"
+                        )} />
                         {plan.daily_roi_percent > 3 ? 'High' : plan.daily_roi_percent > 1.5 ? 'Medium' : 'Low'}
                     </span>
                 </div>

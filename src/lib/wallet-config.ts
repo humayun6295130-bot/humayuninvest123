@@ -40,7 +40,7 @@ export const isWalletConfigured = (): boolean => {
  * @param amount - Payment amount in USDT
  * @returns QR code image URL
  */
-export const generateTRC20QRCode = (amount: number): string => {
+export const generateBEP20QRCode = (amount: number): string => {
     if (!ADMIN_WALLET_ADDRESS) return '';
 
     // BEP20/BSC-style payment URI

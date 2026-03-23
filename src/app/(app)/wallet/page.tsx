@@ -156,7 +156,7 @@ export default function WalletPage() {
                                 <span className="text-xs text-green-600">Verified</span>
                                 {tx.transaction_hash && (
                                   <a
-                                    href={`https://tronscan.org/#/transaction/${tx.transaction_hash}`}
+                                    href={`https://bscscan.com/tx/${tx.transaction_hash}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-primary hover:underline"

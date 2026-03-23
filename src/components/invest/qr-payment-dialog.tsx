@@ -30,7 +30,7 @@ import {
     X,
 } from "lucide-react";
 import Image from "next/image";
-import { getAdminWalletAddress, generateTRC20QRCode, getWalletInfo } from "@/lib/wallet-config";
+import { getAdminWalletAddress, generateBEP20QRCode, getWalletInfo } from "@/lib/wallet-config";
 
 // Get safe version for internal usage
 const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
@@ -254,7 +254,7 @@ export function QrPaymentDialog({
                             <div className="bg-white p-4 rounded-xl border-2 border-dashed border-orange-300 shadow-sm">
                                 <div className="w-[200px] h-[200px] rounded-lg flex items-center justify-center relative overflow-hidden bg-white">
                                     <img
-                                        src={ADMIN_WALLET_ADDRESS ? generateTRC20QRCode(investmentAmount) : ''}
+                                        src={ADMIN_WALLET_ADDRESS ? generateBEP20QRCode(investmentAmount) : ''}
                                         alt="Payment QR Code"
                                         className="w-full h-full object-contain rounded-lg"
                                         onError={(e) => {

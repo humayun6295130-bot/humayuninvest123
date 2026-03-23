@@ -27,7 +27,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
-import { getAdminWalletAddress, WALLET_ADDRESSES, generateTRC20QRCode, generateGenericQRCode } from "@/lib/wallet-config";
+import { getAdminWalletAddress, WALLET_ADDRESSES, generateBEP20QRCode, generateGenericQRCode } from "@/lib/wallet-config";
 
 // Get safe version for internal usage
 const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
@@ -173,7 +173,7 @@ export function PaymentVerificationSystem({
     };
 
     const paymentMethods = [
-        { id: 'usdt_trc20', name: 'USDT (TRC20)', icon: '💎', color: 'bg-green-500', network: 'Tron' },
+        { id: 'usdt_bep20', name: 'USDT (BEP20)', icon: '💎', color: 'bg-amber-500', network: 'BNB Smart Chain' },
         { id: 'usdt_erc20', name: 'USDT (ERC20)', icon: '💎', color: 'bg-blue-500', network: 'Ethereum' },
         { id: 'btc', name: 'Bitcoin', icon: '₿', color: 'bg-orange-500', network: 'Bitcoin' },
         { id: 'eth', name: 'Ethereum', icon: 'Ξ', color: 'bg-purple-500', network: 'Ethereum' },

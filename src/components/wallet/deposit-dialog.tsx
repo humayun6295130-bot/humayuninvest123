@@ -27,7 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, insertRow, uploadFile } from "@/firebase";
-import { getAdminWalletAddress, generateTRC20QRCode, getWalletInfo } from "@/lib/wallet-config";
+import { getAdminWalletAddress, generateBEP20QRCode, getWalletInfo } from "@/lib/wallet-config";
 
 // Get safe version for internal usage
 const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
@@ -180,7 +180,7 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
             <div className="bg-white p-3 rounded-lg border-2 border-dashed border-orange-200">
               {depositAmount > 0 ? (
                 <img
-                  src={generateTRC20QRCode(depositAmount)}
+                  src={generateBEP20QRCode(depositAmount)}
                   alt="Payment QR Code"
                   className="w-[200px] h-[200px] rounded-lg"
                 />

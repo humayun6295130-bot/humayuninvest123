@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Enhanced Withdraw Dialog with TRON Blockchain Features
+ * Enhanced Withdraw Dialog with BEP20/BNB Smart Chain Features
  * 
  * Features:
- * - TRON address validation
+ * - BEP20 address validation
  * - Network fee calculator
  * - Real-time balance checking
  * - Withdrawal preview
@@ -51,8 +51,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { useAddressValidator, useFeeCalculator } from "@/hooks/use-tron";
-import { isValidTronAddress } from "@/lib/tron";
+import { useAddressValidator, useFeeCalculator } from "@/hooks/use-bep20";
+import { isValidBEP20Address } from "@/lib/bep20";
 
 interface WithdrawDialogEnhancedProps {
     userProfile: any;
@@ -86,8 +86,8 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
     // Fee calculator hook
     const { fee, isCalculating, calculate } = useFeeCalculator();
 
-    // Get user's saved TRON wallet address
-    const savedWalletAddress = userProfile?.tron_wallet_address || "";
+    // Get user's saved BEP20 wallet address
+    const savedWalletAddress = userProfile?.bep20_wallet_address || "";
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -105,7 +105,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
         if (!hasSavedWallet && open) {
             toast({
                 title: "Wallet Not Connected",
-                description: "Please add your TRON wallet address in Settings before withdrawing.",
+                description: "Please add your BEP20 wallet address in Settings before withdrawing.",
                 variant: "default",
             });
         }
@@ -117,14 +117,14 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
 
     // Validate address on change
     useEffect(() => {
-        if (watchAddress && watchAddress.length === 34) {
-            const isValid = isValidTronAddress(watchAddress);
+        if (watchAddress && watchAddress.length === 42) {
+            const isValid = isValidBEP20Address(watchAddress);
             validate(watchAddress);
 
             if (!isValid) {
                 form.setError("walletAddress", {
                     type: "manual",
-                    message: "Invalid TRON address format",
+                    message: "Invalid BEP20 address format",
                 });
             } else {
                 form.clearErrors("walletAddress");
@@ -134,7 +134,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
 
     // Calculate fee when amount changes
     useEffect(() => {
-        if (watchAddress && watchAmount && watchAmount > 0 && isValidTronAddress(watchAddress)) {
+        if (watchAddress && watchAmount && watchAmount > 0 && isValidBEP20Address(watchAddress)) {
             // Use admin wallet as sender for fee estimation
             const senderAddress = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS;
             if (senderAddress) {
@@ -156,8 +156,8 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
         }
 
         // Validate address
-        if (!isValidTronAddress(values.walletAddress)) {
-            toast({ variant: "destructive", title: "Invalid Address", description: "Please enter a valid TRON address." });
+        if (!isValidBEP20Address(values.walletAddress)) {
+            toast({ variant: "destructive", title: "Invalid Address", description: "Please enter a valid BEP20 address." });
             return;
         }
 
@@ -294,14 +294,14 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                                         <FormMessage />
 
                                         {/* Address Validation Indicator */}
-                                        {watchAddress.length === 34 && (
+                                        {watchAddress.length === 42 && (
                                             <div className="flex items-center gap-2 mt-1">
                                                 {isValidating ? (
                                                     <Loader2 className="w-4 h-4 animate-spin text-yellow-500" />
                                                 ) : addressValid ? (
                                                     <>
                                                         <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                                        <span className="text-xs text-green-600">Valid TRON address</span>
+                                                        <span className="text-xs text-green-600">Valid BEP20 address</span>
                                                     </>
                                                 ) : (
                                                     <>
@@ -343,28 +343,28 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
 
                             {/* Network Fee Estimate */}
                             {fee && watchAmount > 0 && (
-                                <Card className="bg-blue-50 border-blue-200">
+                                <Card className="bg-amber-50 border-amber-200">
                                     <CardContent className="pt-4 space-y-3">
-                                        <div className="flex items-center gap-2 text-blue-800 font-medium">
+                                        <div className="flex items-center gap-2 text-amber-800 font-medium">
                                             <Gauge className="w-4 h-4" />
-                                            Network Fee Estimate
+                                            Network Fee Estimate (BNB Smart Chain)
                                         </div>
                                         <div className="space-y-2 text-sm">
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Bandwidth Required</span>
-                                                <span>{fee.bandwidthRequired} points</span>
+                                                <span className="text-muted-foreground">Gas Limit</span>
+                                                <span>{fee.gasLimit.toLocaleString()} units</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Energy Required</span>
-                                                <span>{fee.energyRequired.toLocaleString()} units</span>
+                                                <span className="text-muted-foreground">Gas Price</span>
+                                                <span>{fee.gasPrice} Gwei</span>
                                             </div>
                                             <div className="flex justify-between font-medium">
-                                                <span className="text-muted-foreground">Estimated TRX Fee</span>
-                                                <span>~{fee.estimatedTrxFee} TRX</span>
+                                                <span className="text-muted-foreground">Total Fee</span>
+                                                <span>~{fee.totalFee} {fee.unit}</span>
                                             </div>
                                         </div>
-                                        <p className="text-xs text-blue-600">
-                                            This fee is paid to the TRON network, not to us.
+                                        <p className="text-xs text-amber-600">
+                                            This fee is paid to the BNB Smart Chain network, not to us.
                                         </p>
                                     </CardContent>
                                 </Card>

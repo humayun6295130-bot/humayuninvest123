@@ -684,10 +684,6 @@ export default function InvestPage() {
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Duration</span>
-                                    <span className="font-semibold text-charcoal">{selectedPlan.duration_days} Days</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Capital Return</span>
                                     <span className="font-semibold text-charcoal">{selectedPlan.capital_return ? 'Yes' : 'No'}</span>
                                 </div>
@@ -740,24 +736,23 @@ export default function InvestPage() {
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Days Claimed</span>
-                                <span className="font-medium text-charcoal">{selectedInvestment?.days_claimed || 0} / {selectedInvestment?.duration_days || 30}</span>
+                                <span className="font-medium text-charcoal">{selectedInvestment?.days_claimed || 0}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Earned</span>
                                 <span className="font-medium text-forest-600">${(selectedInvestment?.claimed_so_far || 0).toFixed(2)}</span>
                             </div>
                         </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" className="btn-text" onClick={() => setSelectedInvestment(null)}>Cancel</Button>
-                        <Button
-                            className="btn-primary"
-                            onClick={handleClaimEarnings}
-                            disabled={isClaiming}
-                        >
-                            {isClaiming ? 'Processing...' : 'Claim Earnings'}
-                        </Button>
-                    </DialogFooter>
+                        <DialogFooter>
+                            <Button variant="ghost" className="btn-text" onClick={() => setSelectedInvestment(null)}>Cancel</Button>
+                            <Button
+                                className="btn-primary"
+                                onClick={handleClaimEarnings}
+                                disabled={isClaiming}
+                            >
+                                {isClaiming ? 'Processing...' : 'Claim Earnings'}
+                            </Button>
+                        </DialogFooter>
                 </DialogContent>
             </Dialog>
 
