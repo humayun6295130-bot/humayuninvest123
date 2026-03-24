@@ -137,9 +137,17 @@ export default function ReferralsPage() {
     const { data: bonuses } = useRealtimeCollection<ReferralBonus>(bonusesOptions);
     const { data: withdrawals } = useRealtimeCollection<ReferralWithdrawal>(withdrawalsOptions);
 
-    const referralLink = userProfile?.referral_code
-        ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${userProfile.referral_code}`
-        : '';
+    // Build referral link with proper fallbacks
+    const referralLink = useMemo(() => {
+        if (userProfile?.referral_code) {
+            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+            return `${origin}/register?ref=${userProfile.referral_code}`;
+        }
+        return '';
+    }, [userProfile?.referral_code]);
+
+    // Check if we should show loading state
+    const isReferralLoading = !userProfile || isGeneratingCode || !userProfile.referral_code;
 
     // Calculate statistics
     const totalReferrals = referrals?.length || 0;
@@ -383,14 +391,24 @@ export default function ReferralsPage() {
                             <Input
                                 value={referralLink}
                                 readOnly
+                                placeholder={isReferralLoading ? "Generating referral code..." : "No referral code available"}
+                                disabled={isReferralLoading}
                                 className="bg-white/20 border-white/30 text-white placeholder:text-white/50 min-w-[300px]"
                             />
                             <div className="flex gap-2">
-                                <Button variant="secondary" onClick={copyToClipboard}>
+                                <Button
+                                    variant="secondary"
+                                    onClick={copyToClipboard}
+                                    disabled={!referralLink || isReferralLoading}
+                                >
                                     <Copy className="h-4 w-4 mr-2" />
                                     {copied ? 'Copied!' : 'Copy'}
                                 </Button>
-                                <Button variant="secondary" onClick={shareReferral}>
+                                <Button
+                                    variant="secondary"
+                                    onClick={shareReferral}
+                                    disabled={!referralLink || isReferralLoading}
+                                >
                                     <Share2 className="h-4 w-4 mr-2" />
                                     Share
                                 </Button>
