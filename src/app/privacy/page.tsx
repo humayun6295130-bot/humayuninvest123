@@ -60,7 +60,7 @@ export default function PrivacyPolicy() {
                             <p className="mb-4 text-slate-400">We may share your information with:</p>
                             <ul className="list-disc pl-6 space-y-2 text-slate-400">
                                 <li><strong className="text-white">Service Providers:</strong> Payment processors, cloud storage, and security services</li>
-                                <li><strong className="text-white">Blockchain Networks:</strong> For transaction verification on TRON, Ethereum, Bitcoin networks</li>
+                                <li><strong className="text-white">Blockchain Networks:</strong> For transaction verification on BNB Smart Chain (BEP20)</li>
                                 <li><strong className="text-white">Legal Authorities:</strong> When required by law or to protect our rights</li>
                                 <li><strong className="text-white">Business Partners:</strong> With your consent for specific services</li>
                             </ul>

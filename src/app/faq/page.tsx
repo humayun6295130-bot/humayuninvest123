@@ -17,7 +17,7 @@ const faqCategories = [
             },
             {
                 q: "How do I start mining?",
-                a: "Simply create an account, choose an investment plan that suits your budget, and make a deposit in USDT (TRC-20). Our mining infrastructure will start generating Bitcoin rewards immediately after your payment is confirmed."
+                a: "Simply create an account, choose an investment plan that suits your budget, and make a deposit in USDT (BEP-20 on BNB Smart Chain). Our mining infrastructure will start generating Bitcoin rewards immediately after your payment is confirmed."
             },
             {
                 q: "What is the minimum investment amount?",
@@ -31,15 +31,15 @@ const faqCategories = [
         questions: [
             {
                 q: "Which cryptocurrencies do you accept?",
-                a: "We primarily accept USDT (TRC-20) for all deposits and withdrawals. This ensures fast transaction times and low fees. All payments are processed securely through our automated system."
+                a: "We primarily accept USDT (BEP-20 on BNB Smart Chain) for all deposits and withdrawals. This ensures fast transaction times and low fees. All payments are processed securely through our automated system."
             },
             {
                 q: "How long do deposits take to confirm?",
-                a: "USDT deposits are typically confirmed within 10-30 minutes on the TRON network. Once confirmed, your mining plan activates automatically and you start earning rewards."
+                a: "USDT deposits are typically confirmed within 5-15 minutes on the BNB Smart Chain. Once confirmed, your mining plan activates automatically and you start earning rewards."
             },
             {
                 q: "How do I withdraw my earnings?",
-                a: "You can withdraw your accumulated Bitcoin earnings at any time. Go to your wallet section, click withdraw, enter your TRC-20 wallet address, and confirm. Withdrawals are processed within 24-48 hours."
+                a: "You can withdraw your accumulated Bitcoin earnings at any time. Go to your wallet section, click withdraw, enter your BEP-20 wallet address (BNB Smart Chain), and confirm. Withdrawals are processed within 24-48 hours."
             },
             {
                 q: "Are there any deposit or withdrawal fees?",
@@ -57,7 +57,7 @@ const faqCategories = [
             },
             {
                 q: "What is the daily return rate?",
-                a: "Return rates vary by plan: Starter (1% daily), Pro (1.5% daily), and Enterprise (2% daily). Returns are accumulated daily and can be withdrawn or reinvested."
+                a: "Return rates vary by investment level: Starter ($30-$250): 1.5% daily, Silver ($251-$500): 2% daily, Gold ($501-$1000): 2.5% daily, Platinum ($1001-$2500): 3.1% daily, Diamond ($5000+): 4% daily. Returns are accumulated daily and can be withdrawn as profit."
             },
             {
                 q: "How does the mining pool work?",

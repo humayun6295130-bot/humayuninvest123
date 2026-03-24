@@ -1,6 +1,8 @@
 /**
  * Centralized Wallet Configuration
  * All payment-related components should use this file for wallet addresses and QR code generation
+ * 
+ * MIGRATED: Now uses BEP20 (BSC ChainID: 56) as the sole accepted cryptocurrency
  */
 
 // Get admin wallet address from environment variable
@@ -13,19 +15,34 @@ export const getAdminWalletAddress = (): string => {
     return address || '';
 };
 
-// Admin's USDT BEP20 Wallet Address (BNB Smart Chain)
+// Admin's USDT BEP20 Wallet Address (BNB Smart Chain - ChainID: 56)
 export const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
 
-// Fallback addresses for different networks (if needed)
+// USDT Token Contract Address on BNB Smart Chain (BEP20)
+export const USDT_CONTRACT_BSC = '0x55d398326f99059fF775485246999027B319E5C';
+
+// Fallback addresses for different networks (not used - kept for reference)
 export const WALLET_ADDRESSES = {
-    // BEP20 (BNB Smart Chain) - Primary
+    // BEP20 (BNB Smart Chain) - Primary (Only accepted)
     usdt_bep20: ADMIN_WALLET_ADDRESS,
 
-    // ERC-20 (Ethereum) - Secondary (leave empty if not used)
-    usdt_erc20: process.env.NEXT_PUBLIC_ADMIN_ERC20_ADDRESS || '',
+    // USDT Contract on BSC
+    usdt_contract: USDT_CONTRACT_BSC,
 
-    // BTC - for Bitcoin payments
-    btc: process.env.NEXT_PUBLIC_ADMIN_BTC_ADDRESS || '',
+    // ChainID for BSC
+    chain_id: 56,
+
+    // Network name
+    network_name: 'BNB Smart Chain',
+
+    // Symbol
+    currency_symbol: 'USDT',
+
+    // ERC-20 (Ethereum) - Deprecated, not accepted
+    usdt_erc20: '',
+
+    // BTC - Deprecated, not accepted
+    btc: '',
 };
 
 /**
@@ -89,13 +106,15 @@ export const generateBTCQRCode = (amount: number): string => {
 
 /**
  * Get wallet info for display
+ * Now uses BEP20 (BNB Smart Chain) exclusively
  */
 export const getWalletInfo = () => ({
-    network: 'BEP20 (BNB SMART CHAIN)',
-    currency: 'USDT',
+    network: 'BNB SMART CHAIN (ChainID: 56)',
+    currency: 'USDT (BEP20)',
+    tokenContract: USDT_CONTRACT_BSC,
     address: ADMIN_WALLET_ADDRESS || '',
     symbol: '₮',
     scanInstructions: ADMIN_WALLET_ADDRESS
-        ? 'Scan with Trust Wallet, MetaMask, or any BEP20 compatible wallet'
+        ? 'Send USDT (BEP20) to this address using BNB Smart Chain. Do NOT send from Ethereum or other networks.'
         : 'Wallet address not configured. Please contact support.'
 });
