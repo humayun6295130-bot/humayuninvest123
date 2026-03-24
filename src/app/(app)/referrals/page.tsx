@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useUser, useRealtimeCollection, insertRow, updateRow } from "@/firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/firebase/config";
+import { generateUniqueReferralCode } from "@/lib/referral-code";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +84,29 @@ export default function ReferralsPage() {
     const [isWithdrawing, setIsWithdrawing] = useState(false);
     const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
     const [showShareOptions, setShowShareOptions] = useState(false);
+    const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+
+    // Auto-generate referral code for existing users who don't have one
+    useEffect(() => {
+        async function generateReferralCodeIfNeeded() {
+            if (user && userProfile && !userProfile.referral_code && !isGeneratingCode) {
+                setIsGeneratingCode(true);
+                try {
+                    const newCode = await generateUniqueReferralCode();
+                    if (db) {
+                        await updateDoc(doc(db, 'users', user.uid), {
+                            referral_code: newCode
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error generating referral code:', error);
+                } finally {
+                    setIsGeneratingCode(false);
+                }
+            }
+        }
+        generateReferralCodeIfNeeded();
+    }, [user, userProfile, isGeneratingCode]);
 
     // Fetch referrals
     const referralsOptions = useMemo(() => ({

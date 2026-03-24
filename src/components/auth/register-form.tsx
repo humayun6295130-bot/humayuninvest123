@@ -24,6 +24,7 @@ import { generateSupportId } from "@/lib/support-id";
 import { query, collection, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { validateReferralCode, processNewReferral } from "@/lib/referral-system";
+import { generateUniqueReferralCode } from "@/lib/referral-code";
 import { Users, Gift, TrendingUp } from "lucide-react";
 
 // Function to generate unique support ID
@@ -132,6 +133,9 @@ export function RegisterForm() {
       // Generate unique support ID for this user
       const supportId = await generateUniqueSupportId();
 
+      // Generate unique referral code for this user
+      const myReferralCode = await generateUniqueReferralCode();
+
       // Create user profile in database
       await insertRow("users", {
         id: user.uid,
@@ -148,6 +152,7 @@ export function RegisterForm() {
         role: isAdmin ? "admin" : "user",
         currency_preference: "USD",
         support_id: supportId, // Unique support reference number
+        referral_code: myReferralCode, // Unique referral code for this user
         referrer_id: referrerId, // Store who referred this user
         created_at: new Date().toISOString(),
       });
