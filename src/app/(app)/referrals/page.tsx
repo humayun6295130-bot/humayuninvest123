@@ -165,50 +165,70 @@ export default function ReferralsPage() {
     const totalWithdrawn = withdrawals?.filter(w => w.status === 'approved').reduce((sum, w) => sum + w.amount, 0) || 0;
 
     const copyToClipboard = async () => {
-        if (referralLink) {
+        const linkToCopy = referralLink || userProfile?.referral_code
+            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${userProfile?.referral_code}`
+            : '';
+
+        if (!linkToCopy || !linkToCopy.includes('/register?ref=')) {
+            toast({
+                variant: "destructive",
+                title: "No Referral Link",
+                description: "Please wait while your referral code is being generated.",
+            });
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(linkToCopy);
+            setCopied(true);
+            toast({
+                title: "Copied!",
+                description: "Referral link copied to clipboard.",
+            });
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            // Fallback for older browsers
             try {
-                await navigator.clipboard.writeText(referralLink);
+                const textArea = document.createElement('textarea');
+                textArea.value = linkToCopy;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
                 setCopied(true);
                 toast({
                     title: "Copied!",
                     description: "Referral link copied to clipboard.",
                 });
                 setTimeout(() => setCopied(false), 2000);
-            } catch (err) {
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = referralLink;
-                textArea.style.position = 'fixed';
-                textArea.style.left = '-999999px';
-                document.body.appendChild(textArea);
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    setCopied(true);
-                    toast({
-                        title: "Copied!",
-                        description: "Referral link copied to clipboard.",
-                    });
-                    setTimeout(() => setCopied(false), 2000);
-                } catch (fallbackErr) {
-                    toast({
-                        variant: "destructive",
-                        title: "Copy Failed",
-                        description: "Please copy the link manually.",
-                    });
-                }
-                document.body.removeChild(textArea);
+            } catch (fallbackErr) {
+                toast({
+                    variant: "destructive",
+                    title: "Copy Failed",
+                    description: "Please copy the link manually: " + linkToCopy,
+                });
             }
         }
     };
 
     const shareReferral = async () => {
-        if (navigator.share && referralLink) {
+        const linkToShare = referralLink || userProfile?.referral_code
+            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${userProfile?.referral_code}`
+            : '';
+
+        if (!linkToShare) {
+            toast({ variant: "destructive", title: "Error", description: "Please wait while your referral code is being generated." });
+            return;
+        }
+
+        if (navigator.share) {
             try {
                 await navigator.share({
-                    title: 'Join InvestPro',
-                    text: 'Join me on InvestPro and start earning with investment plans! Use my referral code.',
-                    url: referralLink,
+                    title: 'Join BTCMine',
+                    text: 'Join me on BTCMine and start earning with investment plans! Use my referral code.',
+                    url: linkToShare,
                 });
             } catch (err) {
                 setShowShareOptions(true);
@@ -219,8 +239,17 @@ export default function ReferralsPage() {
     };
 
     const shareToSocial = (platform: string) => {
-        const encodedLink = encodeURIComponent(referralLink);
-        const text = encodeURIComponent('Join me on InvestPro and start earning with investment plans!');
+        const linkToShare = referralLink || userProfile?.referral_code
+            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${userProfile?.referral_code}`
+            : '';
+
+        if (!linkToShare) {
+            toast({ variant: "destructive", title: "Error", description: "No referral link available" });
+            return;
+        }
+
+        const encodedLink = encodeURIComponent(linkToShare);
+        const text = encodeURIComponent('Join me on BTCMine and start earning with investment plans!');
         let url = '';
 
         switch (platform) {
@@ -248,11 +277,23 @@ export default function ReferralsPage() {
     };
 
     const handleWithdraw = async () => {
-        if (!user) return;
+        if (!user) {
+            toast({ variant: "destructive", title: "Error", description: "Please login to withdraw" });
+            return;
+        }
 
         const amount = parseFloat(withdrawAmount);
         if (!amount || amount <= 0) {
             toast({ variant: "destructive", title: "Invalid Amount", description: "Please enter a valid amount" });
+            return;
+        }
+
+        // Get minimum withdrawal from settings
+        const settings = userProfile?.referral_settings || { min_withdrawal: 10 };
+        const minWithdrawal = settings.min_withdrawal || 10;
+
+        if (amount < minWithdrawal) {
+            toast({ variant: "destructive", title: "Minimum Withdrawal", description: `Minimum withdrawal amount is ${minWithdrawal.toFixed(2)}` });
             return;
         }
 
@@ -273,13 +314,14 @@ export default function ReferralsPage() {
 
             toast({
                 title: "Withdrawal Requested!",
-                description: `Your withdrawal request for $${amount.toFixed(2)} is pending approval.`,
+                description: `Your withdrawal request for ${amount.toFixed(2)} is pending approval.`,
             });
 
             setWithdrawAmount("");
             setShowWithdrawDialog(false);
         } catch (error: any) {
-            toast({ variant: "destructive", title: "Error", description: error.message });
+            console.error('Withdrawal error:', error);
+            toast({ variant: "destructive", title: "Error", description: error.message || "Failed to submit withdrawal request" });
         } finally {
             setIsWithdrawing(false);
         }
