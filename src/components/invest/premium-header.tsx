@@ -20,7 +20,7 @@ export function PremiumHeader({ balance, userName }: PremiumHeaderProps) {
     return (
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h1 className="font-headline text-3xl font-bold text-charcoal tracking-tight">
+                <h1 className="font-headline text-3xl font-bold text-foreground tracking-tight">
                     Investment Center
                 </h1>
                 <p className="text-muted-foreground mt-1">
@@ -35,7 +35,7 @@ export function PremiumHeader({ balance, userName }: PremiumHeaderProps) {
                 </div>
                 <div>
                     <p className="text-xs text-muted-foreground font-medium">Available Balance</p>
-                    <p className="text-xl font-headline font-bold text-charcoal">
+                    <p className="text-xl font-headline font-bold text-foreground">
                         {formatCurrency(balance)}
                     </p>
                 </div>
@@ -54,7 +54,7 @@ interface StatsCardProps {
 
 export function StatsCard({ label, value, subValue, icon, variant = 'default' }: StatsCardProps) {
     const variantClasses = {
-        default: 'text-charcoal',
+        default: 'text-foreground',
         success: 'text-forest-600',
         warning: 'text-yellow-600',
     };

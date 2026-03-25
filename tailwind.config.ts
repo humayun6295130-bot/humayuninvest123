@@ -55,7 +55,7 @@ export default {
           800: '#14532D',
           900: '#14532D',
         },
-        'border-subtle': '#E5E5E5',
+        'border-subtle': '#1f1f1f',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

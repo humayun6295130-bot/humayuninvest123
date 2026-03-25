@@ -140,7 +140,7 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
             <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-headline text-lg font-bold text-charcoal leading-tight tracking-tight">
+                        <h3 className="font-headline text-lg font-bold text-foreground leading-tight tracking-tight">
                             {plan.name}
                         </h3>
                         {plan.is_verified && <VerifiedBadge />}
