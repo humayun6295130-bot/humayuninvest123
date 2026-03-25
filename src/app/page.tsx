@@ -25,7 +25,7 @@ export default function LandingPage() {
                 Mine BTC with <span className="text-orange-400">Advanced Technology</span>
               </h1>
               <p className="mx-auto max-w-[90%] sm:max-w-[700px] text-sm sm:text-base md:text-lg text-slate-400 leading-relaxed text-center px-2">
-                Join the most advanced BTC mining investment platform.
+                Get up to 60% profit on your investments. Join the most advanced BTC mining investment platform.
                 Real-time mining visualization, instant payouts, and professional mining infrastructure.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-2 sm:mt-4 w-full px-2 sm:px-0 max-w-md sm:max-w-none">

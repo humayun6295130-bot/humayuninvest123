@@ -143,8 +143,13 @@ export default function ReferralsPage() {
             const origin = typeof window !== 'undefined' ? window.location.origin : '';
             return `${origin}/register?ref=${userProfile.referral_code}`;
         }
+        // Fallback: use username if available
+        if (userProfile?.username) {
+            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+            return `${origin}/register?ref=${userProfile.username}`;
+        }
         return '';
-    }, [userProfile?.referral_code]);
+    }, [userProfile?.referral_code, userProfile?.username]);
 
     // Check if we should show loading state
     const isReferralLoading = !userProfile || isGeneratingCode || !userProfile.referral_code;
@@ -165,9 +170,15 @@ export default function ReferralsPage() {
     const totalWithdrawn = withdrawals?.filter(w => w.status === 'approved').reduce((sum, w) => sum + w.amount, 0) || 0;
 
     const copyToClipboard = async () => {
-        const linkToCopy = referralLink || userProfile?.referral_code
-            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${userProfile?.referral_code}`
-            : '';
+        // Build link with fallback
+        let linkToCopy = referralLink;
+        if (!linkToCopy && userProfile?.referral_code) {
+            const origin = typeof window !== 'undefined' ? window.location.origin : 'https://btcmine.xyz';
+            linkToCopy = `${origin}/register?ref=${userProfile.referral_code}`;
+        } else if (!linkToCopy && userProfile?.username) {
+            const origin = typeof window !== 'undefined' ? window.location.origin : 'https://btcmine.xyz';
+            linkToCopy = `${origin}/register?ref=${userProfile.username}`;
+        }
 
         if (!linkToCopy || !linkToCopy.includes('/register?ref=')) {
             toast({

@@ -68,9 +68,13 @@ interface ReferralRelationship {
     id: string;
     referrer_id: string;
     referrer_name?: string;
-    referred_id: string;
-    referred_name?: string;
-    level: number; // 1, 2, or 3
+    referred_user_id: string;
+    referred_email: string;
+    referred_username?: string;
+    level: number; // 1, 2, 3, 4, or 5
+    commission_percent: number;
+    total_commission: number;
+    total_invested: number;
     status: 'active' | 'inactive';
     created_at: string;
 }
@@ -121,9 +125,9 @@ export function EnhancedReferralManager() {
         enabled: true,
     }), []);
 
-    // Fetch referral relationships
+    // Fetch referrals from the main referrals table (same as user panel)
     const referralsOptions = useMemo(() => ({
-        table: 'referral_relationships',
+        table: 'referrals',
         enabled: true,
     }), []);
 
@@ -200,11 +204,11 @@ export function EnhancedReferralManager() {
         const directReferrals = referrals.filter(r => r.referrer_id === userId && r.level === 1);
 
         return directReferrals.map(r => {
-            const referredUser = users?.find(u => u.id === r.referred_id);
+            const referredUser = users?.find(u => u.id === r.referred_user_id);
             return {
                 ...r,
                 user: referredUser,
-                children: getReferralTree(r.referred_id, level + 1)
+                children: getReferralTree(r.referred_user_id, level + 1)
             };
         });
     };

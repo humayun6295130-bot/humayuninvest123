@@ -269,10 +269,10 @@ export function useRealtimeCollection<T = any>(
     const [error, setError] = useState<Error | null>(null);
     const hasInitialData = useRef(false);
 
-    const optionsKey = useMemo(
-        () => JSON.stringify(options),
-        [options.table, JSON.stringify(options.filters), JSON.stringify(options.orderByColumn), options.limitCount, options.enabled]
-    );
+    // Create a stable key for the options to prevent infinite re-renders
+    const optionsKey = useMemo(() => {
+        return `${options.table}-${options.enabled}-${options.limitCount}-${JSON.stringify(options.filters || [])}-${JSON.stringify(options.orderByColumn || {})}`;
+    }, [options.table, options.enabled, options.limitCount, options.filters, options.orderByColumn]);
 
     useEffect(() => {
         if (options.enabled === false) {

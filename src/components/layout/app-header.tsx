@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LogOut, Search, User as UserIcon, Menu, Bell, X, Briefcase, History, Newspaper, BadgeCheck, HelpCircle } from "lucide-react";
+import { LogOut, Search, User as UserIcon, Menu, Bell, X, Briefcase, History, Newspaper, BadgeCheck, HelpCircle, Pickaxe, TrendingUp } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +30,7 @@ export function AppHeader() {
       '/dashboard': 'Dashboard',
       '/portfolio': 'Portfolio',
       '/wallet': 'Wallet',
+      '/mining': 'Mining Hub',
       '/invest': 'Invest',
       '/earnings': 'Earnings',
       '/transactions': 'Transactions',
@@ -60,6 +61,7 @@ export function AppHeader() {
     { href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
     { href: '/portfolio', label: 'Portfolio', icon: 'Briefcase' },
     { href: '/wallet', label: 'Wallet', icon: 'Wallet' },
+    { href: '/mining', label: 'Mining', icon: 'Pickaxe' },
     { href: '/invest', label: 'Invest', icon: 'TrendingUp' },
     { href: '/earnings', label: 'Earnings', icon: 'DollarSign' },
     { href: '/transactions', label: 'Transactions', icon: 'History' },
