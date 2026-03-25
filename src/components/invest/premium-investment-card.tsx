@@ -30,20 +30,19 @@ interface PremiumInvestmentCardProps {
     index: number;
 }
 
-// Generate sparkline data based on plan performance
+// Generate sparkline data based on plan performance (deterministic - no Math.random)
 const generateSparklineData = (plan: InvestmentPlan): number[] => {
     const points = 12; // 12 months
     const baseValue = 100;
     const dailyRoi = plan.daily_roi_percent;
 
-    // Simulate growth trajectory
+    // Deterministic variance per index to avoid hydration mismatch
     const data = [];
     let currentValue = baseValue;
 
     for (let i = 0; i < points; i++) {
-        // Add some variance while maintaining upward trend
-        const variance = (Math.random() - 0.3) * 2;
-        const growth = (dailyRoi * 30) / 100 + variance; // Monthly growth
+        const variance = (((i * 13 + 7) % 20) / 20 - 0.35) * 1.5;
+        const growth = (dailyRoi * 30) / 100 + variance;
         currentValue = currentValue * (1 + growth / 100);
         data.push(Math.max(baseValue, currentValue));
     }
@@ -73,15 +72,15 @@ function SparklineChart({ data }: { data: number[] }) {
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
             <defs>
                 <linearGradient id="sparklineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#4F46E5" stopOpacity="0" />
+                    <stop offset="0%" stopColor="#F97316" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#F97316" stopOpacity="0" />
                 </linearGradient>
             </defs>
             <polygon points={areaPoints} fill="url(#sparklineGradient)" />
             <polyline
                 points={points}
                 fill="none"
-                stroke="#4F46E5"
+                stroke="#F97316"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
