@@ -514,11 +514,11 @@ export default function InvestPage() {
                                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                                     <span className="flex items-center gap-1">
                                                         <Calendar className="w-4 h-4" />
-                                                        {new Date(investment.start_date).toLocaleDateString()}
+                                                        {new Date(investment.start_date).toLocaleDateString('en-US')}
                                                     </span>
                                                     <span className="flex items-center gap-1">
                                                         <Clock className="w-4 h-4" />
-                                                        {new Date(investment.end_date).toLocaleDateString()}
+                                                        {new Date(investment.end_date).toLocaleDateString('en-US')}
                                                     </span>
                                                 </div>
                                             </div>
@@ -571,7 +571,7 @@ export default function InvestPage() {
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-sm text-muted-foreground">
-                                                    {new Date(earning.claimed_at).toLocaleDateString()}
+                                                    {new Date(earning.claimed_at).toLocaleDateString('en-US')}
                                                 </p>
                                                 <p className="text-xs text-forest-600 font-medium">Claimed</p>
                                             </div>

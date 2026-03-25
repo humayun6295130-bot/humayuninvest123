@@ -358,7 +358,7 @@ export default function MiningPage() {
                                         </div>
                                         <div>
                                             <p className="text-xs text-slate-400">Active Miners</p>
-                                            <p className="text-lg font-bold text-white">{miningStats.activeMiners.toLocaleString()}</p>
+                                            <p className="text-lg font-bold text-white">{miningStats.activeMiners.toLocaleString('en-US')}</p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -546,7 +546,7 @@ export default function MiningPage() {
                                                 </div>
                                                 <div>
                                                     <div className="text-xs text-[#007BFF]/70">Stuck Reserves</div>
-                                                    <div className="text-sm font-bold text-white">${stuckReserves.reduce((acc, r) => acc + r.amount, 0).toLocaleString()}</div>
+                                                    <div className="text-sm font-bold text-white">${stuckReserves.reduce((acc, r) => acc + r.amount, 0).toLocaleString('en-US')}</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -562,7 +562,7 @@ export default function MiningPage() {
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-xs text-slate-400">Total Invested</p>
-                                            <p className="text-2xl font-bold text-white">${userProfile?.total_invested?.toLocaleString() || "0"}</p>
+                                            <p className="text-2xl font-bold text-white">${userProfile?.total_invested?.toLocaleString('en-US') || "0"}</p>
                                         </div>
                                         <div className="p-3 bg-[#FFD700]/10 rounded-xl">
                                             <Wallet className="w-6 h-6 text-[#FFD700]" />
@@ -576,7 +576,7 @@ export default function MiningPage() {
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-xs text-slate-400">Total Earnings</p>
-                                            <p className="text-2xl font-bold text-green-400">${userProfile?.total_earnings?.toLocaleString() || "0"}</p>
+                                            <p className="text-2xl font-bold text-green-400">${userProfile?.total_earnings?.toLocaleString('en-US') || "0"}</p>
                                         </div>
                                         <div className="p-3 bg-green-500/10 rounded-xl">
                                             <TrendingUp className="w-6 h-6 text-green-400" />
@@ -590,7 +590,7 @@ export default function MiningPage() {
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-xs text-slate-400">Stuck Reserve</p>
-                                            <p className="text-2xl font-bold text-[#007BFF]">${stuckReserves.reduce((acc, r) => acc + r.amount, 0).toLocaleString()}</p>
+                                            <p className="text-2xl font-bold text-[#007BFF]">${stuckReserves.reduce((acc, r) => acc + r.amount, 0).toLocaleString('en-US')}</p>
                                         </div>
                                         <div className="p-3 bg-[#007BFF]/10 rounded-xl">
                                             <Lock className="w-6 h-6 text-[#007BFF]" />
@@ -631,7 +631,7 @@ export default function MiningPage() {
                                     <CardContent className="relative space-y-4">
                                         <div className="text-center">
                                             <div className="text-3xl font-bold bg-gradient-to-r from-[#FFD700] to-[#FFA500] bg-clip-text text-transparent">
-                                                ${pkg.minInvestment.toLocaleString()} - ${pkg.maxInvestment.toLocaleString()}
+                                                ${pkg.minInvestment.toLocaleString('en-US')} - ${pkg.maxInvestment.toLocaleString('en-US')}
                                             </div>
                                             <p className="text-xs text-slate-500">Investment Range</p>
                                         </div>
@@ -798,7 +798,7 @@ export default function MiningPage() {
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <p className="text-lg font-bold text-white">${reserve.amount.toLocaleString()}</p>
+                                                    <p className="text-lg font-bold text-white">${reserve.amount.toLocaleString('en-US')}</p>
                                                     <p className="text-sm text-slate-400">
                                                         {reserve.lockPeriod} Days Lock • {reserve.interestRate}% APY
                                                     </p>
@@ -849,11 +849,11 @@ export default function MiningPage() {
                                                 </div>
                                                 <div>
                                                     <p className="font-semibold text-white">{investment.planName}</p>
-                                                    <p className="text-sm text-slate-400">${investment.amount.toLocaleString()} Investment</p>
+                                                    <p className="text-sm text-slate-400">${investment.amount.toLocaleString('en-US')} Investment</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-green-400 font-bold">+${investment.totalEarnings.toLocaleString()}</p>
+                                                <p className="text-green-400 font-bold">+${investment.totalEarnings.toLocaleString('en-US')}</p>
                                                 <p className="text-xs text-slate-500">Total Earnings</p>
                                             </div>
                                         </div>
@@ -892,7 +892,7 @@ export default function MiningPage() {
                             </div>
                             {selectedPackage && (
                                 <p className="text-xs text-slate-500">
-                                    Min: ${selectedPackage.minInvestment} - Max: ${selectedPackage.maxInvestment.toLocaleString()}
+                                    Min: ${selectedPackage.minInvestment} - Max: ${selectedPackage.maxInvestment.toLocaleString('en-US')}
                                 </p>
                             )}
                         </div>
@@ -953,7 +953,7 @@ export default function MiningPage() {
                             <CardContent className="p-4 space-y-3">
                                 <div className="flex justify-between">
                                     <span className="text-slate-400">Amount</span>
-                                    <span className="text-white font-bold">${stuckAmount.toLocaleString()}</span>
+                                    <span className="text-white font-bold">${stuckAmount.toLocaleString('en-US')}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-slate-400">Lock Period</span>

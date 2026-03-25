@@ -224,7 +224,7 @@ export function SupportManager() {
                     <DialogHeader>
                         <DialogTitle>{selectedTicket?.subject}</DialogTitle>
                         <DialogDescription>
-                            From: {selectedTicket?.user_email} • {selectedTicket?.created_at && format(new Date(selectedTicket.created_at), 'PPp')}
+                            From: {selectedTicket?.user_email} • {selectedTicket?.created_at && format(new Date(selectedTicket.created_at), 'MMM dd, yyyy HH:mm')}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -239,7 +239,7 @@ export function SupportManager() {
                                 {selectedTicket?.responses?.map((response, idx) => (
                                     <div key={idx} className={`p-3 rounded-lg ${response.from === 'support' ? 'bg-blue-50 ml-4' : 'bg-gray-50'}`}>
                                         <p className="text-xs text-muted-foreground mb-1">
-                                            {response.from === 'support' ? 'Support Team' : 'User'} • {format(new Date(response.created_at), 'PPp')}
+                                            {response.from === 'support' ? 'Support Team' : 'User'} • {format(new Date(response.created_at), 'MMM dd, yyyy HH:mm')}
                                         </p>
                                         <p className="text-sm">{response.message}</p>
                                     </div>

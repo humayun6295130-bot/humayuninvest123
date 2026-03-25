@@ -93,7 +93,7 @@ export function AssetsTable({ assets, portfolioId, userId }: { assets: any[], po
                     {asset.asset_type}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right font-mono">{asset.quantity.toLocaleString()}</TableCell>
+                <TableCell className="text-right font-mono">{asset.quantity.toLocaleString('en-US')}</TableCell>
                 <TableCell className="text-right text-muted-foreground">{formatCurrency(asset.average_cost)}</TableCell>
                 <TableCell className="text-right font-bold text-primary">{formatCurrency(asset.totalValue)}</TableCell>
                 <TableCell>

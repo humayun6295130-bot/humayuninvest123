@@ -234,7 +234,7 @@ export function PaymentVerificationManager() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">Total Verified ($)</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-blue-600">${stats.totalAmount.toLocaleString()}</div>
+                        <div className="text-3xl font-bold text-blue-600">${stats.totalAmount.toLocaleString('en-US')}</div>
                     </CardContent>
                 </Card>
             </div>

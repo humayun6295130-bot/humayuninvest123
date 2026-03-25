@@ -288,7 +288,7 @@ export function AdminWithdrawalManager() {
                         <CardTitle className="text-2xl text-yellow-600">{stats.pending}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-xs text-muted-foreground">${stats.pendingAmount.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">${stats.pendingAmount.toLocaleString('en-US')}</p>
                     </CardContent>
                 </Card>
 
@@ -308,7 +308,7 @@ export function AdminWithdrawalManager() {
                             <DollarSign className="w-4 h-4 text-purple-500" />
                             Total Volume
                         </CardDescription>
-                        <CardTitle className="text-2xl">${stats.totalAmount.toLocaleString()}</CardTitle>
+                        <CardTitle className="text-2xl">${stats.totalAmount.toLocaleString('en-US')}</CardTitle>
                     </CardHeader>
                 </Card>
             </div>
@@ -391,7 +391,7 @@ export function AdminWithdrawalManager() {
                                         </div>
 
                                         <div className="text-right">
-                                            <p className="font-bold text-lg">${withdrawal.amount.toLocaleString()}</p>
+                                            <p className="font-bold text-lg">${withdrawal.amount.toLocaleString('en-US')}</p>
                                             <p className="text-xs text-muted-foreground font-mono">
                                                 {withdrawal.wallet_address?.slice(0, 8)}...{withdrawal.wallet_address?.slice(-8)}
                                             </p>

@@ -255,7 +255,7 @@ export default function PortfolioPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              ${portfolioStats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ${portfolioStats.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div className="mt-2 flex items-center gap-2 text-sm">
               <Badge variant="secondary" className="bg-white/20 text-white">
@@ -275,7 +275,7 @@ export default function PortfolioPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${portfolioStats.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ${portfolioStats.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Total capital invested</p>
           </CardContent>
@@ -295,7 +295,7 @@ export default function PortfolioPage() {
               portfolioStats.totalProfitLoss >= 0 ? "text-green-600" : "text-red-600"
             )}>
               {portfolioStats.totalProfitLoss >= 0 ? '+' : ''}
-              ${portfolioStats.totalProfitLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ${portfolioStats.totalProfitLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div className={cn(
               "flex items-center gap-1 text-sm mt-1",
@@ -368,7 +368,7 @@ export default function PortfolioPage() {
                           <div>
                             <p className="font-medium text-sm capitalize">{tx.type}</p>
                             <p className="text-xs text-muted-foreground">
-                              {tx.asset_symbol || 'General'} • {new Date(tx.date).toLocaleDateString()}
+                              {tx.asset_symbol || 'General'} • {new Date(tx.date).toLocaleDateString('en-US')}
                             </p>
                           </div>
                         </div>
@@ -379,7 +379,7 @@ export default function PortfolioPage() {
                               tx.type === 'sell' || tx.type === 'deposit' ? "text-green-600" : "text-foreground"
                           )}>
                             {tx.type === 'buy' ? '-' : '+'}
-                            ${tx.amount.toLocaleString()}
+                            ${tx.amount.toLocaleString('en-US')}
                           </p>
                           {tx.quantity && (
                             <p className="text-xs text-muted-foreground">{tx.quantity} units</p>
@@ -433,7 +433,7 @@ export default function PortfolioPage() {
                         </div>
                         <div className="text-right">
                           <span className="font-medium">{item.percent.toFixed(1)}%</span>
-                          <span className="text-muted-foreground ml-2">${item.value.toLocaleString()}</span>
+                          <span className="text-muted-foreground ml-2">${item.value.toLocaleString('en-US')}</span>
                         </div>
                       </div>
                     ))}
@@ -458,7 +458,7 @@ export default function PortfolioPage() {
                   +{(portfolioStats.bestPerformer.profit_loss_percent || 0).toFixed(2)}%
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  ${((portfolioStats.bestPerformer.quantity || 0) * ((portfolioStats.bestPerformer.current_price || portfolioStats.bestPerformer.average_cost || 0))).toLocaleString()}
+                  ${((portfolioStats.bestPerformer.quantity || 0) * ((portfolioStats.bestPerformer.current_price || portfolioStats.bestPerformer.average_cost || 0))).toLocaleString('en-US')}
                 </p>
               </CardContent>
             </Card>
@@ -479,7 +479,7 @@ export default function PortfolioPage() {
                   {(portfolioStats.worstPerformer.profit_loss_percent || 0).toFixed(2)}%
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  ${((portfolioStats.worstPerformer.quantity || 0) * ((portfolioStats.worstPerformer.current_price || portfolioStats.worstPerformer.average_cost || 0))).toLocaleString()}
+                  ${((portfolioStats.worstPerformer.quantity || 0) * ((portfolioStats.worstPerformer.current_price || portfolioStats.worstPerformer.average_cost || 0))).toLocaleString('en-US')}
                 </p>
               </CardContent>
             </Card>

@@ -59,7 +59,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                         <CardTitle className="text-sm font-medium text-muted-foreground">Total Invested</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold">${totalInvested.toLocaleString()}</div>
+                        <div className="text-3xl font-bold">${totalInvested.toLocaleString('en-US')}</div>
                     </CardContent>
                 </Card>
                 <Card className="border-l-4 border-l-green-500">
@@ -67,7 +67,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                         <CardTitle className="text-sm font-medium text-muted-foreground">Total Earnings</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-green-600">${totalEarnings.toLocaleString()}</div>
+                        <div className="text-3xl font-bold text-green-600">${totalEarnings.toLocaleString('en-US')}</div>
                     </CardContent>
                 </Card>
                 <Card className="border-l-4 border-l-blue-500">
@@ -131,7 +131,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                     </CardHeader>
                     <CardContent>
                         <p className="text-sm text-muted-foreground">
-                            Current Balance: <span className="font-semibold text-foreground">${(userProfile?.balance || 0).toLocaleString()}</span>
+                            Current Balance: <span className="font-semibold text-foreground">${(userProfile?.balance || 0).toLocaleString('en-US')}</span>
                         </p>
                     </CardContent>
                     <CardFooter>
@@ -201,7 +201,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                             </CardHeader>
                             <CardContent className="flex-grow space-y-3">
                                 <div className="text-center">
-                                    <div className="text-2xl font-bold">${level.minInvestment} - ${level.maxInvestment.toLocaleString()}</div>
+                                    <div className="text-2xl font-bold">${level.minInvestment} - ${level.maxInvestment.toLocaleString('en-US')}</div>
                                     <p className="text-xs text-muted-foreground">Investment Range</p>
                                 </div>
                                 <div className="text-center text-green-600 font-semibold">

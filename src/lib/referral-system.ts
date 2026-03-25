@@ -99,11 +99,11 @@ export const DEFAULT_REFERRAL_LEVELS: ReferralLevel[] = [
 ];
 
 export const DEFAULT_REFERRAL_SETTINGS: ReferralSettings = {
-    level1_percent: 1,
-    level2_percent: 2,
-    level3_percent: 3,
-    level4_percent: 4,
-    level5_percent: 5,
+    level1_percent: 5,
+    level2_percent: 3,
+    level3_percent: 2,
+    level4_percent: 1,
+    level5_percent: 1,
     min_withdrawal: 10,
     enabled: true,
 };

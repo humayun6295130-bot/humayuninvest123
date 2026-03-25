@@ -163,7 +163,7 @@ export function InvestmentStatsChart() {
                     <p className="font-medium">{label}</p>
                     {payload.map((entry: any, index: number) => (
                         <p key={index} className="text-sm" style={{ color: entry.color }}>
-                            {entry.name}: ${entry.value.toLocaleString()}
+                            {entry.name}: ${entry.value.toLocaleString('en-US')}
                         </p>
                     ))}
                 </div>
@@ -307,7 +307,7 @@ export function InvestmentStatsChart() {
                                             <Cell key={`cell-${index}`} fill={entry.color} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+                                    <Tooltip formatter={(value: number) => `$${value.toLocaleString('en-US')}`} />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
@@ -360,7 +360,7 @@ export function InvestmentStatsChart() {
                                             </div>
                                             <div className="text-right">
                                                 <p className="font-bold text-green-600">
-                                                    +${tx.amount.toLocaleString()}
+                                                    +${tx.amount.toLocaleString('en-US')}
                                                 </p>
                                                 <div className="flex items-center gap-1 justify-end">
                                                     {tx.blockchain_verified && (

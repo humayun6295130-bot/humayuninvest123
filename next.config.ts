@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   env: {
+    ETHERSCAN_API_KEY: process.env.ETHERSCAN_API_KEY || '',
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || process.env.apiKey || '',
     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || process.env.authDomain || '',
     NEXT_PUBLIC_FIREBASE_DATABASE_URL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || process.env.databaseURL || '',

@@ -199,7 +199,7 @@ export function UserDepositLogs() {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardDescription>Total Amount</CardDescription>
-                        <CardTitle className="text-2xl">${stats.totalAmount.toLocaleString()}</CardTitle>
+                        <CardTitle className="text-2xl">${stats.totalAmount.toLocaleString('en-US')}</CardTitle>
                     </CardHeader>
                 </Card>
             </div>
@@ -286,7 +286,7 @@ export function UserDepositLogs() {
                                                 </div>
 
                                                 <div className="text-right">
-                                                    <p className="font-bold text-lg">+${log.amount?.toLocaleString()}</p>
+                                                    <p className="font-bold text-lg">+${log.amount?.toLocaleString('en-US')}</p>
                                                     <p className="text-xs text-muted-foreground">{log.currency || "USDT"}</p>
                                                     <div className="mt-1">{getStatusBadge(log)}</div>
                                                 </div>
@@ -371,13 +371,13 @@ export function UserDepositLogs() {
                                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                                         <div>
                                                             <p className="text-muted-foreground">Submitted</p>
-                                                            <p>{format(parseISO(selectedLog.created_at), 'PPpp')}</p>
+                                                            <p>{format(parseISO(selectedLog.created_at), 'MMM dd, yyyy HH:mm')}</p>
                                                         </div>
 
                                                         {selectedLog.verified_at && (
                                                             <div>
                                                                 <p className="text-muted-foreground">Verified</p>
-                                                                <p>{format(parseISO(selectedLog.verified_at), 'PPpp')}</p>
+                                                                <p>{format(parseISO(selectedLog.verified_at), 'MMM dd, yyyy HH:mm')}</p>
                                                             </div>
                                                         )}
                                                     </div>

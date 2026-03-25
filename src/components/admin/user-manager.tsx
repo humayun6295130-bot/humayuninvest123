@@ -259,10 +259,10 @@ export function UserManager() {
                       </span>
                     </TableCell>
                     <TableCell className="font-medium">
-                      ${(user.daily_claim_amount || 0).toLocaleString()}
+                      ${(user.daily_claim_amount || 0).toLocaleString('en-US')}
                     </TableCell>
                     <TableCell className="font-medium">
-                      ${(user.balance || 0).toLocaleString()}
+                      ${(user.balance || 0).toLocaleString('en-US')}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">

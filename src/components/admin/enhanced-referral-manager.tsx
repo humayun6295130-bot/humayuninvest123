@@ -366,7 +366,7 @@ export function EnhancedReferralManager() {
                             <Award className="w-4 h-4 text-purple-500" />
                             Total Bonuses
                         </CardDescription>
-                        <CardTitle className="text-2xl">${stats.totalBonusAmount.toLocaleString()}</CardTitle>
+                        <CardTitle className="text-2xl">${stats.totalBonusAmount.toLocaleString('en-US')}</CardTitle>
                     </CardHeader>
                 </Card>
 
@@ -376,7 +376,7 @@ export function EnhancedReferralManager() {
                             <Clock className="w-4 h-4 text-yellow-500" />
                             Pending Bonus
                         </CardDescription>
-                        <CardTitle className="text-2xl text-yellow-600">${stats.pendingBonus.toLocaleString()}</CardTitle>
+                        <CardTitle className="text-2xl text-yellow-600">${stats.pendingBonus.toLocaleString('en-US')}</CardTitle>
                     </CardHeader>
                 </Card>
             </div>

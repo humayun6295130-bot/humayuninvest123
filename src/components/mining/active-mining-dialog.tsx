@@ -297,8 +297,8 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
                                 } as React.CSSProperties}
                             />
                             <div className="flex justify-between text-xs text-slate-400">
-                                <span>Started: {new Date(investment.start_date).toLocaleDateString()}</span>
-                                <span>Ends: {new Date(investment.end_date).toLocaleDateString()}</span>
+                                <span>Started: {new Date(investment.start_date).toLocaleDateString('en-US')}</span>
+                                <span>Ends: {new Date(investment.end_date).toLocaleDateString('en-US')}</span>
                             </div>
                         </CardContent>
                     </Card>
@@ -308,7 +308,7 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
                         <Card className="bg-slate-900/50 border-orange-500/20">
                             <CardContent className="p-3 text-center">
                                 <p className="text-xs text-slate-400 mb-1">Invested Amount</p>
-                                <p className="text-lg font-bold text-white">${investment.amount.toLocaleString()}</p>
+                                <p className="text-lg font-bold text-white">${investment.amount.toLocaleString('en-US')}</p>
                             </CardContent>
                         </Card>
                         <Card className="bg-slate-900/50 border-orange-500/20">
@@ -320,7 +320,7 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
                         <Card className="bg-slate-900/50 border-orange-500/20">
                             <CardContent className="p-3 text-center">
                                 <p className="text-xs text-slate-400 mb-1">Total Return</p>
-                                <p className="text-lg font-bold text-orange-400">${investment.total_return.toLocaleString()}</p>
+                                <p className="text-lg font-bold text-orange-400">${investment.total_return.toLocaleString('en-US')}</p>
                             </CardContent>
                         </Card>
                     </div>

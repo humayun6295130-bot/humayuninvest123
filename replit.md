@@ -1,25 +1,24 @@
-# AscendFolio / BTCMine - Investment Platform
+# BTCMine / AscendFolio — Investment Platform
 
 ## Overview
-A Next.js 15 investment platform that allows users to invest, track earnings, manage referrals, and perform USDT (BEP-20) blockchain transactions. Built with Firebase as the backend (Firestore + Auth + Storage). Features a premium black UI design with gold/orange accents.
+A Next.js 15 investment platform for BTC mining investments. Users invest USDT (BEP-20 on BSC), earn daily ROI, refer friends for 5-level commissions, and withdraw profits. Firebase (Firestore + Auth + Storage) is the backend. Premium black UI (`#050505`) with orange/gold accents.
 
 ## Tech Stack
 - **Framework**: Next.js 15 (App Router)
 - **UI**: Tailwind CSS + Radix UI + shadcn/ui components
-- **Backend**: Firebase (Firestore, Auth, Storage, Realtime DB)
-- **Blockchain**: TRON/TRC-20 USDT verification via TronGrid API
+- **Backend**: Firebase (Firestore, Auth, Storage)
+- **Blockchain**: BSC/BEP-20 USDT via Etherscan API (BSC mainnet)
 - **Package Manager**: npm
 
 ## Project Structure
-- `src/app/` - Next.js App Router pages and API routes
-- `src/app/(app)/` - Authenticated app pages (dashboard, invest, referrals, etc.)
-- `src/app/(auth)/` - Auth pages (login, register)
-- `src/components/` - Reusable UI components
-- `src/firebase/` - Firebase config, hooks, and database helpers
-- `src/hooks/` - Custom React hooks
-- `src/lib/` - Utility functions including referral system
-- `src/ai/` - Genkit AI integrations (optional)
-- `*.cjs` - Admin/setup Node.js scripts (run manually)
+- `src/app/` — Next.js App Router pages and API routes
+- `src/app/(app)/` — Authenticated pages (dashboard, invest, mining, referrals, wallet)
+- `src/app/(auth)/` — Auth pages (login, register)
+- `src/components/` — Reusable UI components
+- `src/firebase/` — Firebase config, provider, hooks
+- `src/hooks/` — Custom React hooks
+- `src/lib/` — Utility functions including referral system
+- `src/app/api/` — Next.js API routes (Etherscan verify/balance)
 
 ## Running the App
 ```bash
@@ -28,9 +27,8 @@ npm run build  # Production build
 npm run start  # Production server on port 5000
 ```
 
-## Required Environment Variables
-All Firebase env vars must be set (see `.env.example` for full list):
-
+## Environment Variables
+Set in `.env.local` (short names mapped via `next.config.ts`):
 ```
 NEXT_PUBLIC_FIREBASE_API_KEY
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
@@ -40,43 +38,86 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 NEXT_PUBLIC_FIREBASE_APP_ID
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
-NEXT_PUBLIC_TRONGRID_API_KEY
-NEXT_PUBLIC_ADMIN_WALLET_ADDRESS
+NEXT_PUBLIC_ADMIN_WALLET_ADDRESS=0x1ce43c19F785Bf51294519F54004842939149e0A
+ETHERSCAN_API_KEY=W3PB77NKBCSQAFQHTCAZWN6HY3N67IUQ4D
 NEXT_PUBLIC_BASE_URL
 ```
+Short names (`apiKey`, `projectId`, etc.) are also mapped in `next.config.ts`'s `env` block for compatibility.
 
 ## Replit Configuration
-- Dev server runs on port 5000 with `0.0.0.0` host binding (required for Replit preview)
+- Dev server runs on port 5000 with `0.0.0.0` host binding
 - Workflow: "Start application" runs `npm run dev`
-- Migrated from Vercel — port changed from 9002 to 5000, Turbopack removed for stability
+- `allowedDevOrigins` set to specific Replit domains in `next.config.ts`
 
-## Referral System
-### How It Works
-1. User gets a unique referral code (`REFxxxxxx`) on registration
-2. Share link format: `<base_url>/register?ref=<code>`
-3. When referred user registers, `processNewReferral()` is called creating the referral chain
-4. Commission is distributed via `awardCommission()` when investments are approved
+## Admin
+- Email `humayunlbb@gmail.com` gets admin role automatically (hardcoded in auth logic)
+- Admin wallet: `0x1ce43c19F785Bf51294519F54004842939149e0A`
+- Admin panel at `/admin`
 
-### Commission Distribution Points
-- **Admin investment approval**: `src/components/admin/investment-approval.tsx`
-- **Blockchain auto-verify**: `src/components/payment/auto-verify-payment.tsx`
-- **Daily cron**: `daily-earnings-cron.cjs` (run manually or via scheduled job)
+## Key Features & Architecture
 
-### Commission Flow
-- `awardCommission()` in `src/lib/referral-system.ts` updates:
-  - `referral_earnings` (all-time total)
-  - `referral_balance` (available to withdraw)
-- `validateReferralCode()` searches by both `referral_code` and `username` fields
+### Daily Claim System
+- **File**: `src/components/wallet/claim-daily-dialog.tsx`
+- Auto-calculates claimable amount from all active investments' `daily_roi` field
+- Once per day globally (checks `last_daily_claim` on user profile — ISO date, UTC split)
+- Firebase `writeBatch`: atomically updates `balance`, each investment's `last_claim_date`, and creates a transaction record
+- Shows countdown timer if already claimed today; shows amount breakdown per investment
 
-### Fixed Bugs (Production Ready)
-- Referral balance bug: `awardCommission` now updates `referral_balance` (not just `referral_earnings`)
-- Referral validation: now searches by `referral_code` field first, falls back to `username`
-- Commission rates display: fixed field names (`level1_percent` not `level1`)
-- Commission distribution: added to investment approval and blockchain auto-verify flows
+### Referral System (5-level)
+- **Files**: `src/lib/referral-system.ts`, `src/app/(app)/referrals/page.tsx`
+- Defaults: 5% / 3% / 2% / 1% / 1% (stored in Firestore `referral_settings` collection)
+- `awardCommission()` fires on investment approval in `src/components/admin/investment-approval.tsx`
+- Credits referrer's `referral_balance` AND `referral_earnings`
+- Withdrawal: immediately deducts from `referral_balance`, creates pending record in `referral_withdrawals`
+- Referral link format: `<base_url>/register?ref=<referral_code>`
 
-## Mobile Improvements
-- Viewport meta tag added (`width=device-width, initial-scale=1`)
-- Referral page: share buttons use responsive grid (`grid-cols-2 sm:grid-cols-3 md:grid-cols-5`)
-- Referral link input: removed fixed `min-w-[300px]`, now full width on mobile
-- Level tabs: flex-wrap layout for 6 level tabs on small screens
-- Referral list items: truncate-safe layout with `min-w-0` and `shrink-0`
+### Payment Verification (Etherscan/BSC)
+- **API routes**: `src/app/api/etherscan/verify/route.ts`, `src/app/api/etherscan/balance/route.ts`
+- Verifies BEP-20 USDT transfers on BSC network
+- Admin wallet receives payments; deposits auto-verified by checking Etherscan transaction history
+
+### Wallet Page
+- **File**: `src/app/(app)/wallet/page.tsx`
+- 3-card balance summary: Main Balance / Referral Balance / Total Invested
+- Color-coded transaction history with proper type labels
+- Daily claim via `ClaimDailyDialog` component
+
+### Mining Page
+- **File**: `src/app/(app)/mining/page.tsx`
+- Shows active investments as mining rigs
+- Stuck Reserves feature (lock for higher rates)
+- Live hash rate animation (Math.random only inside useEffect intervals)
+
+## Hydration Rules (CRITICAL)
+All date/number formatting MUST be locale-explicit to avoid SSR/client mismatch:
+- `toLocaleString()` → `toLocaleString('en-US')`
+- `toLocaleDateString()` → `toLocaleDateString('en-US')`
+- `toLocaleTimeString()` → `toLocaleTimeString('en-US')`
+- `format(date, 'PP')` → `format(date, 'MMM dd, yyyy')`
+- `format(date, 'p')` → `format(date, 'HH:mm')`
+- `format(date, 'PPpp')` → `format(date, 'MMM dd, yyyy HH:mm')`
+- Math.random() in render → ONLY inside useEffect
+- Particles/dynamic elements → guard with `mounted` state from `useEffect`
+
+## Firebase Data Model
+### users collection
+- `balance` — main withdrawable balance (USDT)
+- `referral_balance` — available referral earnings
+- `referral_earnings` — all-time referral total
+- `last_daily_claim` — ISO timestamp of last daily claim
+- `referral_code` — unique code (REFxxxxxx)
+- `referred_by` — uid of referrer
+
+### investments collection
+- `daily_roi` — daily return amount in USDT
+- `last_claim_date` — date of last daily claim
+- `status` — 'active' | 'pending' | 'completed'
+- `amount` — invested USDT amount
+
+### referral_settings (global config)
+- `level1_percent` through `level5_percent` — commission rates
+- `min_withdrawal` — minimum referral withdrawal amount
+
+### referral_withdrawals collection
+- Pending records created when user requests referral payout
+- Admin approves/rejects via admin panel

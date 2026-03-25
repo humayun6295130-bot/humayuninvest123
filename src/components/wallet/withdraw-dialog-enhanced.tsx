@@ -367,7 +367,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                                         <div className="space-y-2 text-sm">
                                             <div className="flex justify-between">
                                                 <span className="text-muted-foreground">Gas Limit</span>
-                                                <span>{fee.gasLimit.toLocaleString()} units</span>
+                                                <span>{fee.gasLimit.toLocaleString('en-US')} units</span>
                                             </div>
                                             <div className="flex justify-between">
                                                 <span className="text-muted-foreground">Gas Price</span>

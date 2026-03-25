@@ -294,7 +294,7 @@ export function UserControlPanel() {
                         <CardTitle className="text-xs font-medium text-purple-600">Total Balance</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-purple-600">${stats.totalBalance?.toLocaleString()}</div>
+                        <div className="text-2xl font-bold text-purple-600">${stats.totalBalance?.toLocaleString('en-US')}</div>
                     </CardContent>
                 </Card>
                 <Card>
@@ -302,7 +302,7 @@ export function UserControlPanel() {
                         <CardTitle className="text-xs font-medium text-orange-600">Referral Balance</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-orange-600">${stats.totalReferralBalance?.toLocaleString()}</div>
+                        <div className="text-2xl font-bold text-orange-600">${stats.totalReferralBalance?.toLocaleString('en-US')}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -439,10 +439,10 @@ export function UserControlPanel() {
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-right font-medium">
-                                                ${(user.balance || 0).toLocaleString()}
+                                                ${(user.balance || 0).toLocaleString('en-US')}
                                             </TableCell>
                                             <TableCell className="text-right font-medium text-orange-600">
-                                                ${(user.referral_balance || 0).toLocaleString()}
+                                                ${(user.referral_balance || 0).toLocaleString('en-US')}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-1">
@@ -600,7 +600,7 @@ export function UserControlPanel() {
                         <div className="p-4 bg-muted rounded-lg">
                             <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">Current Referral Balance:</span>
-                                <span className="font-bold">${(selectedUser?.referral_balance || 0).toLocaleString()}</span>
+                                <span className="font-bold">${(selectedUser?.referral_balance || 0).toLocaleString('en-US')}</span>
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -764,19 +764,19 @@ export function UserControlPanel() {
                                 </div>
                                 <div>
                                     <span className="text-muted-foreground">Balance:</span>
-                                    <p className="font-semibold">${(selectedUser.balance || 0).toLocaleString()}</p>
+                                    <p className="font-semibold">${(selectedUser.balance || 0).toLocaleString('en-US')}</p>
                                 </div>
                                 <div>
                                     <span className="text-muted-foreground">Referral Balance:</span>
-                                    <p className="font-semibold text-orange-600">${(selectedUser.referral_balance || 0).toLocaleString()}</p>
+                                    <p className="font-semibold text-orange-600">${(selectedUser.referral_balance || 0).toLocaleString('en-US')}</p>
                                 </div>
                                 <div>
                                     <span className="text-muted-foreground">Daily Claim:</span>
-                                    <p className="font-semibold">${(selectedUser.daily_claim_amount || 0).toLocaleString()}</p>
+                                    <p className="font-semibold">${(selectedUser.daily_claim_amount || 0).toLocaleString('en-US')}</p>
                                 </div>
                                 <div>
                                     <span className="text-muted-foreground">Total Invested:</span>
-                                    <p className="font-semibold">${(selectedUser.total_invested || 0).toLocaleString()}</p>
+                                    <p className="font-semibold">${(selectedUser.total_invested || 0).toLocaleString('en-US')}</p>
                                 </div>
                             </div>
                             {selectedUser.wallet_address && (

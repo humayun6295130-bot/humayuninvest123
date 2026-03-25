@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useUser, useRealtimeCollection, insertRow, updateRow } from "@/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, increment } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { generateUniqueReferralCode } from "@/lib/referral-code";
+import { getReferralSettings, DEFAULT_REFERRAL_SETTINGS, type ReferralSettings as GlobalReferralSettings } from "@/lib/referral-system";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +86,12 @@ export default function ReferralsPage() {
     const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
     const [showShareOptions, setShowShareOptions] = useState(false);
     const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+    const [globalReferralSettings, setGlobalReferralSettings] = useState<GlobalReferralSettings>(DEFAULT_REFERRAL_SETTINGS);
+
+    // Fetch global referral settings
+    useEffect(() => {
+        getReferralSettings().then(settings => setGlobalReferralSettings(settings)).catch(() => {});
+    }, []);
 
     // Auto-generate referral code for existing users who don't have one
     useEffect(() => {
@@ -315,17 +322,40 @@ export default function ReferralsPage() {
 
         setIsWithdrawing(true);
         try {
+            const timestampNow = new Date().toISOString();
+
+            // Deduct from referral_balance immediately (locked while pending)
+            if (db) {
+                await updateDoc(doc(db, 'users', user.uid), {
+                    referral_balance: increment(-amount),
+                    updated_at: timestampNow,
+                });
+            }
+
+            // Create withdrawal request record
             await insertRow('referral_withdrawals', {
                 user_id: user.uid,
                 user_email: userProfile?.email,
                 amount: amount,
                 status: 'pending',
-                requested_at: new Date().toISOString(),
+                requested_at: timestampNow,
+            });
+
+            // Create transaction record
+            await insertRow('transactions', {
+                user_id: user.uid,
+                user_email: userProfile?.email,
+                type: 'referral_withdrawal',
+                amount: amount,
+                currency: 'USD',
+                status: 'pending',
+                description: `Referral earnings withdrawal request`,
+                created_at: timestampNow,
             });
 
             toast({
                 title: "Withdrawal Requested!",
-                description: `Your withdrawal request for ${amount.toFixed(2)} is pending approval.`,
+                description: `$${amount.toFixed(2)} withdrawal is pending admin approval. Funds are locked.`,
             });
 
             setWithdrawAmount("");
@@ -340,11 +370,11 @@ export default function ReferralsPage() {
 
     const getCommissionRates = () => {
         return {
-            level1: userProfile?.referral_settings?.level1_percent ?? 5,
-            level2: userProfile?.referral_settings?.level2_percent ?? 4,
-            level3: userProfile?.referral_settings?.level3_percent ?? 3,
-            level4: userProfile?.referral_settings?.level4_percent ?? 2,
-            level5: userProfile?.referral_settings?.level5_percent ?? 1,
+            level1: globalReferralSettings.level1_percent,
+            level2: globalReferralSettings.level2_percent,
+            level3: globalReferralSettings.level3_percent,
+            level4: globalReferralSettings.level4_percent ?? 1,
+            level5: globalReferralSettings.level5_percent ?? 1,
         };
     };
 
@@ -549,7 +579,7 @@ export default function ReferralsPage() {
                                 <Network className="h-5 w-5" />
                                 Commission Structure
                             </CardTitle>
-                            <CardDescription>Earn from 3 levels of referrals</CardDescription>
+                            <CardDescription>Earn from 5 levels of referrals — auto-credited on each investment</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="grid gap-4 md:grid-cols-3">

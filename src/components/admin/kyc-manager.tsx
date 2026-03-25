@@ -216,7 +216,7 @@ export function KYCManager() {
                         <div className="bg-muted p-4 rounded-lg">
                             <p className="text-sm"><strong>Document Type:</strong> {selectedDoc?.document_type}</p>
                             <p className="text-sm"><strong>Document Number:</strong> {selectedDoc?.document_number}</p>
-                            <p className="text-sm"><strong>Submitted:</strong> {selectedDoc?.submitted_at && format(new Date(selectedDoc.submitted_at), 'PPp')}</p>
+                            <p className="text-sm"><strong>Submitted:</strong> {selectedDoc?.submitted_at && format(new Date(selectedDoc.submitted_at), 'MMM dd, yyyy HH:mm')}</p>
                         </div>
                         {selectedDoc?.status === 'pending' && (
                             <div className="space-y-2">

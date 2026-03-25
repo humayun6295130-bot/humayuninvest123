@@ -408,7 +408,7 @@ export function ReferralManager() {
                                                         <span className="font-semibold">${withdrawal.amount.toFixed(2)}</span>
                                                     </div>
                                                     <span className="text-sm text-muted-foreground">
-                                                        {new Date(withdrawal.requested_at).toLocaleString()}
+                                                        {new Date(withdrawal.requested_at).toLocaleString('en-US')}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center justify-between">
@@ -492,7 +492,7 @@ export function ReferralManager() {
                                                 <div className="flex items-center justify-between text-sm">
                                                     <p className="text-muted-foreground">{bonus.description}</p>
                                                     <span className="text-muted-foreground">
-                                                        {new Date(bonus.created_at).toLocaleString()}
+                                                        {new Date(bonus.created_at).toLocaleString('en-US')}
                                                     </span>
                                                 </div>
                                             </div>

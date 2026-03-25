@@ -590,7 +590,7 @@ function InvestmentList({
                                 <div className="text-right">
                                     <p className="font-bold">${inv.amount}</p>
                                     <p className="text-xs text-muted-foreground">
-                                        {new Date(inv.created_at).toLocaleDateString()}
+                                        {new Date(inv.created_at).toLocaleDateString('en-US')}
                                     </p>
                                 </div>
                                 {actionButton && (

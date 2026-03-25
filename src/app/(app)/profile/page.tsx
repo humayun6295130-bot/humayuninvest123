@@ -217,11 +217,11 @@ export default function ProfilePage() {
                         {/* Quick Stats */}
                         <div className="flex md:flex-col gap-4 md:gap-2 text-center md:text-right">
                             <div>
-                                <p className="text-2xl font-bold text-primary">${userProfile.balance?.toLocaleString() || '0'}</p>
+                                <p className="text-2xl font-bold text-primary">${userProfile.balance?.toLocaleString('en-US') || '0'}</p>
                                 <p className="text-xs text-muted-foreground">Balance</p>
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-orange-500">${userProfile.referral_balance?.toLocaleString() || '0'}</p>
+                                <p className="text-2xl font-bold text-orange-500">${userProfile.referral_balance?.toLocaleString('en-US') || '0'}</p>
                                 <p className="text-xs text-muted-foreground">Referral</p>
                             </div>
                         </div>
@@ -248,13 +248,13 @@ export default function ProfilePage() {
                                     Progress to {nextLevel.name} (Level {nextLevel.level})
                                 </span>
                                 <span className="text-sm text-muted-foreground">
-                                    ${currentBalance.toLocaleString()} / ${nextLevel.min.toLocaleString()}
+                                    ${currentBalance.toLocaleString('en-US')} / ${nextLevel.min.toLocaleString('en-US')}
                                 </span>
                             </div>
                             <Progress value={Math.min(progressToNext, 100)} className="h-3" />
                             <div className="flex justify-between mt-2">
                                 <p className="text-xs text-muted-foreground">
-                                    Earn ${(nextLevel.min - currentBalance).toLocaleString()} more to reach {nextLevel.name}
+                                    Earn ${(nextLevel.min - currentBalance).toLocaleString('en-US')} more to reach {nextLevel.name}
                                 </p>
                                 <p className="text-xs font-medium text-primary">
                                     +{nextLevel.income_percent}% daily
@@ -302,7 +302,7 @@ export default function ProfilePage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold">${totalInvested.toLocaleString()}</p>
+                        <p className="text-2xl font-bold">${totalInvested.toLocaleString('en-US')}</p>
                     </CardContent>
                 </Card>
 
@@ -314,7 +314,7 @@ export default function ProfilePage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold text-green-600">${totalReturns.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-green-600">${totalReturns.toLocaleString('en-US')}</p>
                     </CardContent>
                 </Card>
 
@@ -560,7 +560,7 @@ export default function ProfilePage() {
                                                 tx.type === 'withdrawal' ? 'text-red-600' :
                                                     'text-foreground'
                                                 }`}>
-                                                {tx.type === 'deposit' || tx.type === 'referral_bonus' ? '+' : '-'}${tx.amount?.toLocaleString()}
+                                                {tx.type === 'deposit' || tx.type === 'referral_bonus' ? '+' : '-'}${tx.amount?.toLocaleString('en-US')}
                                             </p>
                                             <Badge variant={tx.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">
                                                 {tx.status}
@@ -605,8 +605,8 @@ export default function ProfilePage() {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-semibold">${inv.amount?.toLocaleString()}</p>
-                                        <p className="text-sm text-green-600">+${(inv.expected_return - inv.amount)?.toLocaleString()} expected</p>
+                                        <p className="font-semibold">${inv.amount?.toLocaleString('en-US')}</p>
+                                        <p className="text-sm text-green-600">+${(inv.expected_return - inv.amount)?.toLocaleString('en-US')} expected</p>
                                     </div>
                                 </div>
                             ))}
@@ -628,13 +628,13 @@ export default function ProfilePage() {
                     <div className="grid gap-4 md:grid-cols-3">
                         <div className="text-center p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
                             <p className="text-3xl font-bold text-yellow-600">
-                                ${userProfile.total_team_commission?.toLocaleString() || '0'}
+                                ${userProfile.total_team_commission?.toLocaleString('en-US') || '0'}
                             </p>
                             <p className="text-sm text-muted-foreground mt-1">Total Commission</p>
                         </div>
                         <div className="text-center p-4 bg-green-500/10 rounded-lg border border-green-500/20">
                             <p className="text-3xl font-bold text-green-600">
-                                ${userProfile.referral_balance?.toLocaleString() || '0'}
+                                ${userProfile.referral_balance?.toLocaleString('en-US') || '0'}
                             </p>
                             <p className="text-sm text-muted-foreground mt-1">Available Balance</p>
                         </div>
