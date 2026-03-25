@@ -1,7 +1,10 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  allowedDevOrigins: [
+    '3051d67a-328b-41ee-906e-57a8190323b2-00-cptnkjanxr7a.janeway.replit.dev',
+    '3051d67a-328b-41ee-906e-57a8190323b2-00-cptnkjanxr7a.janeway.repl.co',
+  ],
   typescript: {
     ignoreBuildErrors: true,
   },

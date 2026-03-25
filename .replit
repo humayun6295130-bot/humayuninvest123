@@ -37,3 +37,8 @@ externalPort = 80
 deploymentTarget = "autoscale"
 run = ["npm", "run", "start"]
 build = ["npm", "run", "build"]
+
+[userenv]
+
+[userenv.shared]
+NEXT_PUBLIC_ADMIN_WALLET_ADDRESS = "0x1ce43c19F785Bf51294519F54004842939149e0A"
