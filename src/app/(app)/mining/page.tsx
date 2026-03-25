@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useUser } from "@/firebase";
+import { useUser, useRealtimeCollection } from "@/firebase";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -134,6 +135,7 @@ const STUCK_RESERVE_RATES = [
 export default function MiningPage() {
     const { user, userProfile } = useUser();
     const { toast } = useToast();
+    const router = useRouter();
 
     // State
     const [activeTab, setActiveTab] = useState("dashboard");
@@ -159,34 +161,41 @@ export default function MiningPage() {
     // Particles for 3D effect
     const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number; duration: number }>>([]);
 
-    // User's mining investments (mock data for demo)
-    const [userInvestments, setUserInvestments] = useState([
-        {
-            id: "1",
-            planName: "Pro Miner",
-            amount: 2500,
-            dailyEarnings: 112.5,
-            totalEarnings: 3375,
-            startDate: "2024-01-15",
-            endDate: "2024-03-15",
-            status: "active" as const,
-            progress: 65
-        }
-    ]);
+    // Real user investments from Firebase
+    const investmentsOptions = useMemo(() => ({
+        table: 'user_investments',
+        filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
+        orderByColumn: { column: 'start_date', direction: 'desc' as const },
+        enabled: !!user,
+    }), [user]);
+    const { data: firebaseInvestments } = useRealtimeCollection(investmentsOptions);
 
-    // User's stuck reserves (mock data)
-    const [stuckReserves, setStuckReserves] = useState<StuckReserve[]>([
-        {
-            id: "1",
-            amount: 5000,
-            lockPeriod: 180,
-            interestRate: 8,
-            startDate: "2024-01-01",
-            endDate: "2024-06-30",
-            status: "locked",
-            earnedInterest: 200
-        }
-    ]);
+    // Map Firebase investments to display format
+    const userInvestments = useMemo(() => {
+        if (!firebaseInvestments) return [];
+        return firebaseInvestments.map((inv: any) => {
+            const start = new Date(inv.start_date);
+            const end = new Date(inv.end_date);
+            const now = new Date();
+            const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
+            const elapsedDays = Math.max(0, Math.round((now.getTime() - start.getTime()) / 86400000));
+            const progress = Math.min(100, Math.round((elapsedDays / totalDays) * 100));
+            return {
+                id: inv.id,
+                planName: inv.plan_name,
+                amount: inv.amount,
+                dailyEarnings: inv.daily_roi ? inv.amount * (inv.daily_roi / 100) : 0,
+                totalEarnings: inv.total_return || 0,
+                startDate: inv.start_date?.slice(0, 10) || '',
+                endDate: inv.end_date?.slice(0, 10) || '',
+                status: inv.status || 'active',
+                progress,
+            };
+        });
+    }, [firebaseInvestments]);
+
+    // Stuck reserves (empty — feature coming soon)
+    const [stuckReserves, setStuckReserves] = useState<StuckReserve[]>([]);
 
     // Generate particles
     useEffect(() => {
@@ -224,37 +233,10 @@ export default function MiningPage() {
         return stuckAmount * 0.10;
     }, [stuckAmount]);
 
-    // Handle investment
+    // Handle investment — redirect to invest page
     const handleInvest = async () => {
-        if (!selectedPackage || !investAmount) return;
-
-        const amount = parseFloat(investAmount);
-        if (amount < selectedPackage.minInvestment || amount > selectedPackage.maxInvestment) {
-            toast({
-                title: "Invalid Amount",
-                description: `Investment must be between ${selectedPackage.minInvestment} and ${selectedPackage.maxInvestment}`,
-                variant: "destructive"
-            });
-            return;
-        }
-
-        // Capture current values before async operation
-        const currentPackage = selectedPackage;
-        const currentAmount = amount;
-
-        setIsInvesting(true);
-
-        setTimeout(() => {
-            setIsInvesting(false);
-            setShowInvestDialog(false);
-            setInvestAmount("");
-            setSelectedPackage(null);
-
-            toast({
-                title: "Investment Successful",
-                description: `You have invested ${currentAmount} in ${currentPackage.name}`,
-            });
-        }, 2000);
+        setShowInvestDialog(false);
+        router.push('/invest');
     };
 
     // Handle stuck reserve

@@ -26,6 +26,8 @@ import {
     Info,
 } from "lucide-react";
 import { useUser, insertRow } from "@/firebase";
+import { db } from "@/firebase/config";
+import { doc, runTransaction } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -169,8 +171,21 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
         setStep('processing');
 
         const feeAmount = getFeeAmount();
+        const totalDeduct = getTotalDeduction();
 
         try {
+            if (!db || !user?.uid) throw new Error("Not authenticated");
+
+            // Atomically deduct balance and create withdrawal record
+            const userRef = doc(db, 'users', user.uid);
+            await runTransaction(db, async (tx) => {
+                const userSnap = await tx.get(userRef);
+                if (!userSnap.exists()) throw new Error("User not found");
+                const currentBalance = userSnap.data().balance || 0;
+                if (currentBalance < totalDeduct) throw new Error("Insufficient balance");
+                tx.update(userRef, { balance: currentBalance - totalDeduct });
+            });
+
             await insertRow("transactions", {
                 user_id: user?.uid,
                 user_display_name: userProfile.display_name,
@@ -184,7 +199,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                 network_fee_estimate: fee?.estimatedTrxFee || 0,
                 withdrawal_fee: feeAmount,
                 withdrawal_fee_percentage: WITHDRAWAL_FEE_PERCENTAGE,
-                total_deduction: getTotalDeduction(),
+                total_deduction: totalDeduct,
                 metadata: {
                     network: "BEP20",
                     fee_data: fee,

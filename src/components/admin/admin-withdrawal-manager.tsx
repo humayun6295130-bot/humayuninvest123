@@ -13,6 +13,8 @@
 
 import { useState, useMemo } from "react";
 import { useRealtimeCollection, updateRow, insertRow } from "@/firebase";
+import { db } from "@/firebase/config";
+import { doc, runTransaction } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -181,8 +183,18 @@ export function AdminWithdrawalManager() {
                 rejection_reason: rejectionReason
             });
 
-            // Restore user balance
-            // Note: This would need to be implemented based on your user balance system
+            // Restore user balance (balance was deducted when withdrawal was submitted)
+            if (db && selectedWithdrawal.user_id) {
+                const totalDeduction = (selectedWithdrawal as any).total_deduction || selectedWithdrawal.amount;
+                const userRef = doc(db, 'users', selectedWithdrawal.user_id);
+                await runTransaction(db, async (tx) => {
+                    const userSnap = await tx.get(userRef);
+                    if (userSnap.exists()) {
+                        const currentBalance = userSnap.data().balance || 0;
+                        tx.update(userRef, { balance: currentBalance + totalDeduction });
+                    }
+                });
+            }
 
             // Create notification for user
             await insertRow('notifications', {
