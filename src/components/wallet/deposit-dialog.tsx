@@ -96,7 +96,15 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
     try {
       let proofUrl = "";
       if (selectedFile) {
-        proofUrl = await uploadFile(selectedFile, user.uid);
+        try {
+          const uploadPromise = uploadFile(selectedFile, user.uid);
+          const timeout = new Promise<string>((_, reject) => 
+            setTimeout(() => reject(new Error('Upload timeout')), 15000)
+          );
+          proofUrl = await Promise.race([uploadPromise, timeout]);
+        } catch (uploadErr) {
+          console.warn('File upload failed, continuing without proof:', uploadErr);
+        }
       }
 
       await insertRow("transactions", {
@@ -120,7 +128,6 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
       setOpen(false);
       form.reset();
       setSelectedFile(null);
-      setDepositAmount(0);
     } catch (error: any) {
       toast({
         variant: "destructive",

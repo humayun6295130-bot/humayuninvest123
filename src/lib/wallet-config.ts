@@ -60,9 +60,10 @@ export const isWalletConfigured = (): boolean => {
 export const generateBEP20QRCode = (amount: number): string => {
     if (!ADMIN_WALLET_ADDRESS) return '';
 
-    // BEP20/BSC-style payment URI
-    const paymentData = `binance:${ADMIN_WALLET_ADDRESS}?amount=${amount}&token=USDT`;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(paymentData)}`;
+    // Plain wallet address QR - works with all wallet apps
+    // Any scanner will show the admin wallet address directly
+    const qrData = ADMIN_WALLET_ADDRESS;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}&bgcolor=ffffff&color=000000&qzone=2`;
 };
 
 /**

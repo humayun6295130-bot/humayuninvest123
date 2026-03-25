@@ -72,9 +72,17 @@ const FEATURES = [
 ];
 
 const PLANS = [
-    { name: "Starter", min: "$50", max: "$500", roi: "2.5%", days: 30, hash: "10 TH/s", color: "from-blue-600 to-cyan-600", glow: "shadow-blue-500/20" },
-    { name: "Pro", min: "$501", max: "$5,000", roi: "4.5%", days: 60, hash: "50 TH/s", color: "from-orange-500 to-yellow-500", glow: "shadow-orange-500/30", popular: true },
-    { name: "Enterprise", min: "$5,001", max: "$50,000", roi: "7.5%", days: 90, hash: "200 TH/s", color: "from-purple-600 to-pink-600", glow: "shadow-purple-500/20" },
+    { name: "Starter", min: "$30", max: "$250", roi: "1.5%", color: "from-blue-600 to-cyan-600", glow: "shadow-blue-500/20" },
+    { name: "Gold", min: "$501", max: "$1,000", roi: "2.5%", color: "from-orange-500 to-yellow-500", glow: "shadow-orange-500/30", popular: true },
+    { name: "Diamond", min: "$5,000", max: "$10,000", roi: "4.0%", color: "from-purple-600 to-pink-600", glow: "shadow-purple-500/20" },
+];
+
+const COMMISSION_LEVELS = [
+    { level: 1, label: "Level 1 (Direct)", percent: "5%", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/30" },
+    { level: 2, label: "Level 2", percent: "3%", color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/30" },
+    { level: 3, label: "Level 3", percent: "2%", color: "text-green-400", bg: "bg-green-500/10 border-green-500/30" },
+    { level: 4, label: "Level 4", percent: "1%", color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/30" },
+    { level: 5, label: "Level 5", percent: "1%", color: "text-purple-400", bg: "bg-purple-500/10 border-purple-500/30" },
 ];
 
 const PERKS = [
@@ -228,8 +236,9 @@ export default function LandingPage() {
                                         <span className="text-sm text-slate-400 font-normal"> / day</span>
                                     </div>
                                     <div className="space-y-2 text-sm text-slate-400 mb-6 flex-1">
-                                        <div className="flex justify-between"><span>Investment</span><span className="text-white font-medium">{plan.min} – {plan.max}</span></div>
-                                        <div className="flex justify-between"><span>Hash Rate</span><span className="text-white font-medium">{plan.hash}</span></div>
+                                        <div className="flex justify-between"><span>Investment Range</span><span className="text-white font-medium">{plan.min} – {plan.max}</span></div>
+                                        <div className="flex justify-between"><span>Duration</span><span className="text-green-400 font-medium">Open-ended</span></div>
+                                        <div className="flex justify-between"><span>Payout</span><span className="text-white font-medium">Daily Claim</span></div>
                                     </div>
                                     <Button className={`w-full bg-gradient-to-r ${plan.color} text-white border-0 font-semibold hover:opacity-90`} asChild>
                                         <Link href="/register">Get Started</Link>
@@ -276,6 +285,36 @@ export default function LandingPage() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                {/* ── Referral Commission ── */}
+                <section className="w-full py-16 md:py-20 bg-[#080808] border-t border-slate-800/60">
+                    <div className="container px-4 md:px-6 mx-auto max-w-4xl">
+                        <div className="text-center mb-10">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/40 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400 mb-4">
+                                <Users className="h-3.5 w-3.5" />
+                                5-Level Referral Commission
+                            </div>
+                            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+                                Earn While Others{" "}
+                                <span className="bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">Mine</span>
+                            </h2>
+                            <p className="text-slate-400 max-w-lg mx-auto">
+                                Invite friends and earn commission from their investments — up to 5 levels deep. The more you refer, the more you earn.
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-5 gap-3">
+                            {COMMISSION_LEVELS.map((lvl) => (
+                                <div key={lvl.level} className={`flex flex-col items-center p-4 rounded-2xl border ${lvl.bg}`}>
+                                    <div className={`text-2xl sm:text-3xl font-black ${lvl.color} mb-1`}>{lvl.percent}</div>
+                                    <div className="text-xs text-slate-400 text-center leading-tight">{lvl.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="text-center text-xs text-slate-500 mt-4">
+                            Commission is earned on every deposit made by your referrals, credited instantly.
+                        </p>
                     </div>
                 </section>
 

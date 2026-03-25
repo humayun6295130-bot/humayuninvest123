@@ -57,11 +57,12 @@ Short names (`apiKey`, `projectId`, etc.) are also mapped in `next.config.ts`'s 
 ## Key Features & Architecture
 
 ### Daily Claim System
-- **File**: `src/components/wallet/claim-daily-dialog.tsx`
+- **Files**: `src/components/wallet/claim-daily-dialog.tsx`, `src/app/(app)/earnings/page.tsx`
 - Auto-calculates claimable amount from all active investments' `daily_roi` field
 - Once per day globally (checks `last_daily_claim` on user profile — ISO date, UTC split)
-- Firebase `writeBatch`: atomically updates `balance`, each investment's `last_claim_date`, and creates a transaction record
+- Firebase `writeBatch`: atomically updates `balance`, `total_earnings`, and creates transaction + daily_earnings records
 - Shows countdown timer if already claimed today; shows amount breakdown per investment
+- Earnings page provides full claim history + status banner with next-claim countdown
 
 ### Referral System (5-level)
 - **Files**: `src/lib/referral-system.ts`, `src/app/(app)/referrals/page.tsx`

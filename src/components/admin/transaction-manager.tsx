@@ -33,9 +33,12 @@ export function TransactionManager() {
     const { data: transactions, isLoading } = useRealtimeCollection(transactionsOptions);
 
     const determinePlan = (amount: number): string => {
-        if (amount >= 50) return "Professional Plan";
-        if (amount >= 30) return "Growth Plan";
-        if (amount >= 25) return "Starter Plan";
+        if (amount >= 5000) return "Diamond";
+        if (amount >= 2501) return "Elite";
+        if (amount >= 1001) return "Platinum";
+        if (amount >= 501) return "Gold";
+        if (amount >= 251) return "Silver";
+        if (amount >= 30) return "Starter";
         return "None";
     }
 

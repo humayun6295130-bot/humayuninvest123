@@ -9,7 +9,7 @@ export function PublicHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="px-2 sm:px-4 h-auto min-h-16 flex items-center border-b bg-slate-900/95 backdrop-blur supports-[backdrop-filter]:bg-slate-900/80 sticky top-0 z-50">
+    <header className="px-2 sm:px-4 h-auto min-h-16 flex items-center border-b border-slate-800/50 bg-[#050505]/95 backdrop-blur sticky top-0 z-50">
       <div className="container mx-auto flex items-center justify-between w-full">
         <Link className="flex items-center justify-center gap-2 flex-shrink-0" href="/">
           <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-1.5 rounded-lg shadow-lg shadow-orange-500/30">
@@ -56,10 +56,10 @@ export function PublicHeader() {
 
       {/* Mobile Navigation Menu */}
       {isMenuOpen && (
-        <div className="absolute top-full left-0 right-0 bg-slate-900 border-b border-orange-500/20 sm:hidden">
+        <div className="absolute top-full left-0 right-0 bg-[#050505] border-b border-slate-800/50 sm:hidden">
           <nav className="flex flex-col p-4 gap-2">
             <Link
-              className="text-sm font-medium text-slate-300 hover:text-orange-400 transition-colors py-3 px-4 flex items-center gap-2 bg-slate-800 rounded-lg"
+              className="text-sm font-medium text-slate-300 hover:text-orange-400 transition-colors py-3 px-4 flex items-center gap-2 bg-[#111] border border-slate-800 rounded-lg"
               href="/#mining"
               onClick={() => setIsMenuOpen(false)}
             >
@@ -67,7 +67,7 @@ export function PublicHeader() {
               Mining
             </Link>
             <Link
-              className="text-sm font-medium text-slate-300 hover:text-orange-400 transition-colors py-3 px-4 flex items-center gap-2 bg-slate-800 rounded-lg"
+              className="text-sm font-medium text-slate-300 hover:text-orange-400 transition-colors py-3 px-4 flex items-center gap-2 bg-[#111] border border-slate-800 rounded-lg"
               href="/invest"
               onClick={() => setIsMenuOpen(false)}
             >
@@ -75,14 +75,14 @@ export function PublicHeader() {
               Plans
             </Link>
             <Link
-              className="text-sm font-medium text-slate-300 hover:text-orange-400 transition-colors py-3 px-4 bg-slate-800 rounded-lg"
+              className="text-sm font-medium text-slate-300 hover:text-orange-400 transition-colors py-3 px-4 bg-[#111] border border-slate-800 rounded-lg"
               href="/about"
               onClick={() => setIsMenuOpen(false)}
             >
               About
             </Link>
             <Link
-              className="text-sm font-medium text-slate-300 hover:text-orange-400 transition-colors py-3 px-4 bg-slate-800 rounded-lg"
+              className="text-sm font-medium text-slate-300 hover:text-orange-400 transition-colors py-3 px-4 bg-[#111] border border-slate-800 rounded-lg"
               href="/contact"
               onClick={() => setIsMenuOpen(false)}
             >
@@ -90,7 +90,7 @@ export function PublicHeader() {
             </Link>
             <div className="flex gap-2 mt-2">
               <Link
-                className="flex-1 text-sm font-medium text-slate-300 hover:text-orange-400 transition-colors py-3 text-center bg-slate-800 rounded-lg"
+                className="flex-1 text-sm font-medium text-slate-300 hover:text-orange-400 transition-colors py-3 text-center bg-[#111] border border-slate-800 rounded-lg"
                 href="/login"
                 onClick={() => setIsMenuOpen(false)}
               >

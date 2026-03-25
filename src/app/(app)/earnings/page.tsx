@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useUser, useRealtimeCollection, insertRow, updateRow } from "@/firebase";
+import { useUser, useRealtimeCollection, insertRow } from "@/firebase";
+import { db } from "@/firebase/config";
+import { doc, increment, writeBatch } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, DollarSign } from "lucide-react";
+import { TrendingUp, Wallet, DollarSign, Clock, CheckCircle2, AlertCircle, Zap, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, isToday, differenceInHours, differenceInMinutes } from "date-fns";
+import Link from "next/link";
 
 interface DailyEarning {
     id: string;
@@ -21,7 +23,9 @@ interface DailyEarning {
 interface UserInvestment {
     id: string;
     plan_name: string;
+    amount: number;
     daily_roi: number;
+    income_percent?: number;
     earned_so_far: number;
     total_return: number;
     status: string;
@@ -30,7 +34,7 @@ interface UserInvestment {
 export default function EarningsPage() {
     const { user, userProfile } = useUser();
     const { toast } = useToast();
-    const [isWithdrawing, setIsWithdrawing] = useState(false);
+    const [isClaiming, setIsClaiming] = useState(false);
 
     const earningsOptions = useMemo(() => ({
         table: 'daily_earnings',
@@ -49,229 +53,307 @@ export default function EarningsPage() {
     const { data: investments, isLoading: investmentsLoading } = useRealtimeCollection<UserInvestment>(investmentsOptions);
 
     const activeInvestments = investments?.filter(inv => inv.status === 'active') || [];
-    const totalDailyEarnings = activeInvestments.reduce((sum, inv) => sum + inv.daily_roi, 0);
+    const totalDailyEarnings = activeInvestments.reduce((sum, inv) => {
+        const roi = inv.daily_roi || (inv.amount * (inv.income_percent || 0) / 100);
+        return sum + roi;
+    }, 0);
     const totalEarned = earnings?.filter(e => e.status === 'credited').reduce((sum, e) => sum + e.amount, 0) || 0;
-    const pendingEarnings = earnings?.filter(e => e.status === 'pending').reduce((sum, e) => sum + e.amount, 0) || 0;
 
-    const todayEarnings = earnings?.filter(e => {
-        const earningDate = new Date(e.date);
-        const today = new Date();
-        return earningDate.toDateString() === today.toDateString();
-    }).reduce((sum, e) => sum + e.amount, 0) || 0;
+    const lastClaimRaw = userProfile?.last_daily_claim;
+    const lastClaimDate = lastClaimRaw ? new Date(lastClaimRaw) : null;
+    const alreadyClaimedToday = lastClaimDate ? isToday(lastClaimDate) : false;
+    const hoursUntilNextClaim = lastClaimDate && alreadyClaimedToday
+        ? Math.max(0, 24 - differenceInHours(new Date(), lastClaimDate))
+        : 0;
+    const minutesUntilNextClaim = lastClaimDate && alreadyClaimedToday
+        ? Math.max(0, 60 - (differenceInMinutes(new Date(), lastClaimDate) % 60))
+        : 0;
 
-    const handleWithdrawAll = async () => {
-        if (!user || !userProfile) return;
+    const handleClaimROI = async () => {
+        if (!user || !userProfile || !db) return;
 
-        const availableEarnings = activeInvestments.reduce((sum, inv) => sum + inv.daily_roi, 0);
-
-        if (availableEarnings <= 0) {
+        if (alreadyClaimedToday) {
             toast({
                 variant: "destructive",
-                title: "No Earnings Available",
-                description: "You don't have any earnings to withdraw.",
+                title: "Already Claimed Today",
+                description: `Next claim available in ${hoursUntilNextClaim}h ${minutesUntilNextClaim}m.`,
             });
             return;
         }
 
-        setIsWithdrawing(true);
+        if (totalDailyEarnings <= 0) {
+            toast({
+                variant: "destructive",
+                title: "No Active Investments",
+                description: "You need an active investment to claim daily ROI.",
+            });
+            return;
+        }
+
+        setIsClaiming(true);
         try {
-            await updateRow('users', user.uid, {
-                balance: (userProfile.balance || 0) + availableEarnings,
+            const nowIso = new Date().toISOString();
+            const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+            const batch = writeBatch(db);
+            const userRef = doc(db, 'users', user.uid);
+            batch.update(userRef, {
+                balance: increment(totalDailyEarnings),
+                total_earnings: increment(totalDailyEarnings),
+                last_daily_claim: nowIso,
+                updated_at: nowIso,
+            });
+            await batch.commit();
+
+            await insertRow('daily_earnings', {
+                user_id: user.uid,
+                amount: totalDailyEarnings,
+                date: todayStr,
+                status: 'credited',
             });
 
             await insertRow('transactions', {
                 user_id: user.uid,
+                user_display_name: userProfile.display_name || '',
+                user_email: userProfile.email || '',
                 type: 'daily_claim',
-                amount: availableEarnings,
+                amount: totalDailyEarnings,
+                currency: 'USD',
                 status: 'completed',
-                description: `Withdraw all earnings - ${format(new Date(), 'yyyy-MM-dd')}`,
+                description: `Daily ROI Claim — ${activeInvestments.length} investment(s)`,
             });
 
             toast({
-                title: "Withdrawal Successful!",
-                description: `$${availableEarnings.toFixed(2)} has been added to your wallet.`,
+                title: "ROI Claimed!",
+                description: `$${totalDailyEarnings.toFixed(2)} added to your wallet balance.`,
             });
         } catch (error: any) {
             toast({
                 variant: "destructive",
-                title: "Withdrawal Failed",
-                description: error.message,
+                title: "Claim Failed",
+                description: error.message || "Something went wrong. Try again.",
             });
         } finally {
-            setIsWithdrawing(false);
+            setIsClaiming(false);
         }
-    };
-
-    const handleReinvest = async () => {
-        toast({
-            title: "Coming Soon",
-            description: "Auto-reinvest feature will be available soon.",
-        });
     };
 
     if (earningsLoading || investmentsLoading) {
         return (
-            <div className="flex h-full items-center justify-center">
-                <p className="text-muted-foreground">Loading earnings...</p>
+            <div className="flex h-full items-center justify-center min-h-[60vh]">
+                <div className="text-center space-y-3">
+                    <RefreshCw className="h-8 w-8 animate-spin text-orange-400 mx-auto" />
+                    <p className="text-slate-400">Loading earnings...</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="space-y-6 pb-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-[#334C99]">My Earnings</h1>
-                    <p className="text-muted-foreground">Track and manage your investment returns</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white">My Earnings</h1>
+                    <p className="text-slate-400 text-sm mt-1">Claim your daily ROI and track returns</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleReinvest}>
-                        <ArrowUpRight className="mr-2 h-4 w-4" />
-                        Reinvest
-                    </Button>
-                    <Button onClick={handleWithdrawAll} disabled={isWithdrawing || totalDailyEarnings <= 0} className="bg-[#334C99]">
-                        <ArrowDownLeft className="mr-2 h-4 w-4" />
-                        {isWithdrawing ? 'Processing...' : 'Withdraw All'}
-                    </Button>
-                </div>
+                <Button
+                    onClick={handleClaimROI}
+                    disabled={isClaiming || alreadyClaimedToday || totalDailyEarnings <= 0}
+                    className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold h-11 px-6 disabled:opacity-50"
+                >
+                    {isClaiming ? (
+                        <><RefreshCw className="mr-2 h-4 w-4 animate-spin" />Claiming...</>
+                    ) : alreadyClaimedToday ? (
+                        <><Clock className="mr-2 h-4 w-4" />Claimed Today</>
+                    ) : (
+                        <><Zap className="mr-2 h-4 w-4" />Claim Daily ROI</>
+                    )}
+                </Button>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4" />
-                            Today's Earnings
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">+${todayEarnings.toFixed(2)}</div>
+            {/* Claim Status Banner */}
+            {activeInvestments.length > 0 && (
+                <div className={`rounded-2xl border p-4 flex items-center gap-4 ${alreadyClaimedToday
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-orange-500/10 border-orange-500/30'}`}>
+                    {alreadyClaimedToday ? (
+                        <CheckCircle2 className="h-6 w-6 text-green-400 shrink-0" />
+                    ) : (
+                        <AlertCircle className="h-6 w-6 text-orange-400 shrink-0" />
+                    )}
+                    <div className="flex-1">
+                        {alreadyClaimedToday ? (
+                            <>
+                                <p className="font-semibold text-green-400">Today's ROI already claimed</p>
+                                <p className="text-sm text-slate-400">
+                                    Next claim available in {hoursUntilNextClaim}h {minutesUntilNextClaim}m
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <p className="font-semibold text-orange-400">Daily ROI ready to claim!</p>
+                                <p className="text-sm text-slate-400">
+                                    ${totalDailyEarnings.toFixed(2)} available from {activeInvestments.length} active investment{activeInvestments.length !== 1 ? 's' : ''}
+                                </p>
+                            </>
+                        )}
+                    </div>
+                    <div className="text-right shrink-0">
+                        <p className="text-xl font-bold text-white">${totalDailyEarnings.toFixed(2)}</p>
+                        <p className="text-xs text-slate-500">per day</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="bg-[#111] border-slate-800">
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 bg-green-500/20 rounded-lg">
+                                <TrendingUp className="h-4 w-4 text-green-400" />
+                            </div>
+                            <span className="text-xs text-slate-400">Daily Rate</span>
+                        </div>
+                        <div className="text-2xl font-bold text-green-400">+${totalDailyEarnings.toFixed(2)}</div>
+                        <p className="text-xs text-slate-500 mt-1">Per day total</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <DollarSign className="h-4 w-4" />
-                            Daily Earning Rate
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-[#334C99]">+${totalDailyEarnings.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground">Per day from all investments</p>
+
+                <Card className="bg-[#111] border-slate-800">
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 bg-orange-500/20 rounded-lg">
+                                <DollarSign className="h-4 w-4 text-orange-400" />
+                            </div>
+                            <span className="text-xs text-slate-400">Total Earned</span>
+                        </div>
+                        <div className="text-2xl font-bold text-white">${totalEarned.toFixed(2)}</div>
+                        <p className="text-xs text-slate-500 mt-1">Lifetime claims</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Wallet className="h-4 w-4" />
-                            Total Earned
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">${totalEarned.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground">Lifetime earnings</p>
+
+                <Card className="bg-[#111] border-slate-800">
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 bg-blue-500/20 rounded-lg">
+                                <Wallet className="h-4 w-4 text-blue-400" />
+                            </div>
+                            <span className="text-xs text-slate-400">Wallet Balance</span>
+                        </div>
+                        <div className="text-2xl font-bold text-white">${(userProfile?.balance || 0).toFixed(2)}</div>
+                        <p className="text-xs text-slate-500 mt-1">Available balance</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4" />
-                            Pending
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-yellow-600">${pendingEarnings.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground">Processing earnings</p>
+
+                <Card className="bg-[#111] border-slate-800">
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 bg-purple-500/20 rounded-lg">
+                                <Clock className="h-4 w-4 text-purple-400" />
+                            </div>
+                            <span className="text-xs text-slate-400">Total Claims</span>
+                        </div>
+                        <div className="text-2xl font-bold text-white">{earnings?.filter(e => e.status === 'credited').length || 0}</div>
+                        <p className="text-xs text-slate-500 mt-1">Successful claims</p>
                     </CardContent>
                 </Card>
             </div>
 
-            <Tabs defaultValue="sources" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="sources">Earning Sources</TabsTrigger>
-                    <TabsTrigger value="history">Earnings History</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="sources" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Active Investment Sources</CardTitle>
-                            <CardDescription>Your current earning sources</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {activeInvestments.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <TrendingUp className="mx-auto h-12 w-12 text-muted-foreground" />
-                                    <p className="mt-4 text-muted-foreground">No active investments</p>
-                                    <Button className="mt-4 bg-[#334C99]" onClick={() => window.location.href = '/invest'}>
-                                        Browse Plans
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {activeInvestments.map((investment) => (
-                                        <Card key={investment.id}>
-                                            <CardContent className="p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <h4 className="font-semibold">{investment.plan_name}</h4>
-                                                        <p className="text-sm text-muted-foreground">
-                                                            Earned: ${investment.earned_so_far.toFixed(2)} / ${investment.total_return.toFixed(2)}
-                                                        </p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-sm text-muted-foreground">Daily</p>
-                                                        <p className="font-semibold text-green-600">+${investment.daily_roi.toFixed(2)}</p>
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="history">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Earnings History</CardTitle>
-                            <CardDescription>Your daily earnings over time</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {earnings?.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <p className="text-muted-foreground">No earnings history yet</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {earnings?.slice(0, 50).map((earning) => (
-                                        <div key={earning.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-full ${earning.status === 'credited' ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
-                                                    <TrendingUp className={`h-4 w-4 ${earning.status === 'credited' ? 'text-green-600' : 'text-yellow-600'}`} />
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium">Daily Earning</p>
-                                                    <p className="text-sm text-muted-foreground">{format(new Date(earning.date), 'MMM dd, yyyy')}</p>
-                                                </div>
+            {/* Active Investments */}
+            <Card className="bg-[#111] border-slate-800">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-white text-lg">Active Investments</CardTitle>
+                    <CardDescription className="text-slate-400">Your current earning sources</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {activeInvestments.length === 0 ? (
+                        <div className="text-center py-10">
+                            <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                <TrendingUp className="h-7 w-7 text-slate-600" />
+                            </div>
+                            <p className="text-slate-400 font-medium">No active investments</p>
+                            <p className="text-slate-500 text-sm mt-1">Start investing to earn daily ROI</p>
+                            <Button className="mt-4 bg-orange-500 hover:bg-orange-600 text-white" asChild>
+                                <Link href="/invest">Browse Plans</Link>
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {activeInvestments.map((investment) => {
+                                const dailyAmount = investment.daily_roi || (investment.amount * (investment.income_percent || 0) / 100);
+                                return (
+                                    <div key={investment.id} className="flex items-center justify-between p-4 bg-[#0a0a0a] rounded-xl border border-slate-800">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2.5 bg-orange-500/15 rounded-xl">
+                                                <TrendingUp className="h-5 w-5 text-orange-400" />
                                             </div>
-                                            <div className="text-right">
-                                                <p className="font-semibold text-green-600">+${earning.amount.toFixed(2)}</p>
-                                                <Badge variant={earning.status === 'credited' ? 'default' : 'secondary'}>
-                                                    {earning.status}
-                                                </Badge>
+                                            <div>
+                                                <p className="font-semibold text-white">{investment.plan_name}</p>
+                                                <p className="text-xs text-slate-400">
+                                                    ${(investment.amount || 0).toLocaleString('en-US')} invested
+                                                </p>
                                             </div>
                                         </div>
-                                    ))}
+                                        <div className="text-right">
+                                            <p className="font-bold text-green-400 text-lg">+${dailyAmount.toFixed(2)}</p>
+                                            <p className="text-xs text-slate-500">per day</p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Earnings History */}
+            <Card className="bg-[#111] border-slate-800">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-white text-lg">Claim History</CardTitle>
+                    <CardDescription className="text-slate-400">Your ROI claim records</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {!earnings || earnings.length === 0 ? (
+                        <div className="text-center py-8">
+                            <p className="text-slate-400">No claims yet</p>
+                            <p className="text-slate-500 text-sm">Claim your first daily ROI to get started</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {earnings.slice(0, 30).map((earning) => (
+                                <div key={earning.id} className="flex items-center justify-between p-3 bg-[#0a0a0a] rounded-xl border border-slate-800">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-xl ${earning.status === 'credited' ? 'bg-green-500/15' : 'bg-yellow-500/15'}`}>
+                                            {earning.status === 'credited' ? (
+                                                <CheckCircle2 className="h-4 w-4 text-green-400" />
+                                            ) : (
+                                                <Clock className="h-4 w-4 text-yellow-400" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-white">Daily ROI Claim</p>
+                                            <p className="text-xs text-slate-400">{format(new Date(earning.date), 'MMM dd, yyyy')}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-semibold text-green-400">+${earning.amount.toFixed(2)}</p>
+                                        <Badge
+                                            variant="outline"
+                                            className={earning.status === 'credited'
+                                                ? 'border-green-500/30 text-green-400 text-xs'
+                                                : 'border-yellow-500/30 text-yellow-400 text-xs'}
+                                        >
+                                            {earning.status}
+                                        </Badge>
+                                    </div>
                                 </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     );
 }

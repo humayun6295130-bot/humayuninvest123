@@ -203,9 +203,9 @@ export function AppHeader() {
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-            <Link href="/settings" className="flex items-center gap-2">
+            <Link href="/profile" className="flex items-center gap-2">
               <UserIcon className="h-4 w-4" />
-              <span>Profile</span>
+              <span>My Profile</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
