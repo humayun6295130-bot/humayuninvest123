@@ -107,9 +107,9 @@ export default function NotificationsPage() {
                             {notifications?.map((notification) => (
                                 <div
                                     key={notification.id}
-                                    className={`flex items-start gap-4 p-4 border rounded-lg ${!notification.is_read ? 'bg-blue-50 border-blue-200' : ''}`}
+                                    className={`flex items-start gap-4 p-4 border rounded-lg ${!notification.is_read ? 'bg-orange-500/10 border-orange-500/30' : 'border-border'}`}
                                 >
-                                    <div className="p-2 bg-white rounded-full">
+                                    <div className="p-2 bg-[#1a1a1a] rounded-full">
                                         {getIcon(notification.type)}
                                     </div>
                                     <div className="flex-1">

@@ -152,7 +152,7 @@ export default function FAQPage() {
     })).filter(category => category.questions.length > 0);
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-950">
+        <div className="flex flex-col min-h-screen bg-[#050505]">
             <PublicHeader />
             <main className="flex-1 py-12 md:py-24">
                 <div className="container px-4 mx-auto">

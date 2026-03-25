@@ -55,7 +55,7 @@ interface StatsCardProps {
 export function StatsCard({ label, value, subValue, icon, variant = 'default' }: StatsCardProps) {
     const variantClasses = {
         default: 'text-foreground',
-        success: 'text-forest-600',
+        success: 'text-green-400',
         warning: 'text-yellow-600',
     };
 

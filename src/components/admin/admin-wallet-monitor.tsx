@@ -339,7 +339,7 @@ export function AdminWalletMonitor() {
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <Badge variant="outline" className="bg-white">
+                                                    <Badge variant="outline" className="bg-[#1a1a1a]">
                                                         {tx.confirmed ? 'Confirmed' : 'Pending'}
                                                     </Badge>
                                                     <p className="text-xs text-muted-foreground mt-1">
@@ -383,7 +383,7 @@ export function AdminWalletMonitor() {
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <Badge variant="outline" className="bg-white">
+                                                    <Badge variant="outline" className="bg-[#1a1a1a]">
                                                         {tx.confirmed ? 'Confirmed' : 'Pending'}
                                                     </Badge>
                                                     <p className="text-xs text-muted-foreground mt-1">

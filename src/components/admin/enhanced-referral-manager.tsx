@@ -391,7 +391,7 @@ export function EnhancedReferralManager() {
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-3 gap-4">
-                        <div className="text-center p-4 bg-blue-50 rounded-lg">
+                        <div className="text-center p-4 bg-blue-500/10 rounded-lg">
                             <p className="text-sm text-muted-foreground">Level 1</p>
                             <p className="text-2xl font-bold text-blue-600">{stats.level1Count}</p>
                             <p className="text-xs text-muted-foreground">{settings.level1_percent}% Commission</p>
@@ -522,7 +522,7 @@ export function EnhancedReferralManager() {
                                                 className="flex items-center justify-between p-4 bg-muted rounded-lg"
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`p-2 rounded-full ${bonus.status === 'approved' ? 'bg-green-100' :
+                                                    <div className={`p-2 rounded-full ${bonus.status === 'approved' ? 'bg-green-500/20' :
                                                         bonus.status === 'pending' ? 'bg-yellow-100' :
                                                             'bg-red-100'
                                                         }`}>

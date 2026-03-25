@@ -43,7 +43,6 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [depositAmount, setDepositAmount] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const walletInfo = getWalletInfo();
@@ -52,6 +51,8 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
     resolver: zodResolver(formSchema),
     defaultValues: { amount: 0, transactionHash: "" },
   });
+
+  const depositAmount = form.watch("amount") || 0;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(ADMIN_WALLET_ADDRESS);
@@ -162,18 +163,6 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
             </div>
           </div>
 
-          {/* Amount Input for QR */}
-          <div className="p-4 bg-slate-800 rounded-xl border border-orange-500/20">
-            <p className="text-xs font-semibold text-orange-400 uppercase mb-2">Enter deposit amount to generate QR</p>
-            <Input
-              type="number"
-              placeholder="Enter amount in USDT"
-              value={depositAmount || ''}
-              onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 0)}
-              className="bg-slate-900 border-slate-700 text-white"
-            />
-          </div>
-
           {/* QR Code Section */}
           <div className="p-4 bg-slate-800 rounded-xl border border-orange-500/20 flex flex-col items-center">
             <p className="text-xs font-semibold text-orange-400 uppercase mb-3">Scan QR Code to Pay</p>
@@ -185,10 +174,10 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
                   className="w-[200px] h-[200px] rounded-lg"
                 />
               ) : (
-                <div className="w-[200px] h-[200px] flex flex-col items-center justify-center bg-gray-50 rounded-lg">
-                  <QrCodeIcon className="w-16 h-16 text-gray-300 mb-2" />
+                <div className="w-[200px] h-[200px] flex flex-col items-center justify-center bg-[#1a1a1a] rounded-lg">
+                  <QrCodeIcon className="w-16 h-16 text-gray-600 mb-2" />
                   <p className="text-xs text-gray-400 text-center px-4">
-                    Enter amount above<br />to generate QR code
+                    Enter amount below<br />to generate QR code
                   </p>
                 </div>
               )}

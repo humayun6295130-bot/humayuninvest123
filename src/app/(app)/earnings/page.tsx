@@ -250,7 +250,7 @@ export default function EarningsPage() {
                                     {earnings?.slice(0, 50).map((earning) => (
                                         <div key={earning.id} className="flex items-center justify-between p-3 border rounded-lg">
                                             <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-full ${earning.status === 'credited' ? 'bg-green-100' : 'bg-yellow-100'}`}>
+                                                <div className={`p-2 rounded-full ${earning.status === 'credited' ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
                                                     <TrendingUp className={`h-4 w-4 ${earning.status === 'credited' ? 'text-green-600' : 'text-yellow-600'}`} />
                                                 </div>
                                                 <div>

@@ -65,11 +65,11 @@ export default function TransactionsPage() {
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'completed':
-                return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
+                return <Badge className="bg-green-500/20 text-green-400">Completed</Badge>;
             case 'pending':
-                return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+                return <Badge className="bg-yellow-500/20 text-yellow-400">Pending</Badge>;
             case 'failed':
-                return <Badge className="bg-red-100 text-red-800">Failed</Badge>;
+                return <Badge className="bg-red-500/20 text-red-400">Failed</Badge>;
             default:
                 return <Badge>{status}</Badge>;
         }

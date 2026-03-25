@@ -541,10 +541,10 @@ export default function ProfilePage() {
                                 {recentTransactions.map((tx: any, index: number) => (
                                     <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'deposit' ? 'bg-green-100 text-green-600' :
-                                                tx.type === 'withdrawal' ? 'bg-red-100 text-red-600' :
-                                                    tx.type === 'investment' ? 'bg-blue-100 text-blue-600' :
-                                                        'bg-gray-100 text-gray-600'
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'deposit' ? 'bg-green-500/20 text-green-400' :
+                                                tx.type === 'withdrawal' ? 'bg-red-500/20 text-red-400' :
+                                                    tx.type === 'investment' ? 'bg-orange-500/20 text-orange-400' :
+                                                        'bg-[#1a1a1a] text-gray-400'
                                                 }`}>
                                                 {tx.type === 'deposit' ? '↓' : tx.type === 'withdrawal' ? '↑' : tx.type === 'investment' ? '📈' : '💰'}
                                             </div>

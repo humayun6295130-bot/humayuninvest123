@@ -180,11 +180,11 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
                     </div>
                     <span className={cn(
                         "metric-value flex items-center gap-1",
-                        plan.daily_roi_percent > 3 ? "text-red-600" : plan.daily_roi_percent > 1.5 ? "text-amber-600" : "text-forest-600"
+                        plan.daily_roi_percent > 3 ? "text-red-400" : plan.daily_roi_percent > 1.5 ? "text-amber-400" : "text-green-400"
                     )}>
                         <Shield className={cn(
                             "w-3 h-3",
-                            plan.daily_roi_percent > 3 ? "text-red-600" : plan.daily_roi_percent > 1.5 ? "text-amber-600" : "text-forest-600"
+                            plan.daily_roi_percent > 3 ? "text-red-400" : plan.daily_roi_percent > 1.5 ? "text-amber-400" : "text-green-400"
                         )} />
                         {plan.daily_roi_percent > 3 ? 'High' : plan.daily_roi_percent > 1.5 ? 'Medium' : 'Low'}
                     </span>

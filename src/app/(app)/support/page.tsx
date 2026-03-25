@@ -80,9 +80,9 @@ export default function SupportPage() {
             case 'open':
                 return <Badge className="bg-blue-100 text-blue-800">Open</Badge>;
             case 'in_progress':
-                return <Badge className="bg-yellow-100 text-yellow-800">In Progress</Badge>;
+                return <Badge className="bg-yellow-500/20 text-yellow-400">In Progress</Badge>;
             case 'resolved':
-                return <Badge className="bg-green-100 text-green-800">Resolved</Badge>;
+                return <Badge className="bg-green-500/20 text-green-400">Resolved</Badge>;
             default:
                 return <Badge variant="secondary">{status}</Badge>;
         }

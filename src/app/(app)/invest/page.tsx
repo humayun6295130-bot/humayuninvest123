@@ -338,14 +338,14 @@ export default function InvestPage() {
                     label="Total Invested"
                     value={formatCurrency(totalInvested)}
                     subValue="Current capital"
-                    icon={<DollarSign className="w-4 h-4 text-charcoal" />}
+                    icon={<DollarSign className="w-4 h-4 text-foreground" />}
                     variant="default"
                 />
                 <StatsCard
                     label="Total Earned"
                     value={formatCurrency(totalEarned)}
                     subValue={`${formatCurrency(totalPending)} pending`}
-                    icon={<TrendingUp className="w-4 h-4 text-forest-600" />}
+                    icon={<TrendingUp className="w-4 h-4 text-green-400" />}
                     variant="success"
                 />
                 <StatsCard
@@ -432,10 +432,10 @@ export default function InvestPage() {
                             </div>
                         ) : activeInvestments.length === 0 ? (
                             <div className="premium-card text-center py-16">
-                                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                                <div className="w-16 h-16 rounded-full bg-[#1a1a1a] flex items-center justify-center mx-auto mb-4">
                                     <PiggyBank className="w-8 h-8 text-muted-foreground" />
                                 </div>
-                                <h3 className="font-headline text-lg font-bold text-charcoal mb-2">No Active Investments</h3>
+                                <h3 className="font-headline text-lg font-bold text-foreground mb-2">No Active Investments</h3>
                                 <p className="text-muted-foreground mb-6">Start growing your wealth by investing in one of our plans</p>
                                 <Button className="btn-primary" onClick={() => setActiveTab("plans")}>
                                     Browse Plans
@@ -457,27 +457,27 @@ export default function InvestPage() {
                                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <h4 className="font-headline text-lg font-bold text-charcoal">{investment.plan_name}</h4>
+                                                    <h4 className="font-headline text-lg font-bold text-foreground">{investment.plan_name}</h4>
                                                     <span className={cn(
                                                         "category-pill",
-                                                        canClaim ? "bg-indigo-50 text-indigo-600" : "bg-gray-100 text-gray-600"
+                                                        canClaim ? "bg-orange-500/20 text-orange-400" : "bg-[#1a1a1a] text-gray-400"
                                                     )}>
                                                         {canClaim ? "Claim Ready" : "Active"}
                                                     </span>
                                                 </div>
                                                 <p className="text-sm text-muted-foreground">
-                                                    Invested: <span className="font-semibold text-charcoal">${investment.amount}</span>
+                                                    Invested: <span className="font-semibold text-foreground">${investment.amount}</span>
                                                 </p>
                                             </div>
 
                                             <div className="flex items-center gap-6">
                                                 <div className="text-right">
                                                     <p className="text-xs text-muted-foreground">Daily ROI</p>
-                                                    <p className="font-semibold text-forest-600">+${investment.daily_roi.toFixed(2)}</p>
+                                                    <p className="font-semibold text-green-400">+${investment.daily_roi.toFixed(2)}</p>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-xs text-muted-foreground">Earned</p>
-                                                    <p className="font-semibold text-charcoal">${(investment.claimed_so_far || 0).toFixed(2)}</p>
+                                                    <p className="font-semibold text-foreground">${(investment.claimed_so_far || 0).toFixed(2)}</p>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-xs text-muted-foreground">Unclaimed</p>
@@ -538,7 +538,7 @@ export default function InvestPage() {
                 {activeTab === "earnings" && (
                     <div className="premium-card">
                         <div className="mb-6">
-                            <h2 className="font-headline text-xl font-bold text-charcoal">Earnings History</h2>
+                            <h2 className="font-headline text-xl font-bold text-foreground">Earnings History</h2>
                             <p className="text-muted-foreground text-sm">Track all your claimed earnings</p>
                         </div>
 
@@ -553,14 +553,14 @@ export default function InvestPage() {
                                     {earningsHistory.map((earning) => (
                                         <div
                                             key={earning.id}
-                                            className="flex items-center justify-between p-4 rounded-lg border border-border-subtle hover:bg-gray-50 transition-colors"
+                                            className="flex items-center justify-between p-4 rounded-lg border border-border-subtle hover:bg-[#1a1a1a] transition-colors"
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-forest-50 flex items-center justify-center">
-                                                    <TrendingUp className="w-5 h-5 text-forest-600" />
+                                                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                                                    <TrendingUp className="w-5 h-5 text-green-400" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-charcoal">${earning.amount.toFixed(2)}</p>
+                                                    <p className="font-semibold text-foreground">${earning.amount.toFixed(2)}</p>
                                                     <p className="text-xs text-muted-foreground">{earning.plan_name}</p>
                                                 </div>
                                             </div>
@@ -568,7 +568,7 @@ export default function InvestPage() {
                                                 <p className="text-sm text-muted-foreground">
                                                     {new Date(earning.claimed_at).toLocaleDateString('en-US')}
                                                 </p>
-                                                <p className="text-xs text-forest-600 font-medium">Claimed</p>
+                                                <p className="text-xs text-green-400 font-medium">Claimed</p>
                                             </div>
                                         </div>
                                     ))}
@@ -582,7 +582,7 @@ export default function InvestPage() {
                 {activeTab === "calculator" && (
                     <div className="premium-card">
                         <div className="mb-6">
-                            <h2 className="font-headline text-xl font-bold text-charcoal">ROI Calculator</h2>
+                            <h2 className="font-headline text-xl font-bold text-foreground">ROI Calculator</h2>
                             <p className="text-muted-foreground text-sm">Calculate your potential returns before investing</p>
                         </div>
 
@@ -612,15 +612,15 @@ export default function InvestPage() {
                                                 !isValidAmount && "opacity-50"
                                             )}
                                         >
-                                            <h4 className="font-headline font-bold text-charcoal mb-4">{plan.name}</h4>
+                                            <h4 className="font-headline font-bold text-foreground mb-4">{plan.name}</h4>
                                             <div className="space-y-3">
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-muted-foreground">Daily Return</span>
-                                                    <span className="font-semibold text-forest-600">${dailyRoi.toFixed(2)}</span>
+                                                    <span className="font-semibold text-green-400">${dailyRoi.toFixed(2)}</span>
                                                 </div>
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-muted-foreground">Total Profit</span>
-                                                    <span className="font-semibold text-charcoal">${totalProfit.toFixed(2)}</span>
+                                                    <span className="font-semibold text-foreground">${totalProfit.toFixed(2)}</span>
                                                 </div>
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-muted-foreground">Total Return</span>
@@ -629,7 +629,7 @@ export default function InvestPage() {
                                                 <Separator />
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-muted-foreground">ROI %</span>
-                                                    <span className="font-semibold text-charcoal">
+                                                    <span className="font-semibold text-foreground">
                                                         {amount > 0 ? ((totalProfit / amount) * 100).toFixed(1) : 0}%
                                                     </span>
                                                 </div>
@@ -663,18 +663,18 @@ export default function InvestPage() {
                                 className="border-border-subtle focus:border-indigo-500"
                             />
                             <p className="text-xs text-muted-foreground">
-                                Available Balance: <span className="font-medium text-charcoal">${userProfile?.balance?.toFixed(2) || '0.00'}</span>
+                                Available Balance: <span className="font-medium text-foreground">${userProfile?.balance?.toFixed(2) || '0.00'}</span>
                             </p>
                         </div>
                         {investAmount && selectedPlan && (
                             <div className="rounded-lg border border-border-subtle p-4 space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Investment Amount</span>
-                                    <span className="font-semibold text-charcoal">${parseFloat(investAmount).toFixed(2)}</span>
+                                    <span className="font-semibold text-foreground">${parseFloat(investAmount).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Daily ROI ({selectedPlan.daily_roi_percent}%)</span>
-                                    <span className="font-semibold text-forest-600">
+                                    <span className="font-semibold text-green-400">
                                         +${((parseFloat(investAmount) * selectedPlan.daily_roi_percent) / 100).toFixed(2)}
                                     </span>
                                 </div>
@@ -710,22 +710,22 @@ export default function InvestPage() {
                     <div className="py-4">
                         <div className="border border-border-subtle rounded-xl p-6 text-center">
                             <p className="text-sm text-muted-foreground mb-2">Today's Earnings</p>
-                            <p className="font-headline text-4xl font-bold text-charcoal">
+                            <p className="font-headline text-4xl font-bold text-foreground">
                                 +${selectedInvestment?.daily_roi.toFixed(2)}
                             </p>
                         </div>
                         <div className="mt-4 space-y-2 text-sm">
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Investment</span>
-                                <span className="font-medium text-charcoal">${selectedInvestment?.amount}</span>
+                                <span className="font-medium text-foreground">${selectedInvestment?.amount}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Days Claimed</span>
-                                <span className="font-medium text-charcoal">{selectedInvestment?.days_claimed || 0} days</span>
+                                <span className="font-medium text-foreground">{selectedInvestment?.days_claimed || 0} days</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Earned</span>
-                                <span className="font-medium text-forest-600">${(selectedInvestment?.claimed_so_far || 0).toFixed(2)}</span>
+                                <span className="font-medium text-green-400">${(selectedInvestment?.claimed_so_far || 0).toFixed(2)}</span>
                             </div>
                         </div>
                     </div>

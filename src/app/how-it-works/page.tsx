@@ -108,7 +108,7 @@ const stats = [
 
 export default function HowItWorksPage() {
     return (
-        <div className="flex flex-col min-h-screen bg-slate-950">
+        <div className="flex flex-col min-h-screen bg-[#050505]">
             <PublicHeader />
             <main className="flex-1">
                 {/* Hero Section */}
@@ -184,7 +184,7 @@ export default function HowItWorksPage() {
 
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {features.map((feature, index) => (
-                                <Card key={index} className="bg-slate-950 border-slate-800">
+                                <Card key={index} className="bg-[#050505] border-slate-800">
                                     <CardContent className="p-6">
                                         <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center mb-4">
                                             <feature.icon className="h-6 w-6 text-orange-400" />
