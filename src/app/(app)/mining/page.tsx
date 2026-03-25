@@ -641,11 +641,6 @@ export default function MiningPage() {
                                             <span className="text-sm font-mono">{pkg.hashRate}</span>
                                         </div>
 
-                                        <div className="flex items-center justify-center gap-2 text-slate-400">
-                                            <Clock className="w-4 h-4" />
-                                            <span className="text-sm">{pkg.duration} Days</span>
-                                        </div>
-
                                         <ul className="space-y-2">
                                             {pkg.features.map((feature, idx) => (
                                                 <li key={idx} className="flex items-center gap-2 text-xs text-slate-400">
@@ -903,14 +898,10 @@ export default function MiningPage() {
                                         <span className="text-slate-400">Daily ROI</span>
                                         <span className="text-[#FFD700]">${((parseFloat(investAmount) || 0) * selectedPackage.dailyRoi / 100).toFixed(2)}</span>
                                     </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-slate-400">Duration</span>
-                                        <span>{selectedPackage.duration} Days</span>
-                                    </div>
                                     <div className="flex justify-between text-sm border-t border-slate-800 pt-2">
-                                        <span className="text-slate-400">Total Return</span>
+                                        <span className="text-slate-400">Monthly Estimate</span>
                                         <span className="text-green-400 font-bold">
-                                            ${((parseFloat(investAmount) || 0) * (1 + selectedPackage.dailyRoi * selectedPackage.duration / 100)).toFixed(2)}
+                                            ${((parseFloat(investAmount) || 0) * selectedPackage.dailyRoi * 30 / 100).toFixed(2)}
                                         </span>
                                     </div>
                                 </CardContent>

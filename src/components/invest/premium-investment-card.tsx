@@ -123,7 +123,6 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
         }).format(amount);
     };
 
-    const isEndOfTerm = plan.payout_schedule === 'end_of_term';
     const staggerClass = `stagger-${Math.min(index + 1, 10)}`;
 
     return (
@@ -166,14 +165,11 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
             <div className="metric-grid">
                 <div className="metric-item">
                     <div className="flex items-center gap-1">
-                        <span className="metric-label">ROI</span>
-                        <InfoTooltip content="Annual return on investment" />
+                        <span className="metric-label">Daily ROI</span>
+                        <InfoTooltip content="Daily return on investment, claimed once per day" />
                     </div>
                     <span className="metric-value text-indigo-600">
-                        {isEndOfTerm
-                            ? `${plan.return_percent || plan.daily_roi_percent * plan.duration_days}%`
-                            : `${plan.daily_roi_percent}%/day`
-                        }
+                        {plan.daily_roi_percent}%/day
                     </span>
                 </div>
 

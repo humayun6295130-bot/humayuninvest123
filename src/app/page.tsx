@@ -44,8 +44,8 @@ const FEATURES = [
     },
     {
         icon: DollarSign,
-        title: "Up to 60% Returns",
-        desc: "Earn exceptional returns on your investment with our premium mining packages and daily payouts.",
+        title: "Up to 60X Daily ROI",
+        desc: "Earn exceptional daily ROI with our premium mining packages and automatic daily payouts.",
         gradient: "from-yellow-500/20 to-orange-500/20",
         border: "border-yellow-500/30",
         iconBg: "bg-yellow-500/10",
@@ -122,7 +122,7 @@ export default function LandingPage() {
                             </h1>
 
                             <p className="max-w-2xl text-base sm:text-lg text-slate-400 leading-relaxed">
-                                Get up to <span className="text-orange-400 font-semibold">60% profit</span> on your investments. Join the most advanced BTC mining investment platform with real-time monitoring, instant payouts, and world-class security.
+                                Get up to <span className="text-orange-400 font-semibold">60X daily ROI</span> on your investments. Join the most advanced BTC mining investment platform with real-time monitoring, instant payouts, and world-class security.
                             </p>
 
                             {/* CTAs */}
@@ -229,7 +229,6 @@ export default function LandingPage() {
                                     </div>
                                     <div className="space-y-2 text-sm text-slate-400 mb-6 flex-1">
                                         <div className="flex justify-between"><span>Investment</span><span className="text-white font-medium">{plan.min} – {plan.max}</span></div>
-                                        <div className="flex justify-between"><span>Duration</span><span className="text-white font-medium">{plan.days} days</span></div>
                                         <div className="flex justify-between"><span>Hash Rate</span><span className="text-white font-medium">{plan.hash}</span></div>
                                     </div>
                                     <Button className={`w-full bg-gradient-to-r ${plan.color} text-white border-0 font-semibold hover:opacity-90`} asChild>
@@ -266,8 +265,8 @@ export default function LandingPage() {
                                 <div className="relative w-64 h-64 sm:w-80 sm:h-80">
                                     <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-yellow-500/10 rounded-3xl blur-3xl" />
                                     <div className="relative flex flex-col items-center justify-center h-full bg-slate-900 rounded-3xl border border-orange-500/30 p-8 text-center shadow-2xl">
-                                        <div className="text-6xl font-black bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">60%</div>
-                                        <div className="text-lg font-semibold text-white mt-2">Max Returns</div>
+                                        <div className="text-6xl font-black bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">60X</div>
+                                        <div className="text-lg font-semibold text-white mt-2">Daily ROI</div>
                                         <div className="text-sm text-slate-400 mt-1">on your investment</div>
                                         <div className="mt-4 flex items-center gap-1 text-green-400 text-sm">
                                             <TrendingUp className="h-4 w-4" />

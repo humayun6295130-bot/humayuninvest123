@@ -115,7 +115,6 @@ export default function InvestPage() {
     const sortOptions = [
         { value: 'yield' as SortOption, label: 'Sort by Yield' },
         { value: 'risk' as SortOption, label: 'Sort by Risk' },
-        { value: 'duration' as SortOption, label: 'Sort by Duration' },
         { value: 'newest' as SortOption, label: 'Newest First' },
     ];
 
@@ -514,11 +513,7 @@ export default function InvestPage() {
                                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                                     <span className="flex items-center gap-1">
                                                         <Calendar className="w-4 h-4" />
-                                                        {new Date(investment.start_date).toLocaleDateString('en-US')}
-                                                    </span>
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock className="w-4 h-4" />
-                                                        {new Date(investment.end_date).toLocaleDateString('en-US')}
+                                                        Started: {new Date(investment.start_date).toLocaleDateString('en-US')}
                                                     </span>
                                                 </div>
                                             </div>
@@ -683,21 +678,7 @@ export default function InvestPage() {
                                         +${((parseFloat(investAmount) * selectedPlan.daily_roi_percent) / 100).toFixed(2)}
                                     </span>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Duration</span>
-                                    <span className="font-semibold text-charcoal">{selectedPlan.duration_days} Days</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Capital Return</span>
-                                    <span className="font-semibold text-charcoal">{selectedPlan.capital_return ? 'Yes' : 'No'}</span>
-                                </div>
                                 <Separator />
-                                <div className="flex justify-between text-sm">
-                                    <span className="font-medium">Total Expected Return</span>
-                                    <span className="font-bold text-indigo-600">
-                                        ${calculateReturns(selectedPlan, parseFloat(investAmount) || 0).totalReturn.toFixed(2)}
-                                    </span>
-                                </div>
                             </div>
                         )}
                     </div>
@@ -740,7 +721,7 @@ export default function InvestPage() {
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Days Claimed</span>
-                                <span className="font-medium text-charcoal">{selectedInvestment?.days_claimed || 0} / {selectedInvestment?.duration_days || 30}</span>
+                                <span className="font-medium text-charcoal">{selectedInvestment?.days_claimed || 0} days</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Earned</span>

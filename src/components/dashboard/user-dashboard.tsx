@@ -41,7 +41,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                 <div>
                     <h1 className="text-3xl font-bold">Welcome back, {userProfile?.display_name || 'Investor'}!</h1>
                     <p className="text-muted-foreground mt-1">
-                        Get up to 60% profit on your investments. Track your investments and grow your wealth
+                        Claim your daily ROI every 24 hours. Track your investments and grow your wealth
                     </p>
                 </div>
                 <Link href="/invest">
