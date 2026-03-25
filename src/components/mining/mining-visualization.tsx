@@ -153,14 +153,14 @@ export function MiningVisualization() {
                         <Cpu className="w-4 h-4" />
                         <span className="text-xs font-medium">MINERS</span>
                     </div>
-                    <div className="text-lg font-mono font-bold text-white">{stats.miners.toLocaleString()}</div>
+                    <div className="text-lg font-mono font-bold text-white">{stats.miners.toLocaleString('en-US')}</div>
                 </div>
                 <div className="bg-black/60 backdrop-blur px-4 py-3 rounded-xl border border-orange-500/20">
                     <div className="flex items-center gap-2 text-orange-400 mb-1">
                         <Activity className="w-4 h-4" />
                         <span className="text-xs font-medium">BLOCKS</span>
                     </div>
-                    <div className="text-lg font-mono font-bold text-white">{stats.blocks.toLocaleString()}</div>
+                    <div className="text-lg font-mono font-bold text-white">{stats.blocks.toLocaleString('en-US')}</div>
                 </div>
             </div>
 
