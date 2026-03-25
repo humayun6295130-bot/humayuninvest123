@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseProvider } from '@/firebase';
@@ -6,6 +6,13 @@ import { FirebaseProvider } from '@/firebase';
 export const metadata: Metadata = {
   title: 'AscendFolio',
   description: 'Premium investment platform for strategic wealth growth',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

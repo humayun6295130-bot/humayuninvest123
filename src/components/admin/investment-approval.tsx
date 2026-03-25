@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRealtimeCollection, updateRow, insertRow } from "@/firebase";
+import { db } from "@/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
+import { awardCommission, getReferralSettings } from "@/lib/referral-system";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -108,6 +111,49 @@ export function InvestmentApproval() {
                 status: 'completed',
                 description: `Investment in ${investment.plan_name} - QR Payment`,
             });
+
+            // Distribute referral commissions up the chain
+            if (db) {
+                try {
+                    const settings = await getReferralSettings();
+                    const commissionPercents = [
+                        settings.level1_percent,
+                        settings.level2_percent,
+                        settings.level3_percent,
+                        settings.level4_percent ?? 0,
+                        settings.level5_percent ?? 0,
+                    ];
+                    const userDoc = await getDoc(doc(db, 'users', investment.user_id));
+                    if (userDoc.exists()) {
+                        let currentReferrerId = userDoc.data().referrer_id;
+                        let level = 0;
+                        while (currentReferrerId && level < 5) {
+                            const percent = commissionPercents[level] ?? 0;
+                            if (percent > 0) {
+                                const commission = investment.amount * (percent / 100);
+                                const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
+                                if (referrerDoc.exists()) {
+                                    await awardCommission(
+                                        db,
+                                        currentReferrerId,
+                                        investment.user_id,
+                                        userDoc.data().username || investment.user_email || '',
+                                        commission,
+                                        'investment',
+                                        investment.amount
+                                    );
+                                    currentReferrerId = referrerDoc.data().referrer_id;
+                                } else {
+                                    break;
+                                }
+                            }
+                            level++;
+                        }
+                    }
+                } catch (refErr) {
+                    console.error('Referral commission error (non-fatal):', refErr);
+                }
+            }
 
             toast({
                 title: "Investment Approved!",

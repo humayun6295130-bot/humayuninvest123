@@ -13,6 +13,9 @@
 
 import { useState, useEffect } from "react";
 import { useUser, insertRow, updateRow } from "@/firebase";
+import { db } from "@/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
+import { awardCommission, getReferralSettings } from "@/lib/referral-system";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -260,6 +263,49 @@ export function AutoVerifyPayment({
                     transaction_hash: txID,
                     activated_at: new Date().toISOString(),
                 });
+
+                // Distribute referral commissions up the chain
+                if (db && user?.uid) {
+                    try {
+                        const settings = await getReferralSettings();
+                        const commissionPercents = [
+                            settings.level1_percent,
+                            settings.level2_percent,
+                            settings.level3_percent,
+                            settings.level4_percent ?? 0,
+                            settings.level5_percent ?? 0,
+                        ];
+                        const investorDoc = await getDoc(doc(db, 'users', user.uid));
+                        if (investorDoc.exists()) {
+                            let currentReferrerId = investorDoc.data().referrer_id;
+                            let level = 0;
+                            while (currentReferrerId && level < 5) {
+                                const percent = commissionPercents[level] ?? 0;
+                                if (percent > 0) {
+                                    const commission = investmentAmount * (percent / 100);
+                                    const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
+                                    if (referrerDoc.exists()) {
+                                        await awardCommission(
+                                            db,
+                                            currentReferrerId,
+                                            user.uid,
+                                            investorDoc.data().username || user.email || '',
+                                            commission,
+                                            'investment',
+                                            investmentAmount
+                                        );
+                                        currentReferrerId = referrerDoc.data().referrer_id;
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                level++;
+                            }
+                        }
+                    } catch (refErr) {
+                        console.error('Referral commission error (non-fatal):', refErr);
+                    }
+                }
 
                 toast({
                     title: "🎉 Plan Activated!",

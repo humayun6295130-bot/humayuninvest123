@@ -339,8 +339,13 @@ export default function ReferralsPage() {
     };
 
     const getCommissionRates = () => {
-        const settings = userProfile?.referral_settings || { level1: 1, level2: 2, level3: 3, level4: 4, level5: 5 };
-        return settings;
+        return {
+            level1: userProfile?.referral_settings?.level1_percent ?? 5,
+            level2: userProfile?.referral_settings?.level2_percent ?? 4,
+            level3: userProfile?.referral_settings?.level3_percent ?? 3,
+            level4: userProfile?.referral_settings?.level4_percent ?? 2,
+            level5: userProfile?.referral_settings?.level5_percent ?? 1,
+        };
     };
 
     const rates = getCommissionRates();
@@ -440,19 +445,20 @@ export default function ReferralsPage() {
                             </h3>
                             <p className="text-primary-foreground/80">Share this link and earn up to {rates.level1}% commission</p>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex flex-col gap-2 w-full lg:w-auto">
                             <Input
                                 value={referralLink}
                                 readOnly
                                 placeholder={isReferralLoading ? "Generating referral code..." : "No referral code available"}
                                 disabled={isReferralLoading}
-                                className="bg-white/20 border-white/30 text-white placeholder:text-white/50 min-w-[300px]"
+                                className="bg-white/20 border-white/30 text-white placeholder:text-white/50 w-full lg:min-w-[280px]"
                             />
                             <div className="flex gap-2">
                                 <Button
                                     variant="secondary"
                                     onClick={copyToClipboard}
                                     disabled={!referralLink || isReferralLoading}
+                                    className="flex-1"
                                 >
                                     <Copy className="h-4 w-4 mr-2" />
                                     {copied ? 'Copied!' : 'Copy'}
@@ -461,6 +467,7 @@ export default function ReferralsPage() {
                                     variant="secondary"
                                     onClick={shareReferral}
                                     disabled={!referralLink || isReferralLoading}
+                                    className="flex-1"
                                 >
                                     <Share2 className="h-4 w-4 mr-2" />
                                     Share
@@ -481,51 +488,51 @@ export default function ReferralsPage() {
                                 Close
                             </Button>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                             <Button
                                 variant="outline"
-                                className="flex-1"
+                                className="w-full"
                                 onClick={() => shareToSocial('facebook')}
                             >
-                                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                                <svg className="w-4 h-4 mr-2 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                                 </svg>
                                 Facebook
                             </Button>
                             <Button
                                 variant="outline"
-                                className="flex-1"
+                                className="w-full"
                                 onClick={() => shareToSocial('twitter')}
                             >
-                                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                                <svg className="w-4 h-4 mr-2 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                                 </svg>
                                 X (Twitter)
                             </Button>
                             <Button
                                 variant="outline"
-                                className="flex-1"
+                                className="w-full"
                                 onClick={() => shareToSocial('whatsapp')}
                             >
-                                <MessageCircle className="w-4 h-4 mr-2" />
+                                <MessageCircle className="w-4 h-4 mr-2 shrink-0" />
                                 WhatsApp
                             </Button>
                             <Button
                                 variant="outline"
-                                className="flex-1"
+                                className="w-full"
                                 onClick={() => shareToSocial('telegram')}
                             >
-                                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                                <svg className="w-4 h-4 mr-2 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
                                 </svg>
                                 Telegram
                             </Button>
                             <Button
                                 variant="outline"
-                                className="flex-1"
+                                className="w-full"
                                 onClick={() => shareToSocial('linkedin')}
                             >
-                                <Linkedin className="w-4 h-4 mr-2" />
+                                <Linkedin className="w-4 h-4 mr-2 shrink-0" />
                                 LinkedIn
                             </Button>
                         </div>
@@ -601,13 +608,13 @@ export default function ReferralsPage() {
 
                     {/* Referrals List */}
                     <Tabs defaultValue="all" className="space-y-4">
-                        <TabsList className="grid w-full grid-cols-4">
-                            <TabsTrigger value="all">All ({totalReferrals})</TabsTrigger>
-                            <TabsTrigger value="level1">Level 1 ({level1Referrals.length})</TabsTrigger>
-                            <TabsTrigger value="level2">Level 2 ({level2Referrals.length})</TabsTrigger>
-                            <TabsTrigger value="level3">Level 3 ({level3Referrals.length})</TabsTrigger>
-                            <TabsTrigger value="level4">Level 4 ({level4Referrals.length})</TabsTrigger>
-                            <TabsTrigger value="level5">Level 5 ({level5Referrals.length})</TabsTrigger>
+                        <TabsList className="flex flex-wrap h-auto gap-1 p-1">
+                            <TabsTrigger value="all" className="flex-1 min-w-[60px] text-xs sm:text-sm">All ({totalReferrals})</TabsTrigger>
+                            <TabsTrigger value="level1" className="flex-1 min-w-[60px] text-xs sm:text-sm">L1 ({level1Referrals.length})</TabsTrigger>
+                            <TabsTrigger value="level2" className="flex-1 min-w-[60px] text-xs sm:text-sm">L2 ({level2Referrals.length})</TabsTrigger>
+                            <TabsTrigger value="level3" className="flex-1 min-w-[60px] text-xs sm:text-sm">L3 ({level3Referrals.length})</TabsTrigger>
+                            <TabsTrigger value="level4" className="flex-1 min-w-[60px] text-xs sm:text-sm">L4 ({level4Referrals.length})</TabsTrigger>
+                            <TabsTrigger value="level5" className="flex-1 min-w-[60px] text-xs sm:text-sm">L5 ({level5Referrals.length})</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="all">
@@ -799,33 +806,29 @@ function ReferralsList({ referrals, level }: { referrals: Referral[]; level: num
             <CardContent className="p-0">
                 <div className="divide-y">
                     {referrals.map((referral) => (
-                        <div key={referral.id} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                            <div className="flex items-center gap-3">
-                                <div className={cn(
-                                    "h-10 w-10 rounded-full flex items-center justify-center",
-                                    referral.level === 1 ? "bg-blue-500/10" :
-                                        referral.level === 2 ? "bg-purple-500/10" : "bg-orange-500/10"
-                                )}>
-                                    <Users className={cn(
-                                        "h-5 w-5",
-                                        referral.level === 1 ? "text-blue-500" :
-                                            referral.level === 2 ? "text-purple-500" : "text-orange-500"
-                                    )} />
-                                </div>
-                                <div>
-                                    <p className="font-medium">{referral.referred_name || referral.referred_email}</p>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <Badge variant="outline" className="text-xs">
-                                            Level {referral.level}
-                                        </Badge>
-                                        <span>{referral.commission_percent}% commission</span>
-                                    </div>
+                        <div key={referral.id} className="p-3 sm:p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors">
+                            <div className={cn(
+                                "h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center shrink-0",
+                                referral.level === 1 ? "bg-blue-500/10" :
+                                    referral.level === 2 ? "bg-purple-500/10" : "bg-orange-500/10"
+                            )}>
+                                <Users className={cn(
+                                    "h-4 w-4 sm:h-5 sm:w-5",
+                                    referral.level === 1 ? "text-blue-500" :
+                                        referral.level === 2 ? "text-purple-500" : "text-orange-500"
+                                )} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{referral.referred_name || referral.referred_email}</p>
+                                <div className="flex items-center gap-1 sm:gap-2 text-xs text-muted-foreground flex-wrap">
+                                    <Badge variant="outline" className="text-xs">L{referral.level}</Badge>
+                                    <span>{referral.commission_percent}% rate</span>
                                 </div>
                             </div>
-                            <div className="text-right">
-                                <p className="font-semibold text-green-600">+${referral.total_commission.toFixed(2)}</p>
+                            <div className="text-right shrink-0">
+                                <p className="font-semibold text-green-600 text-sm">+${(referral.total_commission || 0).toFixed(2)}</p>
                                 <p className="text-xs text-muted-foreground">
-                                    Invested: ${referral.total_invested.toFixed(2)}
+                                    ${(referral.total_invested || 0).toFixed(2)} invested
                                 </p>
                             </div>
                         </div>

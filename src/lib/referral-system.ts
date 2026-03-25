@@ -439,11 +439,11 @@ export async function awardCommission(
         updated_at: timestamp,
     });
 
-    // 3. Add to user's wallet/balance
+    // 3. Add to user's referral_balance (available to withdraw) and referral_earnings (all-time total)
     const userRef = doc(firestore, 'users', userId);
     batch.update(userRef, {
         referral_earnings: increment(amount),
-        balance: increment(amount),
+        referral_balance: increment(amount),
         updated_at: timestamp,
     });
 
@@ -629,20 +629,38 @@ export async function validateReferralCode(code: string): Promise<{
         }
 
         const firestore = getDb();
-        // Search for user by username
-        const usersQuery = query(
+
+        // First: search by referral_code (exact match, case-insensitive via uppercase)
+        const byCodeQuery = query(
+            collection(firestore, 'users'),
+            where('referral_code', '==', code.toUpperCase()),
+            limit(1)
+        );
+        const byCodeSnapshot = await getDocs(byCodeQuery);
+
+        if (!byCodeSnapshot.empty) {
+            const userDoc = byCodeSnapshot.docs[0];
+            return {
+                valid: true,
+                userId: userDoc.id,
+                username: userDoc.data().username,
+                message: 'Valid referral code'
+            };
+        }
+
+        // Fallback: search by username (legacy support)
+        const byUsernameQuery = query(
             collection(firestore, 'users'),
             where('username', '==', code.toLowerCase()),
             limit(1)
         );
+        const byUsernameSnapshot = await getDocs(byUsernameQuery);
 
-        const snapshot = await getDocs(usersQuery);
-
-        if (snapshot.empty) {
+        if (byUsernameSnapshot.empty) {
             return { valid: false, message: 'Invalid referral code' };
         }
 
-        const userDoc = snapshot.docs[0];
+        const userDoc = byUsernameSnapshot.docs[0];
         return {
             valid: true,
             userId: userDoc.id,
