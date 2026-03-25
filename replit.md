@@ -1,7 +1,7 @@
 # AscendFolio / BTCMine - Investment Platform
 
 ## Overview
-A Next.js 15 investment platform that allows users to invest, track earnings, manage referrals, and perform USDT (TRC-20) blockchain transactions. Built with Firebase as the backend (Firestore + Auth + Storage).
+A Next.js 15 investment platform that allows users to invest, track earnings, manage referrals, and perform USDT (BEP-20) blockchain transactions. Built with Firebase as the backend (Firestore + Auth + Storage). Features a premium black UI design with gold/orange accents.
 
 ## Tech Stack
 - **Framework**: Next.js 15 (App Router)

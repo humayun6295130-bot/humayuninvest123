@@ -61,14 +61,15 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
         }
     }, [investment]);
 
-    // Generate floating particles
+    // Generate floating particles (deterministic)
     useEffect(() => {
         const newParticles = Array.from({ length: 30 }, (_, i) => ({
             id: i,
-            x: Math.random() * 100,
-            y: Math.random() * 100,
-            delay: Math.random() * 5,
-            duration: 3 + Math.random() * 4
+            x: (i * 3.33) % 100,
+            y: (i * 7.1) % 100,
+            delay: (i * 0.17) % 5,
+            duration: 3 + (i * 0.13) % 4,
+            opacity: 0.6 + (i * 0.013) % 0.4,
         }));
         setParticles(newParticles);
     }, []);
@@ -145,7 +146,7 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
                                 top: `${particle.y}%`,
                                 animation: `float ${particle.duration}s ease-in-out infinite`,
                                 animationDelay: `${particle.delay}s`,
-                                opacity: 0.6 + Math.random() * 0.4
+                                opacity: particle.opacity ?? 0.7
                             }}
                         />
                     ))}
@@ -204,7 +205,7 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
                                             <div
                                                 key={j}
                                                 className="w-0.5 h-2 bg-green-400 rounded-full animate-pulse"
-                                                style={{ animationDelay: `${j * 0.2}s`, height: `${4 + Math.random() * 4}px` }}
+                                                style={{ animationDelay: `${j * 0.2}s`, height: `${4 + j * 3}px` }}
                                             />
                                         ))}
                                     </div>
@@ -221,7 +222,7 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
                                 <span className="text-xs font-medium">HASH RATE</span>
                             </div>
                             <div className="text-lg font-mono font-bold text-white">
-                                {isMining ? `${(50 + Math.random() * 100).toFixed(1)} TH/s` : '0 TH/s'}
+                                {isMining ? stats.hashRate : '0 TH/s'}
                             </div>
                         </div>
 
@@ -231,7 +232,7 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
                                 <span className="text-xs font-medium">EFFICIENCY</span>
                             </div>
                             <div className="text-lg font-mono font-bold text-white">
-                                {isMining ? `${(95 + Math.random() * 5).toFixed(1)}%` : '0%'}
+                                {isMining ? `${stats.efficiency.toFixed(1)}%` : '0%'}
                             </div>
                         </div>
                     </div>

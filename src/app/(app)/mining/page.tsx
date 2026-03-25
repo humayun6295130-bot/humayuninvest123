@@ -197,14 +197,15 @@ export default function MiningPage() {
     // Stuck reserves (empty — feature coming soon)
     const [stuckReserves, setStuckReserves] = useState<StuckReserve[]>([]);
 
-    // Generate particles
+    // Generate particles (deterministic — no Math.random in render)
     useEffect(() => {
         const newParticles = Array.from({ length: 50 }, (_, i) => ({
             id: i,
-            x: Math.random() * 100,
-            y: Math.random() * 100,
-            delay: Math.random() * 5,
-            duration: 3 + Math.random() * 4
+            x: (i * 2.1) % 100,
+            y: (i * 3.7) % 100,
+            delay: (i * 0.11) % 5,
+            duration: 3 + (i * 0.08) % 4,
+            opacity: 0.4 + (i * 0.012) % 0.6,
         }));
         setParticles(newParticles);
     }, []);
@@ -431,7 +432,7 @@ export default function MiningPage() {
                                                 top: `${particle.y}%`,
                                                 animation: `float ${particle.duration}s ease-in-out infinite`,
                                                 animationDelay: `${particle.delay}s`,
-                                                opacity: 0.4 + Math.random() * 0.6
+                                                opacity: particle.opacity ?? 0.7
                                             }}
                                         />
                                     ))}
@@ -485,7 +486,7 @@ export default function MiningPage() {
                                                         <div
                                                             key={j}
                                                             className="w-1 h-3 bg-green-400 rounded-full animate-pulse"
-                                                            style={{ animationDelay: `${j * 0.2}s`, height: `${6 + Math.random() * 6}px` }}
+                                                            style={{ animationDelay: `${j * 0.2}s`, height: `${8 + j * 4}px` }}
                                                         />
                                                     ))}
                                                 </div>

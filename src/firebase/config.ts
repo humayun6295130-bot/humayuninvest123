@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
@@ -29,6 +29,11 @@ const app = isFirebaseConfigured()
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
 export const storage = app ? getStorage(app) : null;
+
+// Set persistent login (stays logged in across browser sessions)
+if (auth && typeof window !== 'undefined') {
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+}
 
 // Initialize Analytics (only in browser environment)
 let analytics: ReturnType<typeof getAnalytics> | null = null;
