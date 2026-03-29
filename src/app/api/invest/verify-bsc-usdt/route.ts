@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { USDT_CONTRACT_BSC } from '@/lib/wallet-config';
 
+/** Ensure this route always reads fresh env at runtime (Vercel serverless). */
+export const dynamic = 'force-dynamic';
+
 const BSCSCAN_API = 'https://api.bscscan.com/api';
 
 interface TokenTxRow {
