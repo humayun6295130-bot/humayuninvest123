@@ -15,7 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { insertRow } from "@/firebase";
+import { fetchRows, useUser } from "@/firebase";
+import { activateInvestmentAfterVerifiedPayment } from "@/lib/activate-qr-investment";
 import { storage } from "@/firebase/config";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
@@ -64,6 +65,7 @@ export function QrPaymentDialog({
     customAmount
 }: QrPaymentDialogProps) {
     const { toast } = useToast();
+    const { user } = useUser();
     const [copied, setCopied] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [transactionId, setTransactionId] = useState("");
@@ -142,43 +144,125 @@ export function QrPaymentDialog({
     const handleConfirmPayment = async () => {
         if (!plan || !userId) return;
 
-        // Validation
-        if (!transactionId.trim()) {
+        const rawTx = transactionId.trim().replace(/\s+/g, "");
+        if (!rawTx) {
             toast({ variant: "destructive", title: "Transaction ID Required", description: "Please enter the transaction hash/ID from your payment" });
             return;
         }
 
+        if (!/^0x[a-fA-F0-9]{64}$/.test(rawTx)) {
+            toast({
+                variant: "destructive",
+                title: "Invalid transaction hash",
+                description: "Use a full BSC transaction hash (0x + 64 hex characters).",
+            });
+            return;
+        }
+
+        const amt = Number(investmentAmount);
+        if (!Number.isFinite(amt) || amt <= 0) {
+            toast({
+                variant: "destructive",
+                title: "Invalid amount",
+                description: "Investment amount is missing or invalid for this plan.",
+            });
+            return;
+        }
+
+        if (!ADMIN_WALLET_ADDRESS) {
+            toast({ variant: "destructive", title: "Configuration Error", description: "Platform wallet address is not configured." });
+            return;
+        }
+
+        const email = (userEmail?.trim() || user?.email || "").trim();
+        if (!email) {
+            toast({ variant: "destructive", title: "Email required", description: "Your account has no email on file. Update your profile or re-login with email." });
+            return;
+        }
+
+        const txNorm = rawTx;
+        const txLower = txNorm.toLowerCase();
+
         setIsSubmitting(true);
         try {
-            // Upload screenshot if provided (optional)
-            let screenshotUrl = null;
+            const [pendingDup, txDup] = await Promise.all([
+                fetchRows<{ transaction_id?: string }>("pending_investments", {
+                    filters: [{ column: "transaction_id", operator: "==", value: txLower }],
+                }),
+                fetchRows<{ transaction_hash?: string }>("transactions", {
+                    filters: [{ column: "transaction_hash", operator: "==", value: txLower }],
+                }),
+            ]);
+            if (pendingDup.length > 0 || txDup.length > 0) {
+                toast({
+                    variant: "destructive",
+                    title: "Transaction already used",
+                    description: "This transaction hash has already been used for a payment.",
+                });
+                return;
+            }
+
+            toast({ title: "Verifying payment...", description: "Checking your USDT transfer on BNB Smart Chain." });
+            const verifyRes = await fetch("/api/invest/verify-bsc-usdt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    txHash: txNorm,
+                    expectedRecipient: ADMIN_WALLET_ADDRESS,
+                    expectedAmount: amt,
+                    minConfirmations: 3,
+                }),
+            });
+
+            let verifyJson: { valid?: boolean; error?: string } = {};
+            try {
+                verifyJson = await verifyRes.json();
+            } catch {
+                toast({
+                    variant: "destructive",
+                    title: "Verification failed",
+                    description: "Could not read server response. Check your connection and try again.",
+                });
+                return;
+            }
+
+            if (!verifyRes.ok || !verifyJson.valid) {
+                toast({
+                    variant: "destructive",
+                    title: "Verification failed",
+                    description:
+                        verifyJson.error ||
+                        (verifyRes.status === 501
+                            ? "Payment verification is not configured on the server (API key missing)."
+                            : "Could not confirm this USDT payment on-chain."),
+                });
+                return;
+            }
+
+            let screenshotUrl: string | null = null;
             if (screenshot) {
-                toast({ title: "Uploading proof...", description: "Please wait while we upload your screenshot" });
+                toast({ title: "Uploading proof...", description: "Saving your screenshot." });
                 screenshotUrl = await uploadScreenshot();
             }
 
-            // Create pending investment record
-            await insertRow('pending_investments', {
+            await activateInvestmentAfterVerifiedPayment({
                 user_id: userId,
-                user_email: userEmail,
+                user_email: email,
                 plan_id: plan.id,
                 plan_name: plan.name,
-                amount: investmentAmount,
+                amount: amt,
                 expected_return: expectedReturn,
-                wallet_address: ADMIN_WALLET_ADDRESS,
-                status: 'pending_payment_confirmation',
-                payment_method: 'usdt_bep20',
-                transaction_id: transactionId.trim(),
+                duration_days: plan.duration_days > 0 ? plan.duration_days : 30,
+                transaction_id: txLower,
                 proof_image_url: screenshotUrl,
-                created_at: new Date().toISOString(),
+                wallet_address: ADMIN_WALLET_ADDRESS,
             });
 
             toast({
-                title: "Payment Proof Submitted! ✅",
-                description: "Admin will verify your payment and activate your plan within 24 hours.",
+                title: "Plan activated",
+                description: "Your USDT payment was verified and your investment is now active.",
             });
 
-            // Reset form
             setTransactionId("");
             setScreenshot(null);
             setScreenshotPreview(null);
@@ -187,7 +271,7 @@ export function QrPaymentDialog({
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: error.message || "Failed to submit payment proof",
+                description: error.message || "Failed to complete activation",
             });
         } finally {
             setIsSubmitting(false);
@@ -205,7 +289,7 @@ export function QrPaymentDialog({
                         Complete Your Investment
                     </DialogTitle>
                     <DialogDescription className="text-slate-400">
-                        Send payment and submit proof to activate your {plan.name}
+                        Send USDT (BEP20), then submit your tx hash—we verify on-chain and activate {plan.name} automatically.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -377,11 +461,10 @@ export function QrPaymentDialog({
                                 Instructions
                             </h4>
                             <ol className="text-xs text-slate-400 space-y-1 list-decimal list-inside">
-                                <li>Send exact amount to the wallet address above</li>
-                                <li>Copy the Transaction ID from your wallet</li>
-                                <li>Take a screenshot of the successful payment</li>
-                                <li>Submit both Transaction ID and Screenshot</li>
-                                <li>Admin will verify and activate within 24 hours</li>
+                                <li>Send the exact USDT amount to the wallet above (BNB Smart Chain / BEP20)</li>
+                                <li>Wait for a few block confirmations (usually 1–3 minutes)</li>
+                                <li>Paste the transaction hash and tap Verify—no admin approval needed</li>
+                                <li>Optional: attach a screenshot for your own records</li>
                             </ol>
                         </CardContent>
                     </Card>

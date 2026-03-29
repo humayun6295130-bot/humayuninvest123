@@ -39,7 +39,7 @@ interface PendingInvestment {
     expected_return: number;
     wallet_address: string;
     status: 'pending_payment_confirmation' | 'payment_received' | 'approved' | 'rejected';
-    payment_method: 'usdt' | 'eth';
+    payment_method: 'usdt' | 'eth' | 'usdt_bep20';
     transaction_id?: string;
     proof_image_url?: string;
     created_at: string;
@@ -129,24 +129,21 @@ export function InvestmentApproval() {
                         let level = 0;
                         while (currentReferrerId && level < 5) {
                             const percent = commissionPercents[level] ?? 0;
+                            const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
+                            if (!referrerDoc.exists()) break;
                             if (percent > 0) {
                                 const commission = investment.amount * (percent / 100);
-                                const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
-                                if (referrerDoc.exists()) {
-                                    await awardCommission(
-                                        db,
-                                        currentReferrerId,
-                                        investment.user_id,
-                                        userDoc.data().username || investment.user_email || '',
-                                        commission,
-                                        'investment',
-                                        investment.amount
-                                    );
-                                    currentReferrerId = referrerDoc.data().referrer_id;
-                                } else {
-                                    break;
-                                }
+                                await awardCommission(
+                                    db,
+                                    currentReferrerId,
+                                    investment.user_id,
+                                    userDoc.data().username || investment.user_email || '',
+                                    commission,
+                                    'investment',
+                                    investment.amount
+                                );
                             }
+                            currentReferrerId = referrerDoc.data().referrer_id;
                             level++;
                         }
                     }

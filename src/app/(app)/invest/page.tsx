@@ -748,7 +748,7 @@ export default function InvestPage() {
                 onOpenChange={setShowQrPayment}
                 plan={planForPayment}
                 userId={user?.uid || ''}
-                userEmail={userProfile?.email}
+                userEmail={userProfile?.email || user?.email || ""}
                 customAmount={investAmount ? parseFloat(investAmount) : undefined}
             />
 

@@ -13,7 +13,11 @@ const firebaseConfig = {
     measurementId: "G-73Z7WKS6VG"
 };
 
-const WALLET_ADDRESS = "0x362A4533B0E745d339ff4fdb98E96BDb838FAa85";
+// Optional: set WALLET_ADDRESS=0x... in env to match NEXT_PUBLIC_ADMIN_WALLET_ADDRESS
+const WALLET_ADDRESS =
+    process.env.WALLET_ADDRESS ||
+    process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS ||
+    "0x362A4533B0E745d339ff4fdb98E96BDb838FAa85";
 
 async function setupQrPaymentSystem() {
     try {
@@ -21,37 +25,105 @@ async function setupQrPaymentSystem() {
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        console.log("🏗️  Setting up QR Payment System...");
+        console.log("🏗️  Setting up QR Payment System (BEP20 + auto-verify)...");
         const batch = writeBatch(db);
         const timestamp = new Date().toISOString();
 
-        // Create schema for pending_investments
+        // _schema is documentation only; same collection shape as app writes.
         const schemaRef = doc(db, '_schema', 'pending_investments');
         batch.set(schemaRef, {
-            description: 'Tracks QR code payment pending investments awaiting admin approval',
+            description:
+                'QR / BSC USDT investments. status=pending_payment_confirmation = awaiting action; approved = active (auto-verified on-chain or admin).',
             fields: [
-                'user_id', 'user_email', 'plan_id', 'plan_name', 'amount',
-                'expected_return', 'wallet_address', 'status', 'payment_method',
-                'transaction_id', 'proof_image_url', 'created_at', 'processed_at',
-                'processed_by', 'notes'
+                'user_id',
+                'user_email',
+                'plan_id',
+                'plan_name',
+                'amount',
+                'expected_return',
+                'wallet_address',
+                'status',
+                'payment_method',
+                'transaction_id',
+                'proof_image_url',
+                'created_at',
+                'updated_at',
+                'processed_at',
+                'processed_by',
+                'notes',
             ],
+            status_values: [
+                'pending_payment_confirmation',
+                'payment_received',
+                'approved',
+                'rejected',
+            ],
+            payment_method_values: ['usdt_bep20', 'usdt', 'eth'],
             wallet_address: WALLET_ADDRESS,
             created_at: timestamp,
         });
 
-        // Create platform settings for QR payments
+        const userInvSchemaRef = doc(db, '_schema', 'user_investments');
+        batch.set(userInvSchemaRef, {
+            description: 'Active/completed investments (created after payment verified).',
+            fields: [
+                'user_id',
+                'plan_id',
+                'plan_name',
+                'amount',
+                'daily_roi',
+                'total_return',
+                'total_profit',
+                'earned_so_far',
+                'claimed_so_far',
+                'days_claimed',
+                'start_date',
+                'end_date',
+                'status',
+                'auto_compound',
+                'capital_return',
+                'payout_schedule',
+                'created_at',
+                'updated_at',
+            ],
+            created_at: timestamp,
+        });
+
+        const txSchemaRef = doc(db, '_schema', 'transactions');
+        batch.set(txSchemaRef, {
+            description: 'Ledger rows; investment rows may include transaction_hash (BSC tx id, lowercased).',
+            fields: [
+                'user_id',
+                'user_email',
+                'user_display_name',
+                'type',
+                'amount',
+                'status',
+                'description',
+                'transaction_hash',
+                'currency',
+                'created_at',
+                'updated_at',
+            ],
+            created_at: timestamp,
+        });
+
         const qrSettingsRef = doc(db, 'platform_settings', 'qr_payment');
         batch.set(qrSettingsRef, {
             enabled: true,
             wallet_address: WALLET_ADDRESS,
-            accepted_methods: ['usdt_trc20', 'eth', 'bnb'],
-            usdt_network: 'TRC20',
-            processing_time: '24 hours',
+            accepted_methods: ['usdt_bep20'],
+            usdt_network: 'BEP20',
+            chain: 'BNB Smart Chain',
+            chain_id: 56,
+            auto_verify: true,
+            verification: 'BscScan tokentx + server /api/invest/verify-bsc-usdt',
+            processing_time: 'Automatic after confirmations (typ. minutes)',
             min_amount: 10,
-            max_amount: 1000,
+            max_amount: 100000,
             created_at: timestamp,
             updated_at: timestamp,
-        });
+        }, { merge: true });
 
         await batch.commit();
 
@@ -59,18 +131,14 @@ async function setupQrPaymentSystem() {
         console.log("\n📊 Wallet Configuration:");
         console.log("===================");
         console.log("💎 Wallet Address:", WALLET_ADDRESS);
-        console.log("💎 USDT Network: TRC20 (Tron)");
-        console.log("💎 Accepted: USDT, ETH, BNB");
+        console.log("💎 USDT: BEP20 on BNB Smart Chain (chain id 56)");
         console.log("===================");
-        console.log("\n📋 Features:");
-        console.log("  • User scans QR / copies wallet address");
-        console.log("  • Sends crypto payment");
-        console.log("  • Clicks 'I Have Sent Payment'");
-        console.log("  • Admin verifies in Investment Approvals tab");
-        console.log("  • Admin approves → Plan activates");
-        console.log("\n🔗 Access URLs:");
-        console.log("  User: http://localhost:9002/invest");
-        console.log("  Admin: http://localhost:9002/admin → Investments tab");
+        console.log("\n📋 Flow:");
+        console.log("  • User sends USDT (BEP20) to platform wallet");
+        console.log("  • User submits tx hash → server verifies on BscScan");
+        console.log("  • On success: user_investments (active) + pending_investments (approved audit) + transactions");
+        console.log("  • Admin panel can still manage legacy pending rows");
+        console.log("\n🔗 Deploy Firestore rules (if using CLI): firebase deploy --only firestore:rules");
 
         process.exit(0);
     } catch (error) {
