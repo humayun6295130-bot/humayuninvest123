@@ -12,16 +12,30 @@ interface TokenTxRow {
     confirmations: string;
 }
 
+function resolveBscScanApiKey(): string {
+    // Prefer BscScan-specific key; then server-only Etherscan; then NEXT_PUBLIC_* (same key many users set in Vercel).
+    // Note: NEXT_PUBLIC_ is exposed to the browser bundle—prefer ETHERSCAN_API_KEY or BSCSCAN_API_KEY in production.
+    const k =
+        process.env.BSCSCAN_API_KEY?.trim() ||
+        process.env.ETHERSCAN_API_KEY?.trim() ||
+        process.env.NEXT_PUBLIC_ETHERSCAN_API_KEY?.trim() ||
+        '';
+    return k;
+}
+
 /**
  * Verify a BSC USDT (BEP20) transfer by tx hash using BscScan (Etherscan-family API).
- * Uses BSCSCAN_API_KEY if set, otherwise ETHERSCAN_API_KEY (many keys work on both).
  */
 export async function POST(request: NextRequest) {
     try {
-        const apiKey = process.env.BSCSCAN_API_KEY || process.env.ETHERSCAN_API_KEY || '';
+        const apiKey = resolveBscScanApiKey();
         if (!apiKey) {
             return NextResponse.json(
-                { valid: false, error: 'Server missing BSCSCAN_API_KEY or ETHERSCAN_API_KEY' },
+                {
+                    valid: false,
+                    error:
+                        'Server missing API key. Set BSCSCAN_API_KEY, ETHERSCAN_API_KEY, or NEXT_PUBLIC_ETHERSCAN_API_KEY (Vercel redeploy required after env change).',
+                },
                 { status: 501 }
             );
         }
@@ -76,11 +90,20 @@ export async function POST(request: NextRequest) {
         }
 
         if (data.status !== '1' || !Array.isArray(data.result) || data.result.length === 0) {
-            const msg =
+            const rawMsg =
                 typeof data.result === 'string'
                     ? data.result
-                    : (data.message && data.message !== 'OK' ? data.message : null) ||
-                      'Transaction not found or not a USDT (BEP20) transfer';
+                    : data.message && data.message !== 'OK'
+                      ? data.message
+                      : null;
+            const lower = (rawMsg || '').toLowerCase();
+            let msg =
+                rawMsg ||
+                'Transaction not found or not a USDT (BEP20) transfer';
+            if (lower.includes('invalid api key') || lower.includes('not valid')) {
+                msg =
+                    'BscScan rejected the API key. Create a key at bscscan.com and set BSCSCAN_API_KEY, or use Etherscan key that works with BscScan endpoints.';
+            }
             return NextResponse.json({ valid: false, error: msg }, { status: 200 });
         }
 
