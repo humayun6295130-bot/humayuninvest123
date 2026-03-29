@@ -233,7 +233,7 @@ export function QrPaymentDialog({
                     description:
                         verifyJson.error ||
                         (verifyRes.status === 501
-                            ? "Payment verification is not configured on the server (API key missing)."
+                            ? "Payment verification is not configured on the server (BSC deposit wallet missing in env)."
                             : "Could not confirm this USDT payment on-chain."),
                 });
                 return;

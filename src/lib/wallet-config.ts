@@ -5,12 +5,18 @@
  * MIGRATED: Now uses BEP20 (BSC ChainID: 56) as the sole accepted cryptocurrency
  */
 
-// Get admin wallet address from environment variable
+// Get admin wallet address from environment variable (BSC BEP20 — 0x address)
+// Prefer BSC-specific key so legacy NEXT_PUBLIC_ADMIN_WALLET_ADDRESS can remain TRON for old scripts.
 // Returns safe string (empty if not configured)
 export const getAdminWalletAddress = (): string => {
-    const address = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS;
+    const address =
+        process.env.NEXT_PUBLIC_BSC_ADMIN_WALLET_ADDRESS?.trim() ||
+        process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS?.trim() ||
+        '';
     if (!address) {
-        console.warn('WARNING: NEXT_PUBLIC_ADMIN_WALLET_ADDRESS environment variable is not set. Payment features may not work correctly.');
+        console.warn(
+            'WARNING: Set NEXT_PUBLIC_BSC_ADMIN_WALLET_ADDRESS (BSC USDT) or NEXT_PUBLIC_ADMIN_WALLET_ADDRESS. Payment features may not work correctly.'
+        );
     }
     return address || '';
 };
