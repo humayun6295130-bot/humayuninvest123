@@ -4,7 +4,9 @@ import { USDT_CONTRACT_BSC } from '@/lib/wallet-config';
 /** Ensure this route always reads fresh env at runtime (Vercel serverless). */
 export const dynamic = 'force-dynamic';
 
-const BSCSCAN_API = 'https://api.bscscan.com/api';
+/** Etherscan API V2 (replaces deprecated BscScan/Etherscan V1 single-explorer URLs). BNB Smart Chain = 56. */
+const ETHERSCAN_V2_API = 'https://api.etherscan.io/v2/api';
+const BSC_CHAIN_ID = '56';
 
 interface TokenTxRow {
     hash: string;
@@ -27,7 +29,8 @@ function resolveBscScanApiKey(): string {
 }
 
 /**
- * Verify a BSC USDT (BEP20) transfer by tx hash using BscScan (Etherscan-family API).
+ * Verify a BSC USDT (BEP20) transfer by tx hash via Etherscan API V2 (multichain; chainid 56).
+ * Use an Etherscan API key from https://etherscan.io/apidashboard (works across supported chains).
  */
 export async function POST(request: NextRequest) {
     try {
@@ -70,6 +73,7 @@ export async function POST(request: NextRequest) {
         }
 
         const params = new URLSearchParams({
+            chainid: BSC_CHAIN_ID,
             module: 'account',
             action: 'tokentx',
             contractaddress: USDT_CONTRACT_BSC,
@@ -77,7 +81,7 @@ export async function POST(request: NextRequest) {
             apikey: apiKey,
         });
 
-        const res = await fetch(`${BSCSCAN_API}?${params.toString()}`, {
+        const res = await fetch(`${ETHERSCAN_V2_API}?${params.toString()}`, {
             next: { revalidate: 0 },
         });
 
@@ -105,7 +109,11 @@ export async function POST(request: NextRequest) {
                 'Transaction not found or not a USDT (BEP20) transfer';
             if (lower.includes('invalid api key') || lower.includes('not valid')) {
                 msg =
-                    'BscScan rejected the API key. Create a key at bscscan.com and set BSCSCAN_API_KEY, or use Etherscan key that works with BscScan endpoints.';
+                    'API key rejected. Create an Etherscan API V2 key at etherscan.io/apidashboard and set ETHERSCAN_API_KEY (or NEXT_PUBLIC_ETHERSCAN_API_KEY).';
+            }
+            if (lower.includes('deprecated') && lower.includes('v1')) {
+                msg =
+                    'Blockchain API returned a V1 deprecation message. Redeploy the latest app; verification uses Etherscan API V2.';
             }
             return NextResponse.json({ valid: false, error: msg }, { status: 200 });
         }
