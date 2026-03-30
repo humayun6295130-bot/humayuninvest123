@@ -5,6 +5,19 @@
 
 export const NOWPAYMENTS_API_BASE = 'https://api.nowpayments.io/v1';
 
+/**
+ * NOWPayments pay_currency tickers are lowercase (e.g. usdtbsc).
+ * "usdtbe20" is not a valid ticker — map common mistakes to USDT on BSC.
+ */
+export function normalizePayCurrency(raw: string): string {
+    const s = raw.trim().toLowerCase();
+    if (!s) return 'usdtbsc';
+    if (s === 'usdtbe20' || s === 'usdtbep20' || s === 'usdt_bep20' || s === 'usdt-bep20') {
+        return 'usdtbsc';
+    }
+    return s;
+}
+
 export function getNowpaymentsEnv(): {
     apiKey: string;
     ipnSecret: string;
@@ -13,7 +26,7 @@ export function getNowpaymentsEnv(): {
     return {
         apiKey: process.env.NOWPAYMENTS_API_KEY?.trim() ?? '',
         ipnSecret: process.env.NOWPAYMENTS_IPN_SECRET?.trim() ?? '',
-        payCurrency: process.env.PAYMENT_CURRENCY?.trim() || 'usdtbe20',
+        payCurrency: normalizePayCurrency(process.env.PAYMENT_CURRENCY?.trim() || 'usdtbsc'),
     };
 }
 
