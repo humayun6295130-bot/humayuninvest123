@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
     Dialog,
     DialogContent,
@@ -12,8 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { fetchRows, useUser } from "@/firebase";
 import { activateInvestmentAfterVerifiedPayment } from "@/lib/activate-qr-investment";
@@ -29,12 +27,12 @@ import {
     Upload,
     Image as ImageIcon,
     X,
+    RefreshCw,
 } from "lucide-react";
 import Image from "next/image";
-import { getAdminWalletAddress, generateBEP20QRCode, getWalletInfo } from "@/lib/wallet-config";
+import { generateGenericQRCode, getWalletInfo } from "@/lib/wallet-config";
 
-// Get safe version for internal usage
-const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
+const POLL_MS = 10_000;
 
 interface InvestmentPlan {
     id: string;
@@ -56,36 +54,48 @@ interface QrPaymentDialogProps {
     customAmount?: number;
 }
 
+type NpTerminal = "ok" | "fail" | null;
+
 export function QrPaymentDialog({
     open,
     onOpenChange,
     plan,
     userId,
     userEmail,
-    customAmount
+    customAmount,
 }: QrPaymentDialogProps) {
     const { toast } = useToast();
     const { user } = useUser();
     const [copied, setCopied] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [transactionId, setTransactionId] = useState("");
     const [screenshot, setScreenshot] = useState<File | null>(null);
     const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [isCreating, setIsCreating] = useState(false);
+    const [createError, setCreateError] = useState<string | null>(null);
+    const [npPaymentId, setNpPaymentId] = useState<number | null>(null);
+    const [orderId, setOrderId] = useState("");
+    const [payAddress, setPayAddress] = useState("");
+    const [payAmount, setPayAmount] = useState<number | null>(null);
+    const [pollStatus, setPollStatus] = useState<string>("");
+    const [terminal, setTerminal] = useState<NpTerminal>(null);
+
+    const activatedRef = useRef(false);
+    const finalizeRef = useRef<() => Promise<void>>(async () => {});
     const walletInfo = getWalletInfo();
 
     const investmentAmount = customAmount || plan?.fixed_amount || plan?.min_amount || 0;
     const expectedReturn = plan?.total_return || investmentAmount * 2;
 
     const copyWalletAddress = () => {
-        if (!ADMIN_WALLET_ADDRESS) {
-            toast({ title: "Error", description: "Wallet address not configured", variant: "destructive" });
+        if (!payAddress) {
+            toast({ title: "Error", description: "Address not ready yet", variant: "destructive" });
             return;
         }
-        navigator.clipboard.writeText(ADMIN_WALLET_ADDRESS);
+        navigator.clipboard.writeText(payAddress);
         setCopied(true);
-        toast({ title: "Copied!", description: "Wallet address copied to clipboard" });
+        toast({ title: "Copied!", description: "Deposit address copied" });
         setTimeout(() => setCopied(false), 2000);
     };
 
@@ -93,13 +103,15 @@ export function QrPaymentDialog({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            toast({ variant: "destructive", title: "Invalid File", description: "Please upload an image file (PNG, JPG, JPEG)" });
+        if (!file.type.startsWith("image/")) {
+            toast({
+                variant: "destructive",
+                title: "Invalid File",
+                description: "Please upload an image file (PNG, JPG, JPEG)",
+            });
             return;
         }
 
-        // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
             toast({ variant: "destructive", title: "File Too Large", description: "Maximum file size is 5MB" });
             return;
@@ -107,7 +119,6 @@ export function QrPaymentDialog({
 
         setScreenshot(file);
 
-        // Create preview
         const reader = new FileReader();
         reader.onloadend = () => {
             setScreenshotPreview(reader.result as string);
@@ -119,7 +130,7 @@ export function QrPaymentDialog({
         setScreenshot(null);
         setScreenshotPreview(null);
         if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+            fileInputRef.current.value = "";
         }
     };
 
@@ -132,56 +143,96 @@ export function QrPaymentDialog({
             const storageRef = ref(storage, fileName);
 
             await uploadBytes(storageRef, screenshot);
-            const downloadUrl = await getDownloadURL(storageRef);
-
-            return downloadUrl;
-        } catch (error: any) {
-            console.error("Upload error:", error);
-            throw new Error("Failed to upload screenshot: " + error.message);
+            return await getDownloadURL(storageRef);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Upload failed";
+            throw new Error("Failed to upload screenshot: " + message);
         }
     };
 
-    const handleConfirmPayment = async () => {
-        if (!plan || !userId) return;
+    /** Create NOWPayments invoice when dialog opens */
+    useEffect(() => {
+        if (!open || !plan || !userId) return;
 
-        const rawTx = transactionId.trim().replace(/\s+/g, "");
-        if (!rawTx) {
-            toast({ variant: "destructive", title: "Transaction ID Required", description: "Please enter the transaction hash/ID from your payment" });
+        let cancelled = false;
+        activatedRef.current = false;
+        setTerminal(null);
+        setCreateError(null);
+        setNpPaymentId(null);
+        setOrderId("");
+        setPayAddress("");
+        setPayAmount(null);
+        setPollStatus("");
+
+        const amt = Number(investmentAmount);
+        if (!Number.isFinite(amt) || amt <= 0) {
+            setCreateError("Invalid investment amount.");
             return;
         }
 
-        if (!/^0x[a-fA-F0-9]{64}$/.test(rawTx)) {
+        async function create() {
+            setIsCreating(true);
+            try {
+                const res = await fetch("/api/nowpayments/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        priceAmount: amt,
+                        planId: plan!.id,
+                        planName: plan!.name,
+                        userId,
+                    }),
+                });
+                const j = (await res.json().catch(() => ({}))) as {
+                    error?: string;
+                    payment_id?: number;
+                    order_id?: string;
+                    pay_address?: string;
+                    pay_amount?: number;
+                    payment_status?: string;
+                };
+                if (cancelled) return;
+                if (!res.ok || j.payment_id == null) {
+                    setCreateError(j.error || "Could not start payment. Check server configuration.");
+                    return;
+                }
+                setNpPaymentId(j.payment_id);
+                setOrderId(String(j.order_id ?? ""));
+                setPayAddress(String(j.pay_address ?? ""));
+                setPayAmount(typeof j.pay_amount === "number" ? j.pay_amount : null);
+                setPollStatus(String(j.payment_status ?? ""));
+            } catch {
+                if (!cancelled) setCreateError("Network error. Try again.");
+            } finally {
+                if (!cancelled) setIsCreating(false);
+            }
+        }
+
+        void create();
+        return () => {
+            cancelled = true;
+        };
+    }, [open, plan?.id, plan?.name, userId, investmentAmount]);
+
+    const finalizePayment = useCallback(async () => {
+        if (!plan || !userId || npPaymentId == null || !orderId) return;
+        if (activatedRef.current) return;
+        activatedRef.current = true;
+
+        const email = (userEmail?.trim() || user?.email || "").trim();
+        if (!email) {
             toast({
                 variant: "destructive",
-                title: "Invalid transaction hash",
-                description: "Use a full BSC transaction hash (0x + 64 hex characters).",
+                title: "Email required",
+                description: "Your account has no email on file.",
             });
+            activatedRef.current = false;
             return;
         }
 
         const amt = Number(investmentAmount);
-        if (!Number.isFinite(amt) || amt <= 0) {
-            toast({
-                variant: "destructive",
-                title: "Invalid amount",
-                description: "Investment amount is missing or invalid for this plan.",
-            });
-            return;
-        }
-
-        if (!ADMIN_WALLET_ADDRESS) {
-            toast({ variant: "destructive", title: "Configuration Error", description: "Platform wallet address is not configured." });
-            return;
-        }
-
-        const email = (userEmail?.trim() || user?.email || "").trim();
-        if (!email) {
-            toast({ variant: "destructive", title: "Email required", description: "Your account has no email on file. Update your profile or re-login with email." });
-            return;
-        }
-
-        const txNorm = rawTx;
-        const txLower = txNorm.toLowerCase();
+        const txKey = `np_${npPaymentId}`;
+        const txLower = txKey.toLowerCase();
 
         setIsSubmitting(true);
         try {
@@ -196,46 +247,35 @@ export function QrPaymentDialog({
             if (pendingDup.length > 0 || txDup.length > 0) {
                 toast({
                     variant: "destructive",
-                    title: "Transaction already used",
-                    description: "This transaction hash has already been used for a payment.",
+                    title: "Already processed",
+                    description: "This payment was already recorded.",
                 });
+                setTerminal("fail");
                 return;
             }
 
-            toast({ title: "Verifying payment...", description: "Checking your USDT transfer on BNB Smart Chain." });
-            const verifyRes = await fetch("/api/invest/verify-bsc-usdt", {
+            const verifyRes = await fetch("/api/nowpayments/verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    txHash: txNorm,
-                    expectedRecipient: ADMIN_WALLET_ADDRESS,
-                    expectedAmount: amt,
-                    minConfirmations: 3,
+                    paymentId: String(npPaymentId),
+                    orderId,
+                    userId,
+                    expectedUsdAmount: amt,
                 }),
             });
-
-            let verifyJson: { valid?: boolean; error?: string } = {};
-            try {
-                verifyJson = await verifyRes.json();
-            } catch {
-                toast({
-                    variant: "destructive",
-                    title: "Verification failed",
-                    description: "Could not read server response. Check your connection and try again.",
-                });
-                return;
-            }
+            const verifyJson = (await verifyRes.json().catch(() => ({}))) as {
+                valid?: boolean;
+                error?: string;
+            };
 
             if (!verifyRes.ok || !verifyJson.valid) {
                 toast({
                     variant: "destructive",
                     title: "Verification failed",
-                    description:
-                        verifyJson.error ||
-                        (verifyRes.status === 501
-                            ? "Payment verification is not configured on the server (BSC deposit wallet missing in env)."
-                            : "Could not confirm this USDT payment on-chain."),
+                    description: verifyJson.error || "Could not confirm payment.",
                 });
+                activatedRef.current = false;
                 return;
             }
 
@@ -255,30 +295,107 @@ export function QrPaymentDialog({
                 duration_days: plan.duration_days > 0 ? plan.duration_days : 30,
                 transaction_id: txLower,
                 proof_image_url: screenshotUrl,
-                wallet_address: ADMIN_WALLET_ADDRESS,
+                wallet_address: payAddress || "NOWPayments",
+                payment_method: "nowpayments_usdt_bep20",
+                notes: "Auto-verified (NOWPayments)",
             });
 
             toast({
                 title: "Plan activated",
-                description: "Your USDT payment was verified and your investment is now active.",
+                description: "Your crypto payment was confirmed and your investment is now active.",
             });
 
-            setTransactionId("");
             setScreenshot(null);
             setScreenshotPreview(null);
+            setTerminal("ok");
             onOpenChange(false);
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: error.message || "Failed to complete activation",
-            });
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Activation failed";
+            toast({ variant: "destructive", title: "Error", description: message });
+            activatedRef.current = false;
         } finally {
             setIsSubmitting(false);
         }
-    };
+    }, [
+        plan,
+        userId,
+        userEmail,
+        user?.email,
+        npPaymentId,
+        orderId,
+        investmentAmount,
+        expectedReturn,
+        screenshot,
+        payAddress,
+        onOpenChange,
+        toast,
+    ]);
+
+    finalizeRef.current = finalizePayment;
+
+    /** Poll NOWPayments every 10s */
+    useEffect(() => {
+        if (!open || npPaymentId == null || terminal !== null) return;
+
+        const runPoll = async () => {
+            try {
+                const res = await fetch(`/api/nowpayments/payment/${npPaymentId}`);
+                const j = (await res.json().catch(() => ({}))) as { payment_status?: string; error?: string };
+                if (!res.ok) return;
+
+                const st = (j.payment_status || "").toLowerCase();
+                setPollStatus(j.payment_status || "");
+
+                if (["failed", "expired", "refunded"].includes(st)) {
+                    toast({
+                        variant: "destructive",
+                        title: "Payment not completed",
+                        description:
+                            st === "expired"
+                                ? "This payment window expired. Close and open again to get a new address."
+                                : "The payment could not be completed.",
+                    });
+                    setTerminal("fail");
+                    return;
+                }
+
+                if (st === "finished") {
+                    await finalizeRef.current();
+                }
+            } catch {
+                /* next poll */
+            }
+        };
+
+        void runPoll();
+        const id = window.setInterval(() => void runPoll(), POLL_MS);
+        return () => window.clearInterval(id);
+    }, [open, npPaymentId, terminal, toast]);
+
+    const refreshStatus = useCallback(async () => {
+        if (npPaymentId == null) return;
+        try {
+            const res = await fetch(`/api/nowpayments/payment/${npPaymentId}`);
+            const j = (await res.json().catch(() => ({}))) as { payment_status?: string };
+            if (!res.ok) return;
+            setPollStatus(j.payment_status || "");
+            const st = (j.payment_status || "").toLowerCase();
+            if (st === "finished") {
+                await finalizeRef.current();
+            }
+        } catch {
+            /* ignore */
+        }
+    }, [npPaymentId]);
 
     if (!plan) return null;
+
+    const qrSrc =
+        payAddress ? generateGenericQRCode(payAddress, payAmount && payAmount > 0 ? payAmount : undefined) : "";
+
+    const statusLower = pollStatus.toLowerCase();
+    const isWaiting =
+        !["finished", "failed", "expired", "refunded"].includes(statusLower) && terminal !== "fail";
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -289,12 +406,11 @@ export function QrPaymentDialog({
                         Complete Your Investment
                     </DialogTitle>
                     <DialogDescription className="text-slate-400">
-                        Send USDT (BEP20), then submit your tx hash—we verify on-chain and activate {plan.name} automatically.
+                        Pay with USDT (BEP20 on BNB Smart Chain) via NOWPayments — status updates every few seconds.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-6 py-4">
-                    {/* Investment Summary */}
                     <Card className="bg-slate-800 border-orange-500/20">
                         <CardContent className="p-4">
                             <div className="flex justify-between items-center mb-2">
@@ -302,7 +418,7 @@ export function QrPaymentDialog({
                                 <span className="font-semibold text-white">{plan.name}</span>
                             </div>
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-slate-400">Investment</span>
+                                <span className="text-slate-400">Investment (USD)</span>
                                 <span className="font-bold text-lg text-orange-400">${investmentAmount}</span>
                             </div>
                             <div className="flex justify-between items-center">
@@ -312,113 +428,108 @@ export function QrPaymentDialog({
                         </CardContent>
                     </Card>
 
-                    {/* Payment Info */}
                     <div className="text-center p-4 bg-orange-500/10 rounded-lg border border-orange-500/20">
-                        <p className="text-sm text-slate-400 mb-1">Send Exactly</p>
-                        <p className="text-2xl font-bold text-orange-400">{investmentAmount} USDT</p>
-                        <p className="text-xs text-slate-400 mt-1">Network: {walletInfo.network}</p>
-                        <Badge variant="outline" className="mt-2 bg-orange-500/20 text-orange-400 border-orange-500/30">
-                            Automatic Verification Enabled
-                        </Badge>
+                        <p className="text-sm text-slate-400 mb-1">Invoice (USD)</p>
+                        <p className="text-2xl font-bold text-orange-400">${investmentAmount}</p>
+                        <p className="text-xs text-slate-400 mt-1">Pay currency: USDT (BEP20) · {walletInfo.network}</p>
+                        {pollStatus && (
+                            <Badge
+                                variant="outline"
+                                className="mt-2 bg-slate-800/80 text-slate-200 border-slate-600"
+                            >
+                                Status: {pollStatus}
+                            </Badge>
+                        )}
+                        {isCreating && (
+                            <p className="text-xs text-slate-500 mt-2 flex items-center justify-center gap-1">
+                                <Clock className="h-3 w-3 animate-spin" /> Creating secure payment…
+                            </p>
+                        )}
+                        {createError && (
+                            <p className="text-xs text-red-400 mt-2">{createError}</p>
+                        )}
                     </div>
 
-                    {/* QR Code Section */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <h4 className="font-medium flex items-center gap-2 text-orange-400">
                                 <QrCode className="h-4 w-4" />
-                                Scan QR Code
+                                Deposit address
                             </h4>
                             <Badge variant="outline" className="text-xs bg-slate-800 text-slate-300 border-slate-700">
-                                {walletInfo.network}
+                                NOWPayments
                             </Badge>
                         </div>
 
                         <div className="flex justify-center">
                             <div className="bg-white p-4 rounded-xl border-2 border-dashed border-orange-300 shadow-sm">
                                 <div className="w-[200px] h-[200px] rounded-lg flex items-center justify-center relative overflow-hidden bg-white">
-                                    <img
-                                        src={ADMIN_WALLET_ADDRESS ? generateBEP20QRCode(investmentAmount) : ''}
-                                        alt="Payment QR Code"
-                                        className="w-full h-full object-contain rounded-lg"
-                                        onError={(e) => {
-                                            const target = e.target as HTMLImageElement;
-                                            target.style.display = 'none';
-                                            const parent = target.parentElement;
-                                            if (parent) {
-                                                parent.innerHTML = `
-                                                    <div class="flex flex-col items-center justify-center w-full h-full bg-gray-50 rounded-lg">
-                                                        <svg class="w-16 h-16 text-gray-300 mb-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-                                                        <p class="text-xs text-gray-400 text-center px-2">QR Code Loading...</p>
-                                                    </div>
-                                                `;
-                                            }
-                                        }}
-                                    />
+                                    {qrSrc ? (
+                                        <img
+                                            src={qrSrc}
+                                            alt="Payment QR Code"
+                                            className="w-full h-full object-contain rounded-lg"
+                                        />
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50 rounded-lg text-xs text-gray-400 px-2 text-center">
+                                            {isCreating ? "Preparing QR…" : "QR unavailable"}
+                                        </div>
+                                    )}
                                 </div>
                                 <p className="text-xs text-center text-slate-500 mt-2">
-                                    {walletInfo.scanInstructions}
+                                    Send the exact crypto amount shown below to this address (BEP20).
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Wallet Address */}
+                    {payAmount != null && (
+                        <div className="rounded-lg border border-orange-500/30 bg-slate-800/50 p-3 text-center">
+                            <p className="text-xs text-slate-400">Send approximately</p>
+                            <p className="text-lg font-mono font-semibold text-orange-300">{payAmount} USDT</p>
+                            <p className="text-[10px] text-slate-500 mt-1">
+                                Rate is locked by NOWPayments; always send the full shown amount.
+                            </p>
+                        </div>
+                    )}
+
                     <div className="space-y-2">
-                        <h4 className="font-medium text-sm text-slate-300">Or Send To Wallet Address</h4>
+                        <h4 className="font-medium text-sm text-slate-300">Deposit address</h4>
                         <div className="flex items-center gap-2">
-                            <code className="flex-1 bg-slate-800 p-3 rounded-lg text-xs break-all font-mono text-orange-300 border border-slate-700">
-                                {ADMIN_WALLET_ADDRESS}
+                            <code className="flex-1 bg-slate-800 p-3 rounded-lg text-xs break-all font-mono text-orange-300 border border-slate-700 min-h-[44px]">
+                                {payAddress || (isCreating ? "…" : "—")}
                             </code>
                             <Button
                                 variant="outline"
                                 size="icon"
                                 onClick={copyWalletAddress}
+                                disabled={!payAddress}
                                 className="border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
                             >
-                                {copied ? <CheckCircle className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                                {copied ? (
+                                    <CheckCircle className="h-4 w-4 text-green-400" />
+                                ) : (
+                                    <Copy className="h-4 w-4" />
+                                )}
                             </Button>
                         </div>
                     </div>
 
-                    {/* Payment Proof Section */}
                     <Card className="border-yellow-500/30 bg-yellow-500/5">
                         <CardContent className="p-4 space-y-4">
                             <h4 className="font-medium flex items-center gap-2 text-sm text-yellow-400">
                                 <Upload className="h-4 w-4" />
-                                Payment Proof
+                                Payment Proof <span className="text-slate-500 font-normal">(Optional)</span>
                             </h4>
 
-                            {/* Transaction ID */}
                             <div className="space-y-2">
-                                <Label htmlFor="transactionId" className="text-sm text-slate-300">
-                                    Transaction ID / Hash <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                    id="transactionId"
-                                    placeholder="Enter transaction hash from your wallet"
-                                    value={transactionId}
-                                    onChange={(e) => setTransactionId(e.target.value)}
-                                    className="font-mono text-sm bg-slate-800 border-slate-700 text-white"
-                                />
-                                <p className="text-xs text-slate-500">
-                                    You can find this in your wallet's transaction history
-                                </p>
-                            </div>
-
-                            {/* Screenshot Upload - Optional */}
-                            <div className="space-y-2">
-                                <Label className="text-sm text-slate-300">
-                                    Screenshot Proof <span className="text-slate-500">(Optional)</span>
-                                </Label>
-
                                 {!screenshotPreview ? (
                                     <div
                                         className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center cursor-pointer hover:bg-slate-800/50 transition-colors"
                                         onClick={() => fileInputRef.current?.click()}
                                     >
                                         <ImageIcon className="h-8 w-8 mx-auto mb-2 text-slate-500" />
-                                        <p className="text-sm text-slate-400">Click to upload screenshot (Optional)</p>
+                                        <p className="text-sm text-slate-400">Screenshot for your records</p>
                                         <p className="text-xs text-slate-500 mt-1">PNG, JPG up to 5MB</p>
                                     </div>
                                 ) : (
@@ -453,7 +564,6 @@ export function QrPaymentDialog({
                         </CardContent>
                     </Card>
 
-                    {/* Instructions */}
                     <Card className="bg-blue-500/5 border-blue-500/20">
                         <CardContent className="p-4 space-y-2">
                             <h4 className="font-medium flex items-center gap-2 text-sm text-blue-400">
@@ -461,13 +571,29 @@ export function QrPaymentDialog({
                                 Instructions
                             </h4>
                             <ol className="text-xs text-slate-400 space-y-1 list-decimal list-inside">
-                                <li>Send the exact USDT amount to the wallet above (BNB Smart Chain / BEP20)</li>
-                                <li>Wait for a few block confirmations (usually 1–3 minutes)</li>
-                                <li>Paste the transaction hash and tap Verify—no admin approval needed</li>
-                                <li>Optional: attach a screenshot for your own records</li>
+                                <li>Copy the address or scan the QR code</li>
+                                <li>Send the exact USDT (BEP20) amount shown by NOWPayments</li>
+                                <li>Wait — we check payment status every 10 seconds</li>
+                                <li>When status is finished, your plan activates automatically</li>
                             </ol>
                         </CardContent>
                     </Card>
+
+                    {isWaiting && npPaymentId != null && (
+                        <div className="flex justify-center">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="border-slate-600 text-slate-300"
+                                onClick={() => void refreshStatus()}
+                                disabled={isSubmitting}
+                            >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Refresh status
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -478,17 +604,11 @@ export function QrPaymentDialog({
                     >
                         Cancel
                     </Button>
-                    <Button
-                        onClick={handleConfirmPayment}
-                        disabled={isSubmitting || !transactionId.trim()}
-                        className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600"
-                    >
-                        {isSubmitting ? (
-                            <><Clock className="mr-2 h-4 w-4 animate-spin" /> Verifying...</>
-                        ) : (
-                            <><CheckCircle className="mr-2 h-4 w-4" /> Verify & Activate Plan</>
-                        )}
-                    </Button>
+                    {isSubmitting && (
+                        <Button disabled className="w-full sm:w-auto bg-orange-500/80">
+                            <Clock className="mr-2 h-4 w-4 animate-spin" /> Activating…
+                        </Button>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>

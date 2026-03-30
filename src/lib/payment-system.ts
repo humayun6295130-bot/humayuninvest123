@@ -388,14 +388,14 @@ export async function completeWithdrawal(
 // ============================================================================
 
 /**
- * Verify a deposit transaction on blockchain
- * Now uses Etherscan API V2 for BEP20 (BSC ChainID: 56) verification
+ * Verify a BEP20 USDT deposit on BNB Smart Chain (public RPC + optional explorer fallback).
+ * Recipient is always resolved on the server — do not rely on client-passed wallet for security.
  */
 export async function verifyTransaction(
     txHash: string,
-    network: string = 'bep20',
+    _network: string = 'bep20',
     expectedAmount?: number,
-    expectedRecipient?: string
+    _expectedRecipient?: string
 ): Promise<{
     valid: boolean;
     status: string;
@@ -406,14 +406,11 @@ export async function verifyTransaction(
     error?: string;
 }> {
     try {
-        const response = await fetch('/api/etherscan/verify', {
+        const response = await fetch('/api/invest/verify-bsc-usdt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 txHash,
-                network: 'bsc',
-                token: 'USDT',
-                expectedRecipient,
                 expectedAmount,
                 minConfirmations: 12,
             }),
@@ -421,18 +418,18 @@ export async function verifyTransaction(
 
         const result = await response.json();
 
-        if (result.success && result.data?.valid) {
+        if (result.valid) {
             return {
                 valid: true,
                 status: 'verified',
                 amount: expectedAmount,
-                confirmations: result.data.confirmations,
+                confirmations: result.confirmations,
             };
         }
 
         return {
             valid: false,
-            status: result.data?.status || 'failed',
+            status: 'failed',
             error: result.error || 'Verification failed',
         };
     } catch (error: any) {

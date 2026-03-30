@@ -4,7 +4,6 @@ import {
     rejectWithdrawal,
     completeWithdrawal,
     markTransactionVerified,
-    verifyTransaction
 } from '@/lib/payment-system';
 
 // ============================================================================

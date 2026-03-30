@@ -14,6 +14,10 @@ export interface ActivateQrInvestmentParams {
     transaction_id: string;
     proof_image_url?: string | null;
     wallet_address: string;
+    /** e.g. nowpayments_usdt_bep20, usdt_bep20 */
+    payment_method?: string;
+    /** Audit line for pending_investments */
+    notes?: string;
 }
 
 /**
@@ -55,11 +59,11 @@ export async function activateInvestmentAfterVerifiedPayment(
         expected_return: params.expected_return,
         wallet_address: params.wallet_address,
         status: 'approved',
-        payment_method: 'usdt_bep20',
+        payment_method: params.payment_method ?? 'usdt_bep20',
         transaction_id: params.transaction_id,
         proof_image_url: params.proof_image_url ?? null,
         processed_at: timestamp,
-        notes: 'Auto-verified (BSC USDT)',
+        notes: params.notes ?? 'Auto-verified',
     });
 
     await insertRow('transactions', {
@@ -67,7 +71,7 @@ export async function activateInvestmentAfterVerifiedPayment(
         type: 'investment',
         amount: -params.amount,
         status: 'completed',
-        description: `Investment in ${params.plan_name} - BSC USDT (auto-verified)`,
+        description: `Investment in ${params.plan_name} — ${params.payment_method === 'nowpayments_usdt_bep20' ? 'NOWPayments' : 'BSC USDT'} (auto-verified)`,
         transaction_hash: params.transaction_id,
     });
 
