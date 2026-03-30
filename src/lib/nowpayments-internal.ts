@@ -81,6 +81,54 @@ export function getIpnCallbackUrl(): string | null {
     }
 }
 
+/**
+ * NOWPayments cannot deliver IPN to localhost (no public reachability).
+ * Omit ipn_callback_url locally unless overridden — polling still works.
+ * Optional: NOWPAYMENTS_IPN_CALLBACK_URL=https://your-ngrok-url/api/nowpayments/ipn
+ * Optional: NOWPAYMENTS_ALLOW_LOCAL_IPN=1 to force sending localhost URL (usually still fails at NOWPayments).
+ */
+export function resolveIpnCallbackUrlForCreate(): string | undefined {
+    const override = process.env.NOWPAYMENTS_IPN_CALLBACK_URL?.trim();
+    if (override) {
+        try {
+            const u = new URL(override);
+            if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
+        } catch {
+            /* ignore */
+        }
+    }
+
+    const built = getIpnCallbackUrl();
+    if (!built) return undefined;
+
+    try {
+        const u = new URL(built);
+        const host = u.hostname.toLowerCase();
+        const isLoopback =
+            host === 'localhost' ||
+            host === '127.0.0.1' ||
+            host === '[::1]' ||
+            host.endsWith('.local');
+
+        if (isLoopback && process.env.NOWPAYMENTS_ALLOW_LOCAL_IPN !== '1') {
+            return undefined;
+        }
+        return built;
+    } catch {
+        return undefined;
+    }
+}
+
+function extractNowpaymentsErrorMessage(data: unknown): string | undefined {
+    if (!data || typeof data !== 'object') return undefined;
+    const d = data as Record<string, unknown>;
+    if (typeof d.message === 'string' && d.message.trim()) return d.message.trim();
+    if (typeof d.error === 'string' && d.error.trim()) return d.error.trim();
+    const errs = d.errors;
+    if (Array.isArray(errs) && errs.length > 0 && typeof errs[0] === 'string') return String(errs[0]);
+    return undefined;
+}
+
 export interface NpPaymentResponse {
     payment_id?: number;
     payment_status?: string;
@@ -101,7 +149,10 @@ export async function npCreatePayment(payload: {
     order_id: string;
     order_description?: string;
     ipn_callback_url?: string;
-}): Promise<{ ok: true; data: NpPaymentResponse } | { ok: false; status: number }> {
+}): Promise<
+    | { ok: true; data: NpPaymentResponse }
+    | { ok: false; status: number; message?: string }
+> {
     const { apiKey } = getNowpaymentsEnv();
     if (!apiKey) {
         return { ok: false, status: 501 };
@@ -116,7 +167,11 @@ export async function npCreatePayment(payload: {
     });
     const data = (await res.json().catch(() => ({}))) as NpPaymentResponse;
     if (!res.ok) {
-        return { ok: false, status: res.status };
+        return {
+            ok: false,
+            status: res.status,
+            message: extractNowpaymentsErrorMessage(data),
+        };
     }
     return { ok: true, data };
 }

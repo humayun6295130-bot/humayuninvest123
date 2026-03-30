@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-    getIpnCallbackUrl,
     getNowpaymentsEnv,
     npCreatePayment,
     orderIdForUser,
+    resolveIpnCallbackUrlForCreate,
 } from '@/lib/nowpayments-internal';
 
 export const dynamic = 'force-dynamic';
@@ -37,16 +37,7 @@ export async function POST(request: NextRequest) {
 
         const { payCurrency } = getNowpaymentsEnv();
         const order_id = orderIdForUser(userId, planId);
-        const ipn_callback_url = getIpnCallbackUrl();
-        if (!ipn_callback_url) {
-            return NextResponse.json(
-                {
-                    error:
-                        'Invalid public URL. Set NEXT_PUBLIC_BASE_URL to a valid http(s) URL (no extra slashes).',
-                },
-                { status: 400 }
-            );
-        }
+        const ipn_callback_url = resolveIpnCallbackUrlForCreate();
 
         const created = await npCreatePayment({
             price_amount: priceAmount,
@@ -54,11 +45,18 @@ export async function POST(request: NextRequest) {
             pay_currency: payCurrency,
             order_id,
             order_description: `Investment: ${planName}`,
-            ipn_callback_url,
+            ...(ipn_callback_url ? { ipn_callback_url } : {}),
         });
 
         if (!created.ok) {
-            return NextResponse.json({ error: 'Could not create payment' }, { status: 502 });
+            const upstream = created.message?.trim();
+            let error = upstream
+                ? `Could not create payment: ${upstream}`
+                : 'Could not create payment.';
+            if (created.status === 401 || created.status === 403) {
+                error += ' Verify NOWPAYMENTS_API_KEY on the server.';
+            }
+            return NextResponse.json({ error }, { status: created.status >= 500 ? 502 : 400 });
         }
 
         const d = created.data;
