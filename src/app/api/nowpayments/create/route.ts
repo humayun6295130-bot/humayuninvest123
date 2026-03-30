@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-    appPublicBaseUrl,
+    getIpnCallbackUrl,
     getNowpaymentsEnv,
     npCreatePayment,
     orderIdForUser,
@@ -37,8 +37,16 @@ export async function POST(request: NextRequest) {
 
         const { payCurrency } = getNowpaymentsEnv();
         const order_id = orderIdForUser(userId, planId);
-        const base = appPublicBaseUrl();
-        const ipn_callback_url = `${base}/api/nowpayments/ipn`;
+        const ipn_callback_url = getIpnCallbackUrl();
+        if (!ipn_callback_url) {
+            return NextResponse.json(
+                {
+                    error:
+                        'Invalid public URL. Set NEXT_PUBLIC_BASE_URL to a valid http(s) URL (no extra slashes).',
+                },
+                { status: 400 }
+            );
+        }
 
         const created = await npCreatePayment({
             price_amount: priceAmount,

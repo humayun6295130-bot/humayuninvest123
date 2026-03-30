@@ -8,6 +8,8 @@ export interface ActivateQrInvestmentParams {
     user_email: string;
     plan_id: string;
     plan_name: string;
+    /** Daily ROI percent per day (from investment plan) */
+    daily_roi_percent?: number;
     amount: number;
     expected_return: number;
     duration_days: number;
@@ -31,12 +33,16 @@ export async function activateInvestmentAfterVerifiedPayment(
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + (params.duration_days > 0 ? params.duration_days : 30));
 
+    const daily_roi_percent = Number(params.daily_roi_percent ?? 0) || 0;
+    const daily_roi = daily_roi_percent > 0 ? (params.amount * daily_roi_percent) / 100 : 0;
+
     await insertRow('user_investments', {
         user_id: params.user_id,
         plan_id: params.plan_id,
         plan_name: params.plan_name,
         amount: params.amount,
-        daily_roi: 0,
+        daily_roi,
+        daily_roi_percent,
         total_return: params.expected_return,
         total_profit: params.expected_return - params.amount,
         earned_so_far: 0,

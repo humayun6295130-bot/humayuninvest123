@@ -17,12 +17,68 @@ export function getNowpaymentsEnv(): {
     };
 }
 
-export function appPublicBaseUrl(): string {
+/**
+ * Normalize user-supplied base URL (http/https only, no trailing slash junk).
+ */
+export function normalizeHttpUrl(raw: string): string | null {
+    let s = raw.trim();
+    if (!s) return null;
+
+    if (/^localhost(?::\d+)?/i.test(s) || /^127\.\d+\.\d+\.\d+(?::\d+)?/.test(s)) {
+        if (!/^https?:\/\//i.test(s)) s = 'http://' + s;
+    } else if (!/^https?:\/\//i.test(s)) {
+        s = 'https://' + s.replace(/^\/+/, '');
+    }
+
+    try {
+        const u = new URL(s);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+        if (!u.hostname) return null;
+        const path = u.pathname.replace(/\/+$/, '') || '';
+        const origin = `${u.protocol}//${u.host}`;
+        return path ? `${origin}${path}` : origin;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Resolved public origin/path for this deployment (never includes a trailing slash before query).
+ */
+export function getAppPublicBaseUrl(): string | null {
     const explicit = process.env.NEXT_PUBLIC_BASE_URL?.trim();
-    if (explicit) return explicit.replace(/\/$/, '');
+    if (explicit) {
+        return normalizeHttpUrl(explicit);
+    }
     const vercel = process.env.VERCEL_URL?.trim();
-    if (vercel) return `https://${vercel.replace(/^https?:\/\//, '')}`;
+    if (vercel) {
+        const host = vercel.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+        if (!host) return null;
+        return `https://${host}`;
+    }
     return 'http://localhost:5000';
+}
+
+/**
+ * IPN callback: single canonical URL, no double slashes (uses URL resolution).
+ */
+export function buildIpnCallbackUrl(base: string): string {
+    const baseWithSlash = base.endsWith('/') ? base : `${base}/`;
+    return new URL('api/nowpayments/ipn', baseWithSlash).href;
+}
+
+export function getIpnCallbackUrl(): string | null {
+    const base = getAppPublicBaseUrl();
+    if (!base) return null;
+    try {
+        const href = buildIpnCallbackUrl(base);
+        const u = new URL(href);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+        if (!u.hostname) return null;
+        return href;
+    } catch {
+        return null;
+    }
 }
 
 export interface NpPaymentResponse {

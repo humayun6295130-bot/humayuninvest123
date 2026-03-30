@@ -42,6 +42,7 @@ interface InvestmentPlan {
     max_amount: number;
     duration_days: number;
     return_percent: number;
+    daily_roi_percent: number;
     total_return?: number;
 }
 
@@ -78,6 +79,7 @@ export function QrPaymentDialog({
     const [orderId, setOrderId] = useState("");
     const [payAddress, setPayAddress] = useState("");
     const [payAmount, setPayAmount] = useState<number | null>(null);
+    const [payCurrency, setPayCurrency] = useState<string>("");
     const [pollStatus, setPollStatus] = useState<string>("");
     const [terminal, setTerminal] = useState<NpTerminal>(null);
 
@@ -162,6 +164,7 @@ export function QrPaymentDialog({
         setOrderId("");
         setPayAddress("");
         setPayAmount(null);
+        setPayCurrency("");
         setPollStatus("");
 
         const amt = Number(investmentAmount);
@@ -185,21 +188,33 @@ export function QrPaymentDialog({
                 });
                 const j = (await res.json().catch(() => ({}))) as {
                     error?: string;
-                    payment_id?: number;
+                    payment_id?: number | string;
                     order_id?: string;
                     pay_address?: string;
-                    pay_amount?: number;
+                    pay_amount?: number | string;
+                    pay_currency?: string;
                     payment_status?: string;
                 };
                 if (cancelled) return;
-                if (!res.ok || j.payment_id == null) {
+                const parsedPaymentId =
+                    j.payment_id == null ? null : Number(typeof j.payment_id === "string" ? j.payment_id.trim() : j.payment_id);
+
+                if (!res.ok || parsedPaymentId == null || !Number.isFinite(parsedPaymentId)) {
                     setCreateError(j.error || "Could not start payment. Check server configuration.");
                     return;
                 }
-                setNpPaymentId(j.payment_id);
+                setNpPaymentId(parsedPaymentId);
                 setOrderId(String(j.order_id ?? ""));
                 setPayAddress(String(j.pay_address ?? ""));
-                setPayAmount(typeof j.pay_amount === "number" ? j.pay_amount : null);
+                setPayAmount(
+                    j.pay_amount == null
+                        ? null
+                        : (() => {
+                              const v = typeof j.pay_amount === "string" ? Number(j.pay_amount) : j.pay_amount;
+                              return Number.isFinite(v as number) ? (v as number) : null;
+                          })()
+                );
+                setPayCurrency(String(j.pay_currency ?? ""));
                 setPollStatus(String(j.payment_status ?? ""));
             } catch {
                 if (!cancelled) setCreateError("Network error. Try again.");
@@ -290,6 +305,7 @@ export function QrPaymentDialog({
                 user_email: email,
                 plan_id: plan.id,
                 plan_name: plan.name,
+                daily_roi_percent: plan.daily_roi_percent,
                 amount: amt,
                 expected_return: expectedReturn,
                 duration_days: plan.duration_days > 0 ? plan.duration_days : 30,
@@ -431,7 +447,24 @@ export function QrPaymentDialog({
                     <div className="text-center p-4 bg-orange-500/10 rounded-lg border border-orange-500/20">
                         <p className="text-sm text-slate-400 mb-1">Invoice (USD)</p>
                         <p className="text-2xl font-bold text-orange-400">${investmentAmount}</p>
-                        <p className="text-xs text-slate-400 mt-1">Pay currency: USDT (BEP20) · {walletInfo.network}</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                            Pay currency: {payCurrency || "USDT (BEP20)"} · {walletInfo.network}
+                        </p>
+                        {payAmount != null && (
+                            <p className="text-xs text-slate-300 mt-1">
+                                Send amount: <span className="font-mono text-orange-300">{payAmount}</span>
+                            </p>
+                        )}
+                        {npPaymentId != null && (
+                            <p className="text-[11px] text-slate-500 mt-1">
+                                Payment ID: <span className="font-mono">{npPaymentId}</span>
+                            </p>
+                        )}
+                        {orderId && (
+                            <p className="text-[11px] text-slate-500 mt-1 break-all">
+                                Order ID: <span className="font-mono">{orderId}</span>
+                            </p>
+                        )}
                         {pollStatus && (
                             <Badge
                                 variant="outline"
@@ -469,6 +502,19 @@ export function QrPaymentDialog({
                                             src={qrSrc}
                                             alt="Payment QR Code"
                                             className="w-full h-full object-contain rounded-lg"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.style.display = "none";
+                                                const parent = target.parentElement;
+                                                if (parent) {
+                                                    parent.innerHTML = `
+                                                        <div class="flex flex-col items-center justify-center w-full h-full bg-gray-50 rounded-lg text-xs text-gray-400 text-center px-2">
+                                                            <p>QR Code failed to load.</p>
+                                                            <p class="mt-1">Please copy address and try again.</p>
+                                                        </div>
+                                                    `;
+                                                }
+                                            }}
                                         />
                                     ) : (
                                         <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50 rounded-lg text-xs text-gray-400 px-2 text-center">

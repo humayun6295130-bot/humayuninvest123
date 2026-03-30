@@ -186,7 +186,6 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
                             "w-3 h-3",
                             plan.daily_roi_percent > 3 ? "text-red-400" : plan.daily_roi_percent > 1.5 ? "text-amber-400" : "text-green-400"
                         )} />
-                        {plan.daily_roi_percent > 3 ? 'High' : plan.daily_roi_percent > 1.5 ? 'Medium' : 'Low'}
                     </span>
                 </div>
 
