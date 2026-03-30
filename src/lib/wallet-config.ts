@@ -13,11 +13,8 @@ export const getAdminWalletAddress = (): string => {
         process.env.NEXT_PUBLIC_BSC_ADMIN_WALLET_ADDRESS?.trim() ||
         process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS?.trim() ||
         '';
-    if (!address) {
-        console.warn(
-            'WARNING: Set NEXT_PUBLIC_BSC_ADMIN_WALLET_ADDRESS (BSC USDT) or NEXT_PUBLIC_ADMIN_WALLET_ADDRESS. Payment features may not work correctly.'
-        );
-    }
+    // Do not log during `next build` / prerender — many deployments use NOWPayments only (no public BSC admin wallet).
+    // Legacy on-chain verification still uses ADMIN_WALLET_* server env in API routes when needed.
     return address || '';
 };
 
