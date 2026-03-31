@@ -1,6 +1,6 @@
 import { insertRow } from '@/firebase/database';
 import { db } from '@/firebase/config';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { awardCommission, getReferralSettings } from '@/lib/referral-system';
 
 export interface ActivateQrInvestmentParams {
@@ -89,6 +89,17 @@ export async function activateInvestmentAfterVerifiedPayment(
         description: `Investment in ${params.plan_name} — ${params.payment_method === 'nowpayments_usdt_bep20' ? 'NOWPayments' : 'BSC USDT'} (auto-verified)`,
         transaction_hash: params.transaction_id,
     });
+
+    if (db) {
+        try {
+            await updateDoc(doc(db, 'users', params.user_id), {
+                total_invested: increment(params.amount),
+                updated_at: timestamp,
+            });
+        } catch (balErr) {
+            console.error('total_invested increment (non-fatal):', balErr);
+        }
+    }
 
     if (db) {
         try {

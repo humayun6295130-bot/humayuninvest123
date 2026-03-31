@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { generateGenericQRCode, getWalletInfo } from "@/lib/wallet-config";
+import { isPaymentStatusComplete } from "@/lib/nowpayments-shared";
 
 const POLL_MS = 10_000;
 
@@ -269,6 +270,67 @@ export function QrPaymentDialog({
                 return;
             }
 
+            let screenshotUrl: string | null = null;
+            if (screenshot) {
+                toast({ title: "Uploading proof...", description: "Saving your screenshot." });
+                screenshotUrl = await uploadScreenshot();
+            }
+
+            /** Prefer server-side Admin writes on Vercel (set FIREBASE_SERVICE_ACCOUNT_JSON). */
+            if (user) {
+                const idToken = await user.getIdToken();
+                const completeRes = await fetch("/api/nowpayments/complete-investment", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({
+                        paymentId: String(npPaymentId),
+                        orderId,
+                        userId,
+                        expectedUsdAmount: amt,
+                        planId: plan.id,
+                        planName: plan.name,
+                        dailyRoiPercent: plan.daily_roi_percent,
+                        returnPercent: plan.return_percent,
+                        amount: amt,
+                        expectedReturn,
+                        durationDays: plan.duration_days > 0 ? plan.duration_days : 30,
+                        userEmail: email,
+                        transactionId: txLower,
+                        proofImageUrl: screenshotUrl,
+                        payAddress: payAddress || "NOWPayments",
+                        paymentMethod: "nowpayments_usdt_bep20",
+                    }),
+                });
+                const completeJson = (await completeRes.json().catch(() => ({}))) as {
+                    ok?: boolean;
+                    error?: string;
+                    alreadyProcessed?: boolean;
+                };
+                if (completeRes.ok && (completeJson.ok === true || completeJson.alreadyProcessed)) {
+                    toast({
+                        title: "Plan activated",
+                        description: "Your crypto payment was confirmed and your investment is now active.",
+                    });
+                    setScreenshot(null);
+                    setScreenshotPreview(null);
+                    setTerminal("ok");
+                    onOpenChange(false);
+                    return;
+                }
+                if (completeRes.status !== 501) {
+                    toast({
+                        variant: "destructive",
+                        title: "Activation failed",
+                        description: completeJson.error || "Could not activate investment on the server.",
+                    });
+                    activatedRef.current = false;
+                    return;
+                }
+            }
+
             const verifyRes = await fetch("/api/nowpayments/verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -292,12 +354,6 @@ export function QrPaymentDialog({
                 });
                 activatedRef.current = false;
                 return;
-            }
-
-            let screenshotUrl: string | null = null;
-            if (screenshot) {
-                toast({ title: "Uploading proof...", description: "Saving your screenshot." });
-                screenshotUrl = await uploadScreenshot();
             }
 
             await activateInvestmentAfterVerifiedPayment({
@@ -337,6 +393,7 @@ export function QrPaymentDialog({
         plan,
         userId,
         userEmail,
+        user,
         user?.email,
         npPaymentId,
         orderId,
@@ -376,7 +433,7 @@ export function QrPaymentDialog({
                     return;
                 }
 
-                if (st === "finished") {
+                if (isPaymentStatusComplete(j.payment_status)) {
                     await finalizeRef.current();
                 }
             } catch {
@@ -397,7 +454,7 @@ export function QrPaymentDialog({
             if (!res.ok) return;
             setPollStatus(j.payment_status || "");
             const st = (j.payment_status || "").toLowerCase();
-            if (st === "finished") {
+            if (isPaymentStatusComplete(j.payment_status)) {
                 await finalizeRef.current();
             }
         } catch {
@@ -412,7 +469,9 @@ export function QrPaymentDialog({
 
     const statusLower = pollStatus.toLowerCase();
     const isWaiting =
-        !["finished", "failed", "expired", "refunded"].includes(statusLower) && terminal !== "fail";
+        terminal !== "fail" &&
+        !["failed", "expired", "refunded"].includes(statusLower) &&
+        !isPaymentStatusComplete(pollStatus);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>

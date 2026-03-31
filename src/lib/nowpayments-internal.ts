@@ -208,12 +208,7 @@ export async function npGetPayment(
     return { ok: true, data };
 }
 
-/** USD tolerance for matching create vs verify. */
-export function usdAmountsMatch(expected: number, actual: number | undefined): boolean {
-    if (actual === undefined || !Number.isFinite(actual)) return false;
-    const tol = Math.max(0.02, expected * 0.002);
-    return Math.abs(actual - expected) <= tol;
-}
+export { usdAmountsMatch, isPaymentStatusComplete } from './nowpayments-shared';
 
 export function orderIdForUser(userId: string, planId: string): string {
     return `inv_${userId}_${planId}_${Date.now()}`;

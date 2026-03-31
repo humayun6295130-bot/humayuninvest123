@@ -4,6 +4,7 @@ import {
     isOrderIdOwnedByUser,
     npGetPayment,
     usdAmountsMatch,
+    isPaymentStatusComplete,
 } from '@/lib/nowpayments-internal';
 
 export const dynamic = 'force-dynamic';
@@ -41,8 +42,8 @@ export async function POST(request: NextRequest) {
         }
 
         const d = result.data;
-        const status = String(d.payment_status ?? '').toLowerCase();
-        if (status !== 'finished') {
+        const status = String(d.payment_status ?? '');
+        if (!isPaymentStatusComplete(status)) {
             return NextResponse.json({
                 valid: false,
                 error: 'Payment is not completed',

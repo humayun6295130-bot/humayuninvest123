@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRealtimeCollection, updateRow, insertRow } from "@/firebase";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
@@ -55,14 +55,22 @@ export function InvestmentApproval() {
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
     const [rejectionReason, setRejectionReason] = useState("");
 
-    // Fetch pending investments
-    const pendingOptions = {
-        table: 'pending_investments',
-        orderByColumn: { column: 'created_at', direction: 'desc' as const },
-        enabled: true,
-    };
+    const pendingOptions = useMemo(
+        () => ({
+            table: 'pending_investments' as const,
+            enabled: true,
+        }),
+        []
+    );
 
-    const { data: pendingInvestments, isLoading } = useRealtimeCollection<PendingInvestment>(pendingOptions);
+    const { data: pendingInvestmentsRaw, isLoading } = useRealtimeCollection<PendingInvestment>(pendingOptions);
+
+    const pendingInvestments = useMemo(() => {
+        if (!pendingInvestmentsRaw?.length) return pendingInvestmentsRaw;
+        return [...pendingInvestmentsRaw].sort(
+            (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+    }, [pendingInvestmentsRaw]);
 
     const pendingList = pendingInvestments?.filter(i => i.status === 'pending_payment_confirmation') || [];
     const processingList = pendingInvestments?.filter(i => i.status === 'payment_received') || [];

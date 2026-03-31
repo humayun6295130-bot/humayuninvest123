@@ -13,3 +13,7 @@ Firebase auto-deploy from GitHub (Firestore rules + indexes)
 
 Vercel still deploys the Next.js app when you push; it does NOT deploy Firestore.
 This workflow keeps Firebase in sync with the repo so you do not have to run firebase deploy manually.
+
+Also add in Vercel (same JSON as CI, or a dedicated key):
+  FIREBASE_SERVICE_ACCOUNT_JSON
+This enables POST /api/nowpayments/complete-investment so user investments are written reliably after NOWPayments (not only in the browser).
