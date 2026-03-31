@@ -226,7 +226,7 @@ export function AutoVerifyPayment({
 
             // Update user balance for deposits
             if (purpose === 'deposit') {
-                await updateRow('profiles', user?.uid || '', {
+                await updateRow('users', user?.uid || '', {
                     balance: (userProfile?.balance || 0) + (verifiedTxData ? parseInt(verifiedTxData.quant) / 1e6 : amount),
                 });
             }

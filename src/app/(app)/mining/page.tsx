@@ -165,10 +165,17 @@ export default function MiningPage() {
     const investmentsOptions = useMemo(() => ({
         table: 'user_investments',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'start_date', direction: 'desc' as const },
         enabled: !!user,
     }), [user]);
-    const { data: firebaseInvestments } = useRealtimeCollection(investmentsOptions);
+    const { data: firebaseInvestmentsRaw } = useRealtimeCollection(investmentsOptions);
+
+    const firebaseInvestments = useMemo(() => {
+        if (!firebaseInvestmentsRaw?.length) return firebaseInvestmentsRaw;
+        return [...firebaseInvestmentsRaw].sort(
+            (a: any, b: any) =>
+                new Date(b.start_date || 0).getTime() - new Date(a.start_date || 0).getTime()
+        );
+    }, [firebaseInvestmentsRaw]);
 
     // Map Firebase investments to display format
     const userInvestments = useMemo(() => {
@@ -184,7 +191,10 @@ export default function MiningPage() {
                 id: inv.id,
                 planName: inv.plan_name,
                 amount: inv.amount,
-                dailyEarnings: inv.daily_roi ? inv.amount * (inv.daily_roi / 100) : 0,
+                dailyEarnings:
+                    typeof inv.daily_roi === 'number' && inv.daily_roi > 0
+                        ? inv.daily_roi
+                        : (inv.amount * (Number(inv.daily_roi_percent) || 0)) / 100,
                 totalEarnings: inv.total_return || 0,
                 startDate: inv.start_date?.slice(0, 10) || '',
                 endDate: inv.end_date?.slice(0, 10) || '',

@@ -37,11 +37,18 @@ export default function WalletPage() {
   const transactionsOptions = useMemo(() => ({
     table: 'transactions',
     filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-    orderByColumn: { column: 'created_at', direction: 'desc' as const },
     enabled: !!user,
   }), [user]);
 
-  const { data: transactions } = useRealtimeCollection(transactionsOptions);
+  const { data: transactionsRaw } = useRealtimeCollection(transactionsOptions);
+
+  const transactions = useMemo(() => {
+    if (!transactionsRaw?.length) return transactionsRaw;
+    return [...transactionsRaw].sort(
+      (a: any, b: any) =>
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
+  }, [transactionsRaw]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {

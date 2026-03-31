@@ -39,7 +39,6 @@ export default function EarningsPage() {
     const earningsOptions = useMemo(() => ({
         table: 'daily_earnings',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'date', direction: 'desc' as const },
         enabled: !!user,
     }), [user]);
 
@@ -49,7 +48,14 @@ export default function EarningsPage() {
         enabled: !!user,
     }), [user]);
 
-    const { data: earnings, isLoading: earningsLoading } = useRealtimeCollection<DailyEarning>(earningsOptions);
+    const { data: earningsRaw, isLoading: earningsLoading } = useRealtimeCollection<DailyEarning>(earningsOptions);
+
+    const earnings = useMemo(() => {
+        if (!earningsRaw?.length) return earningsRaw;
+        return [...earningsRaw].sort(
+            (a, b) => new Date(b.date || b.created_at || 0).getTime() - new Date(a.date || a.created_at || 0).getTime()
+        );
+    }, [earningsRaw]);
     const { data: investments, isLoading: investmentsLoading } = useRealtimeCollection<UserInvestment>(investmentsOptions);
 
     const activeInvestments = investments?.filter(inv => inv.status === 'active') || [];

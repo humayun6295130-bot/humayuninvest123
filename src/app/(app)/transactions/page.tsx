@@ -30,11 +30,17 @@ export default function TransactionsPage() {
     const transactionsOptions = useMemo(() => ({
         table: 'transactions',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'created_at', direction: 'desc' as const },
         enabled: !!user,
     }), [user]);
 
-    const { data: transactions, isLoading } = useRealtimeCollection<Transaction>(transactionsOptions);
+    const { data: transactionsRaw, isLoading } = useRealtimeCollection<Transaction>(transactionsOptions);
+
+    const transactions = useMemo(() => {
+        if (!transactionsRaw?.length) return transactionsRaw;
+        return [...transactionsRaw].sort(
+            (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+    }, [transactionsRaw]);
 
     const filteredTransactions = transactions?.filter((t) => {
         const matchesSearch = t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||

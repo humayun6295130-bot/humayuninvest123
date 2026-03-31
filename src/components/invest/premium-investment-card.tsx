@@ -1,6 +1,15 @@
 "use client";
 
 import { useMemo } from "react";
+
+function displayDailyRoiPercent(plan: InvestmentPlan): number {
+    const d = Number(plan.daily_roi_percent);
+    if (Number.isFinite(d) && d > 0) return d;
+    const dur = Number(plan.duration_days) || 1;
+    const ret = Number(plan.return_percent);
+    if (Number.isFinite(ret) && ret > 0 && dur > 0) return ret / dur;
+    return 0;
+}
 import { cn } from "@/lib/utils";
 import { TrendingUp, Shield, CheckCircle } from "lucide-react";
 
@@ -112,6 +121,7 @@ function InfoTooltip({ content }: { content: string }) {
 }
 
 export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestmentCardProps) {
+    const roiPct = useMemo(() => displayDailyRoiPercent(plan), [plan]);
     const sparklineData = useMemo(() => generateSparklineData(plan), [plan]);
 
     const formatCurrency = (amount: number) => {
@@ -169,7 +179,7 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
                         <InfoTooltip content="Daily return on investment, claimed once per day" />
                     </div>
                     <span className="metric-value text-indigo-600">
-                        {plan.daily_roi_percent}%/day
+                        {roiPct.toFixed(2)}%/day
                     </span>
                 </div>
 
@@ -180,11 +190,11 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
                     </div>
                     <span className={cn(
                         "metric-value flex items-center gap-1",
-                        plan.daily_roi_percent > 3 ? "text-red-400" : plan.daily_roi_percent > 1.5 ? "text-amber-400" : "text-green-400"
+                        roiPct > 3 ? "text-red-400" : roiPct > 1.5 ? "text-amber-400" : "text-green-400"
                     )}>
                         <Shield className={cn(
                             "w-3 h-3",
-                            plan.daily_roi_percent > 3 ? "text-red-400" : plan.daily_roi_percent > 1.5 ? "text-amber-400" : "text-green-400"
+                            roiPct > 3 ? "text-red-400" : roiPct > 1.5 ? "text-amber-400" : "text-green-400"
                         )} />
                     </span>
                 </div>

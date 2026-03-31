@@ -90,16 +90,6 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
       return;
     }
 
-    if (!walletReady) {
-      toast({
-        variant: "destructive",
-        title: "Deposit wallet not configured",
-        description:
-          "Ask admin to set NEXT_PUBLIC_BSC_ADMIN_WALLET_ADDRESS (BSC USDT 0x address) in hosting env, then redeploy.",
-      });
-      return;
-    }
-
     // Use userProfile from props or fallback to user data
     const profile = userProfile || {
       display_name: user.displayName || user.email?.split('@')[0] || 'User',
@@ -173,11 +163,10 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
         <div className="space-y-4 py-2">
           {!walletReady && (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-              <p className="font-medium text-amber-200">Manual deposit address is not configured</p>
+              <p className="font-medium text-amber-200">Receive address not shown in UI yet</p>
               <p className="mt-1 text-amber-100/90">
-                Add <span className="font-mono">NEXT_PUBLIC_BSC_ADMIN_WALLET_ADDRESS</span> (your BSC USDT{" "}
-                <span className="font-mono">0x…</span> receive address) in Vercel/hosting environment variables, then
-                redeploy. Investment checkout via NOWPayments does not use this field.
+                You can still submit amount, TXID, and proof — admin will match manually. For the address and QR here, add{" "}
+                <span className="font-mono">NEXT_PUBLIC_BSC_ADMIN_WALLET_ADDRESS</span> in hosting env and redeploy.
               </p>
             </div>
           )}
@@ -315,7 +304,7 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white py-6"
-                disabled={isLoading || !walletReady}
+                disabled={isLoading}
               >
                 {isLoading ? "Processing..." : "Complete Deposit"}
               </Button>

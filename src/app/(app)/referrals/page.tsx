@@ -115,34 +115,51 @@ export default function ReferralsPage() {
         generateReferralCodeIfNeeded();
     }, [user, userProfile, isGeneratingCode]);
 
-    // Fetch referrals
+    // Fetch referrals (no orderBy — composite index not required; sort client-side)
     const referralsOptions = useMemo(() => ({
         table: 'referrals',
         filters: user ? [{ column: 'referrer_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'created_at', direction: 'desc' as const },
         enabled: !!user,
     }), [user]);
 
-    // Fetch referral bonuses
     const bonusesOptions = useMemo(() => ({
         table: 'referral_bonuses',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'created_at', direction: 'desc' as const },
         limitCount: 50,
         enabled: !!user,
     }), [user]);
 
-    // Fetch referral withdrawals
     const withdrawalsOptions = useMemo(() => ({
         table: 'referral_withdrawals',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'requested_at', direction: 'desc' as const },
         enabled: !!user,
     }), [user]);
 
-    const { data: referrals, isLoading } = useRealtimeCollection<Referral>(referralsOptions);
-    const { data: bonuses } = useRealtimeCollection<ReferralBonus>(bonusesOptions);
-    const { data: withdrawals } = useRealtimeCollection<ReferralWithdrawal>(withdrawalsOptions);
+    const { data: referralsRaw, isLoading } = useRealtimeCollection<Referral>(referralsOptions);
+    const { data: bonusesRaw } = useRealtimeCollection<ReferralBonus>(bonusesOptions);
+    const { data: withdrawalsRaw } = useRealtimeCollection<ReferralWithdrawal>(withdrawalsOptions);
+
+    const referrals = useMemo(() => {
+        if (!referralsRaw?.length) return referralsRaw;
+        return [...referralsRaw].sort(
+            (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+    }, [referralsRaw]);
+
+    const bonuses = useMemo(() => {
+        if (!bonusesRaw?.length) return bonusesRaw;
+        return [...bonusesRaw].sort(
+            (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+    }, [bonusesRaw]);
+
+    const withdrawals = useMemo(() => {
+        if (!withdrawalsRaw?.length) return withdrawalsRaw;
+        return [...withdrawalsRaw].sort(
+            (a, b) =>
+                new Date(b.requested_at || 0).getTime() - new Date(a.requested_at || 0).getTime()
+        );
+    }, [withdrawalsRaw]);
 
     // Build referral link with proper fallbacks
     const referralLink = useMemo(() => {
@@ -158,8 +175,8 @@ export default function ReferralsPage() {
         return '';
     }, [userProfile?.referral_code, userProfile?.username]);
 
-    // Check if we should show loading state
-    const isReferralLoading = !userProfile || isGeneratingCode || !userProfile.referral_code;
+    /** Allow copy/share when username fallback link exists; only block while profile/code is generating */
+    const isReferralLoading = !userProfile || isGeneratingCode;
 
     // Calculate statistics
     const totalReferrals = referrals?.length || 0;
@@ -232,9 +249,7 @@ export default function ReferralsPage() {
     };
 
     const shareReferral = async () => {
-        const linkToShare = referralLink || userProfile?.referral_code
-            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${userProfile?.referral_code}`
-            : '';
+        const linkToShare = referralLink;
 
         if (!linkToShare) {
             toast({ variant: "destructive", title: "Error", description: "Please wait while your referral code is being generated." });
@@ -257,9 +272,7 @@ export default function ReferralsPage() {
     };
 
     const shareToSocial = (platform: string) => {
-        const linkToShare = referralLink || userProfile?.referral_code
-            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${userProfile?.referral_code}`
-            : '';
+        const linkToShare = referralLink;
 
         if (!linkToShare) {
             toast({ variant: "destructive", title: "Error", description: "No referral link available" });

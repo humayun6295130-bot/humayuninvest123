@@ -306,6 +306,7 @@ export function QrPaymentDialog({
                 plan_id: plan.id,
                 plan_name: plan.name,
                 daily_roi_percent: plan.daily_roi_percent,
+                return_percent: plan.return_percent,
                 amount: amt,
                 expected_return: expectedReturn,
                 duration_days: plan.duration_days > 0 ? plan.duration_days : 30,

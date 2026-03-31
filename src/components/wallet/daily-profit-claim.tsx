@@ -38,6 +38,10 @@ interface UserInvestment {
     status: 'active' | 'completed' | 'cancelled';
     last_claim_date?: string;
     total_claimed: number;
+    /** Dollar amount per day (preferred when set from plan activation) */
+    daily_roi?: number;
+    /** Plan daily % — used with amount when daily_roi missing */
+    daily_roi_percent?: number;
 }
 
 interface DailyClaim {
@@ -65,22 +69,40 @@ export function DailyProfitClaim() {
         enabled: !!user,
     }), [user]);
 
-    // Fetch daily claims
+    // Fetch daily claims (no orderBy — avoids composite index requirement; sort client-side)
     const claimsOptions = useMemo(() => ({
         table: 'daily_profit_claims',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'claimed_at', direction: 'desc' as const },
         enabled: !!user,
     }), [user]);
 
     const { data: investments } = useRealtimeCollection<UserInvestment>(investmentsOptions);
-    const { data: claims } = useRealtimeCollection<DailyClaim>(claimsOptions);
+    const { data: claimsRaw } = useRealtimeCollection<DailyClaim>(claimsOptions);
 
-    // Calculate daily profit for each investment
+    const claims = useMemo(() => {
+        if (!claimsRaw?.length) return claimsRaw;
+        return [...claimsRaw].sort(
+            (a, b) => new Date(b.claimed_at).getTime() - new Date(a.claimed_at).getTime()
+        );
+    }, [claimsRaw]);
+
+    /** Matches invest page / activate-qr: prefer stored daily $ ROI, else % of principal. */
     const calculateDailyProfit = (investment: UserInvestment): number => {
-        // 100% return in 30 days means profit = investment amount
-        // Daily profit = amount / 30
-        return investment.amount / 30;
+        const amt = Number(investment.amount) || 0;
+        const perDay = Number(investment.daily_roi);
+        if (Number.isFinite(perDay) && perDay > 0) return perDay;
+        const pct = Number(investment.daily_roi_percent);
+        if (Number.isFinite(pct) && pct > 0) return (amt * pct) / 100;
+        return 0;
+    };
+
+    const formatRoiLabel = (investment: UserInvestment): string => {
+        const perDay = calculateDailyProfit(investment);
+        const amt = Number(investment.amount) || 0;
+        const pct = Number(investment.daily_roi_percent);
+        if (Number.isFinite(pct) && pct > 0) return `${pct}%/day (${perDay.toFixed(2)}/day)`;
+        if (amt > 0 && perDay > 0) return `${((perDay / amt) * 100).toFixed(2)}%/day`;
+        return perDay > 0 ? `$${perDay.toFixed(2)}/day` : '—';
     };
 
     // Check if can claim today for an investment
@@ -166,7 +188,7 @@ export function DailyProfitClaim() {
             });
 
             // Add to user balance
-            await updateRow('profiles', user.uid, {
+            await updateRow('users', user.uid, {
                 balance: (userProfile?.balance || 0) + dailyProfit,
             });
 
@@ -235,7 +257,7 @@ export function DailyProfitClaim() {
             }
 
             // Update user balance once
-            await updateRow('profiles', user.uid, {
+            await updateRow('users', user.uid, {
                 balance: (userProfile?.balance || 0) + totalClaimedNow,
             });
 
@@ -255,7 +277,7 @@ export function DailyProfitClaim() {
     };
 
     if (!investments || investments.length === 0) {
-        return null; // Don't show if no active investments
+        return null;
     }
 
     return (
@@ -267,7 +289,7 @@ export function DailyProfitClaim() {
                         <CardTitle>Daily Profit Claim</CardTitle>
                     </div>
                     <Badge variant="outline" className="bg-green-50 text-green-700">
-                        100% Return Guaranteed
+                        Daily % from your plan
                     </Badge>
                 </div>
                 <CardDescription>
@@ -330,7 +352,7 @@ export function DailyProfitClaim() {
                                     <div>
                                         <p className="font-medium">{investment.plan_name}</p>
                                         <p className="text-xs text-muted-foreground">
-                                            Daily: +${dailyProfit.toFixed(2)}
+                                            {formatRoiLabel(investment)} · +${dailyProfit.toFixed(2)}/claim
                                         </p>
                                     </div>
                                 </div>
@@ -368,7 +390,7 @@ export function DailyProfitClaim() {
                     </p>
                     <p className="flex items-center gap-1 mt-1">
                         <CheckCircle className="w-3 h-3" />
-                        100% Return Guaranteed - Your investment amount will be returned as profit over 30 days.
+                        Amount per day follows each plan&apos;s daily ROI stored on your investment (deposit level × %).
                     </p>
                 </div>
             </CardContent>

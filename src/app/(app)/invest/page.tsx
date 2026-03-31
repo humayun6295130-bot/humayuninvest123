@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useUser, useRealtimeCollection, updateRow, insertRow } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ interface InvestmentPlan {
     profit_amount?: number;
     payout_schedule?: 'daily' | 'end_of_term';
     is_verified?: boolean;
+    is_active?: boolean;
 }
 
 interface UserInvestment {
@@ -108,8 +109,6 @@ export default function InvestPage() {
     const [activeCategory, setActiveCategory] = useState("All");
     const [sortBy, setSortBy] = useState<SortOption>("yield");
 
-    // Categories
-    const categories = ["All", "Starter", "Growth", "Premium", "Elite"];
     const desktopTabs = ["Plans", "My Investments", "Earnings", "Calculator"];
 
     // Sort options
@@ -120,30 +119,77 @@ export default function InvestPage() {
     ];
 
     // Data fetching
+    /** Load all plans; filter `is_active` on the client so missing/legacy fields still show. */
     const plansOptions = useMemo(() => ({
         table: 'investment_plans',
-        filters: [{ column: 'is_active', operator: '==' as const, value: true }],
+        filters: [] as { column: string; operator: '=='; value: unknown }[],
         enabled: true,
     }), []);
 
+    /** No orderBy — avoids Firestore composite index requirement when index file is empty */
     const userInvestmentsOptions = useMemo(() => ({
         table: 'user_investments',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'created_at', direction: 'desc' as const },
         enabled: !!user,
     }), [user]);
 
     const earningsOptions = useMemo(() => ({
         table: 'investment_earnings',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'claimed_at', direction: 'desc' as const },
         limitCount: 50,
         enabled: !!user,
     }), [user]);
 
-    const { data: plans, isLoading: plansLoading } = useRealtimeCollection<InvestmentPlan>(plansOptions);
-    const { data: userInvestments, isLoading: investmentsLoading } = useRealtimeCollection<UserInvestment>(userInvestmentsOptions);
-    const { data: earningsHistory } = useRealtimeCollection<EarningRecord>(earningsOptions);
+    const { data: plans, isLoading: plansLoading, error: plansError } = useRealtimeCollection<InvestmentPlan>(plansOptions);
+
+    const activePlans = useMemo(() => {
+        if (!plans?.length) return [];
+        const visible = plans.filter((p) => p.is_active !== false);
+        if (visible.length > 0) return visible;
+        return plans;
+    }, [plans]);
+
+    /** Prefer plan.daily_roi_percent; if 0/missing, infer from total return % ÷ duration (e.g. unified seed plan). */
+    const planRoiPercent = (p: InvestmentPlan) => {
+        const direct = Number(p.daily_roi_percent);
+        if (Number.isFinite(direct) && direct > 0) return direct;
+        const dur = Number(p.duration_days) || 1;
+        const ret = Number(p.return_percent);
+        if (Number.isFinite(ret) && ret > 0 && dur > 0) return ret / dur;
+        return 0;
+    };
+
+    const categoryOptions = useMemo(() => {
+        const labels = activePlans
+            .map((p) => p.category)
+            .filter((c): c is string => typeof c === 'string' && c.trim() !== '');
+        const uniq = [...new Set(labels.map((c) => c.trim()))].sort((a, b) => a.localeCompare(b));
+        return ['All', ...uniq];
+    }, [activePlans]);
+
+    useEffect(() => {
+        if (!categoryOptions.includes(activeCategory)) {
+            setActiveCategory('All');
+        }
+    }, [categoryOptions, activeCategory]);
+    const { data: userInvestmentsRaw, isLoading: investmentsLoading } = useRealtimeCollection<UserInvestment>(userInvestmentsOptions);
+    const { data: earningsHistoryRaw } = useRealtimeCollection<EarningRecord>(earningsOptions);
+
+    const userInvestments = useMemo(() => {
+        if (!userInvestmentsRaw?.length) return userInvestmentsRaw;
+        return [...userInvestmentsRaw].sort(
+            (a, b) =>
+                new Date((b as any).created_at || b.start_date || 0).getTime() -
+                new Date((a as any).created_at || a.start_date || 0).getTime()
+        );
+    }, [userInvestmentsRaw]);
+
+    const earningsHistory = useMemo(() => {
+        if (!earningsHistoryRaw?.length) return earningsHistoryRaw;
+        return [...earningsHistoryRaw].sort(
+            (a, b) => new Date(b.claimed_at || b.date || 0).getTime() - new Date(a.claimed_at || a.date || 0).getTime()
+        );
+    }, [earningsHistoryRaw]);
 
     // Computed values
     const activeInvestments = useMemo(() =>
@@ -163,18 +209,21 @@ export default function InvestPage() {
 
     // Filter and sort plans
     const filteredPlans = useMemo(() => {
-        if (!plans) return [];
+        let filtered =
+            activeCategory === 'All'
+                ? activePlans
+                : activePlans.filter(
+                      (p) => (p.category || '').toLowerCase() === activeCategory.toLowerCase()
+                  );
 
-        let filtered = activeCategory === "All"
-            ? plans
-            : plans.filter(p => p.category?.toLowerCase() === activeCategory.toLowerCase());
-
-        return filtered.sort((a, b) => {
+        return [...filtered].sort((a, b) => {
+            const pa = planRoiPercent(a);
+            const pb = planRoiPercent(b);
             switch (sortBy) {
                 case 'yield':
-                    return b.daily_roi_percent - a.daily_roi_percent;
+                    return pb - pa;
                 case 'risk':
-                    return a.daily_roi_percent - b.daily_roi_percent;
+                    return pa - pb;
                 case 'duration':
                     return a.duration_days - b.duration_days;
                 case 'newest':
@@ -183,7 +232,7 @@ export default function InvestPage() {
                     return 0;
             }
         });
-    }, [plans, activeCategory, sortBy]);
+    }, [activePlans, activeCategory, sortBy]);
 
     // Handlers
     const handleInvest = async () => {
@@ -319,6 +368,17 @@ export default function InvestPage() {
         );
     }
 
+    if (plansError) {
+        return (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-center space-y-2">
+                <p className="font-semibold text-foreground">Could not load investment plans</p>
+                <p className="text-sm text-muted-foreground">
+                    Check Firebase rules for <code className="text-xs">investment_plans</code> and your connection.
+                </p>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-8">
             {/* Premium Header */}
@@ -360,14 +420,25 @@ export default function InvestPage() {
 
             {/* Navigation - Mobile Chips / Desktop Tabs */}
             <div className="space-y-4">
-                {/* Mobile Chip Navigation */}
-                <div className="lg:hidden">
-                    <ChipNavigation
-                        items={categories}
-                        activeItem={activeCategory}
-                        onSelect={setActiveCategory}
+                {/* Mobile: main tabs (Plans / My Investments / …) — was desktop-only, so mobile users could not switch */}
+                <div className="lg:hidden overflow-x-auto pb-1 -mx-1 px-1">
+                    <TabSwitcher
+                        items={desktopTabs}
+                        activeItem={activeTab}
+                        onSelect={setActiveTab}
                     />
                 </div>
+
+                {/* Mobile: category chips (only makes sense on Plans) */}
+                {activeTab === 'Plans' && (
+                    <div className="lg:hidden">
+                        <ChipNavigation
+                            items={categoryOptions}
+                            activeItem={activeCategory}
+                            onSelect={setActiveCategory}
+                        />
+                    </div>
+                )}
 
                 {/* Desktop Tab Switcher */}
                 <div className="hidden lg:flex items-center justify-between">
@@ -385,6 +456,16 @@ export default function InvestPage() {
                         />
                     )}
                 </div>
+
+                {activeTab === "Plans" && (
+                    <div className="hidden lg:block">
+                        <ChipNavigation
+                            items={categoryOptions}
+                            activeItem={activeCategory}
+                            onSelect={setActiveCategory}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Content Sections */}
@@ -417,8 +498,17 @@ export default function InvestPage() {
                         </div>
 
                         {filteredPlans.length === 0 && (
-                            <div className="text-center py-12">
-                                <p className="text-muted-foreground">No plans available in this category</p>
+                            <div className="text-center py-12 space-y-3">
+                                <p className="text-muted-foreground">
+                                    {activePlans.length === 0
+                                        ? 'No active investment plans in the database. An admin should add plans under Admin → Plan manager (or run setup scripts).'
+                                        : 'No plans in this category — tap “All” or another category above.'}
+                                </p>
+                                {activePlans.length > 0 && activeCategory !== 'All' && (
+                                    <Button variant="outline" size="sm" onClick={() => setActiveCategory('All')}>
+                                        Show all categories
+                                    </Button>
+                                )}
                             </div>
                         )}
                     </div>
