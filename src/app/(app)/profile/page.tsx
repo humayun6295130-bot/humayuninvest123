@@ -43,9 +43,40 @@ export default function ProfilePage() {
     const [copied, setCopied] = useState<string | null>(null);
     const [calculatorAmount, setCalculatorAmount] = useState<string>('100');
 
+    const toNumber = (v: unknown): number => {
+        const n = Number(v ?? 0);
+        return Number.isFinite(n) ? n : 0;
+    };
+
+    const toDate = (value: unknown): Date | null => {
+        if (!value) return null;
+        if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+        if (typeof value === 'string' || typeof value === 'number') {
+            const d = new Date(value);
+            return Number.isNaN(d.getTime()) ? null : d;
+        }
+        if (typeof value === 'object' && value !== null && 'seconds' in (value as any)) {
+            const sec = Number((value as any).seconds);
+            if (!Number.isFinite(sec)) return null;
+            const d = new Date(sec * 1000);
+            return Number.isNaN(d.getTime()) ? null : d;
+        }
+        return null;
+    };
+
+    const formatDateSafe = (value: unknown, fmt: string): string => {
+        const d = toDate(value);
+        if (!d) return 'N/A';
+        try {
+            return format(d, fmt);
+        } catch {
+            return 'N/A';
+        }
+    };
+
     // Fetch user's investments
     const investmentsOptions = useMemo(() => ({
-        table: 'investments',
+        table: 'user_investments',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
         enabled: !!user,
     }), [user]);
@@ -115,8 +146,8 @@ export default function ProfilePage() {
         toast({ title: 'Copied!', description: `${type} copied to clipboard` });
     };
 
-    const totalInvested = investments?.reduce((sum, inv: any) => sum + (inv.amount || 0), 0) || 0;
-    const totalReturns = investments?.reduce((sum, inv: any) => sum + (inv.expected_return || 0), 0) || 0;
+    const totalInvested = investments?.reduce((sum, inv: any) => sum + toNumber(inv.amount), 0) || 0;
+    const totalReturns = investments?.reduce((sum, inv: any) => sum + toNumber(inv.total_return ?? inv.expected_return), 0) || 0;
     const activeInvestments = investments?.filter((inv: any) => inv.status === 'active').length || 0;
 
     // Calculate profile completion
@@ -202,7 +233,7 @@ export default function ProfilePage() {
                                 {userProfile.created_at && (
                                     <span className="flex items-center gap-1">
                                         <Calendar className="w-4 h-4" />
-                                        Joined {format(new Date(userProfile.created_at), 'MMM yyyy')}
+                                        Joined {formatDateSafe(userProfile.created_at, 'MMM yyyy')}
                                     </span>
                                 )}
                             </div>
@@ -551,7 +582,7 @@ export default function ProfilePage() {
                                             <div>
                                                 <p className="text-sm font-medium capitalize">{tx.type}</p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {tx.created_at ? format(new Date(tx.created_at), 'MMM d, yyyy') : 'N/A'}
+                                                    {formatDateSafe(tx.created_at, 'MMM d, yyyy')}
                                                 </p>
                                             </div>
                                         </div>
@@ -560,7 +591,7 @@ export default function ProfilePage() {
                                                 tx.type === 'withdrawal' ? 'text-red-600' :
                                                     'text-foreground'
                                                 }`}>
-                                                {tx.type === 'deposit' || tx.type === 'referral_bonus' ? '+' : '-'}${tx.amount?.toLocaleString('en-US')}
+                                                {tx.type === 'deposit' || tx.type === 'referral_bonus' ? '+' : '-'}${toNumber(tx.amount).toLocaleString('en-US')}
                                             </p>
                                             <Badge variant={tx.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">
                                                 {tx.status}
@@ -600,13 +631,15 @@ export default function ProfilePage() {
                                         <div>
                                             <p className="font-semibold">{inv.plan_name || 'Investment Plan'}</p>
                                             <p className="text-sm text-muted-foreground">
-                                                Started {inv.created_at ? format(new Date(inv.created_at), 'MMM d, yyyy') : 'N/A'}
+                                                Started {formatDateSafe(inv.created_at ?? inv.start_date, 'MMM d, yyyy')}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-semibold">${inv.amount?.toLocaleString('en-US')}</p>
-                                        <p className="text-sm text-green-600">+${(inv.expected_return - inv.amount)?.toLocaleString('en-US')} expected</p>
+                                        <p className="font-semibold">${toNumber(inv.amount).toLocaleString('en-US')}</p>
+                                        <p className="text-sm text-green-600">
+                                            +${(toNumber(inv.total_return ?? inv.expected_return) - toNumber(inv.amount)).toLocaleString('en-US')} expected
+                                        </p>
                                     </div>
                                 </div>
                             ))}
