@@ -27,10 +27,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, insertRow, uploadFile } from "@/firebase";
-import { getAdminWalletAddress, generateBEP20QRCode, getWalletInfo } from "@/lib/wallet-config";
+import { getAdminWalletAddress, generateBEP20QRCode, getWalletInfo, isWalletConfigured } from "@/lib/wallet-config";
 
 // Get safe version for internal usage
 const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
+const walletReady = isWalletConfigured();
 
 const formSchema = z.object({
   amount: z.coerce.number().positive("Amount must be a positive number.").min(10, "Minimum deposit is $10"),
@@ -55,6 +56,10 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
   const depositAmount = form.watch("amount") || 0;
 
   const handleCopy = () => {
+    if (!ADMIN_WALLET_ADDRESS) {
+      toast({ variant: "destructive", title: "No address", description: "Deposit wallet is not configured on the server." });
+      return;
+    }
     navigator.clipboard.writeText(ADMIN_WALLET_ADDRESS);
     toast({
       title: "Copied!",
@@ -82,6 +87,16 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
 
     if (!user) {
       toast({ variant: "destructive", title: "Error", description: "User not authenticated. Please log in again." });
+      return;
+    }
+
+    if (!walletReady) {
+      toast({
+        variant: "destructive",
+        title: "Deposit wallet not configured",
+        description:
+          "Ask admin to set NEXT_PUBLIC_BSC_ADMIN_WALLET_ADDRESS (BSC USDT 0x address) in hosting env, then redeploy.",
+      });
       return;
     }
 
@@ -156,6 +171,16 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {!walletReady && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              <p className="font-medium text-amber-200">Manual deposit address is not configured</p>
+              <p className="mt-1 text-amber-100/90">
+                Add <span className="font-mono">NEXT_PUBLIC_BSC_ADMIN_WALLET_ADDRESS</span> (your BSC USDT{" "}
+                <span className="font-mono">0x…</span> receive address) in Vercel/hosting environment variables, then
+                redeploy. Investment checkout via NOWPayments does not use this field.
+              </p>
+            </div>
+          )}
           {/* Wallet Address Section */}
           <div className="p-4 bg-slate-800 rounded-xl border border-orange-500/20">
             <div className="flex items-center justify-between mb-2">
@@ -163,8 +188,16 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
               <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded">USDT</span>
             </div>
             <div className="flex items-center gap-2 bg-slate-900 p-2 rounded border border-slate-700">
-              <code className="text-xs break-all flex-1 text-orange-300 font-mono">{ADMIN_WALLET_ADDRESS}</code>
-              <Button variant="ghost" size="icon" onClick={handleCopy} className="h-8 w-8 hover:text-orange-400">
+              <code className="text-xs break-all flex-1 text-orange-300 font-mono">
+                {ADMIN_WALLET_ADDRESS || "— not configured —"}
+              </code>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleCopy}
+                disabled={!walletReady}
+                className="h-8 w-8 hover:text-orange-400"
+              >
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
@@ -282,7 +315,7 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white py-6"
-                disabled={isLoading}
+                disabled={isLoading || !walletReady}
               >
                 {isLoading ? "Processing..." : "Complete Deposit"}
               </Button>

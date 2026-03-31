@@ -103,7 +103,8 @@ export default function InvestPage() {
     const [selectedInvestmentForMining, setSelectedInvestmentForMining] = useState<UserInvestment | null>(null);
 
     // Navigation State
-    const [activeTab, setActiveTab] = useState("plans");
+    // Must match `desktopTabs` labels (TabSwitcher passes exact strings).
+    const [activeTab, setActiveTab] = useState("Plans");
     const [activeCategory, setActiveCategory] = useState("All");
     const [sortBy, setSortBy] = useState<SortOption>("yield");
 
@@ -389,7 +390,7 @@ export default function InvestPage() {
             {/* Content Sections */}
             <div className="space-y-6">
                 {/* Plans Tab */}
-                {activeTab === "plans" && (
+                {activeTab === "Plans" && (
                     <div className="space-y-6">
                         {/* Mobile sort dropdown */}
                         <div className="lg:hidden flex justify-end">
@@ -424,7 +425,7 @@ export default function InvestPage() {
                 )}
 
                 {/* Active Investments Tab */}
-                {activeTab === "active" && (
+                {activeTab === "My Investments" && (
                     <div className="space-y-4">
                         {investmentsLoading ? (
                             <div className="flex items-center justify-center py-12">
@@ -437,7 +438,7 @@ export default function InvestPage() {
                                 </div>
                                 <h3 className="font-headline text-lg font-bold text-foreground mb-2">No Active Investments</h3>
                                 <p className="text-muted-foreground mb-6">Start growing your wealth by investing in one of our plans</p>
-                                <Button className="btn-primary" onClick={() => setActiveTab("plans")}>
+                                <Button className="btn-primary" onClick={() => setActiveTab("Plans")}>
                                     Browse Plans
                                     <ArrowRight className="ml-2 w-4 h-4" />
                                 </Button>
@@ -535,7 +536,7 @@ export default function InvestPage() {
                 )}
 
                 {/* Earnings Tab */}
-                {activeTab === "earnings" && (
+                {activeTab === "Earnings" && (
                     <div className="premium-card">
                         <div className="mb-6">
                             <h2 className="font-headline text-xl font-bold text-foreground">Earnings History</h2>
@@ -579,7 +580,7 @@ export default function InvestPage() {
                 )}
 
                 {/* Calculator Tab */}
-                {activeTab === "calculator" && (
+                {activeTab === "Calculator" && (
                     <div className="premium-card">
                         <div className="mb-6">
                             <h2 className="font-headline text-xl font-bold text-foreground">ROI Calculator</h2>
