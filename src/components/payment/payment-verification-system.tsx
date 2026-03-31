@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useUser, insertRow, useRealtimeCollection } from "@/firebase";
+import { useUser, insertRow, useRealtimeCollection, fetchRows, updateRow, incrementBalance } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
 import { getAdminWalletAddress, WALLET_ADDRESSES, generateBEP20QRCode, generateGenericQRCode } from "@/lib/wallet-config";
+import { verifyTransactionWithDoubleSpendCheck } from "@/lib/bep20";
 
 // Get safe version for internal usage
 const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
@@ -120,7 +121,7 @@ export function PaymentVerificationSystem({
             }
 
             // Create payment verification record
-            await insertRow('payment_verifications', {
+            const verification = await insertRow('payment_verifications', {
                 user_id: user.uid,
                 user_email: userProfile?.email || user.email,
                 user_name: userProfile?.display_name || user.displayName,
@@ -141,7 +142,7 @@ export function PaymentVerificationSystem({
             });
 
             // Also create a transaction record
-            await insertRow('transactions', {
+            const tx = await insertRow('transactions', {
                 user_id: user.uid,
                 user_email: userProfile?.email || user.email,
                 user_display_name: userProfile?.display_name || user.displayName,
@@ -158,9 +159,48 @@ export function PaymentVerificationSystem({
                 },
             });
 
+            // Try on-chain verification + auto-approval (especially for deposits)
+            try {
+                const toAddress = WALLET_ADDRESSES[selectedMethod as keyof typeof WALLET_ADDRESSES] || ADMIN_WALLET_ADDRESS;
+                const chainCheck = await verifyTransactionWithDoubleSpendCheck(
+                    transactionHash,
+                    toAddress,
+                    amount
+                );
+
+                if (chainCheck.valid && chainCheck.confirmed && !chainCheck.alreadyProcessed) {
+                    // Mark payment verification as approved / blockchain_verified
+                    await updateRow('payment_verifications', verification.id, {
+                        status: 'approved',
+                        blockchain_verified: true,
+                        confirmations: chainCheck.confirmations,
+                        verified_at: new Date().toISOString(),
+                        verification_status: 'approved',
+                    });
+
+                    // Mark transaction as completed if still pending
+                    await updateRow('transactions', tx.id, {
+                        status: 'completed',
+                        blockchain_verified: true,
+                        confirmations: chainCheck.confirmations,
+                    });
+
+                    // For pure deposits, credit wallet balance immediately
+                    if (purpose === 'deposit') {
+                        await incrementBalance(user.uid, amount);
+                    }
+                }
+            } catch (chainErr) {
+                console.error('Auto on-chain verification (non-fatal):', chainErr);
+                // Keep records pending for manual review
+            }
+
             toast({
                 title: "Payment Proof Submitted!",
-                description: "Your payment is under review. You'll be notified once verified.",
+                description:
+                    purpose === 'deposit'
+                        ? "Your payment has been submitted. If blockchain verification passes, your balance will be credited automatically, otherwise an admin will review it."
+                        : "Your payment is under review. You'll be notified once verified.",
             });
 
             setStep('success');
