@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useFirebase, insertRow } from "@/firebase";
+import { useAuth, useFirebase, insertRow, upsertRow } from "@/firebase";
 import { useState, useEffect } from "react";
 import { generateSupportId } from "@/lib/support-id";
 import { query, collection, where, getDocs, doc, getDoc } from "firebase/firestore";
@@ -136,8 +136,8 @@ export function RegisterForm() {
       // Generate unique referral code for this user
       const myReferralCode = await generateUniqueReferralCode();
 
-      // Create user profile in database
-      await insertRow("users", {
+      // Create user profile in database (doc id MUST be auth uid)
+      await upsertRow("users", {
         id: user.uid,
         email: values.email,
         username: values.username,
@@ -163,8 +163,9 @@ export function RegisterForm() {
         name: "My First Portfolio",
       });
 
-      // Initialize user's team record
-      await insertRow("user_teams", {
+      // Initialize user's team record (doc id MUST match user_id for referral updates)
+      await upsertRow("user_teams", {
+        id: user.uid,
         user_id: user.uid,
         total_members: 0,
         level1_count: 0,

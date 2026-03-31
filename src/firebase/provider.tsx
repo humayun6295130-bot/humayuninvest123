@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { auth, db, isFirebaseConfigured } from './config';
 
 interface FirebaseContextState {
@@ -55,27 +55,66 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
 
         setIsProfileLoading(true);
 
-        // Set up real-time listener for user profile
         const userRef = doc(db, 'users', user.uid);
+        let unsubscribe: (() => void) | null = null;
+        let cancelled = false;
 
-        const unsubscribe = onSnapshot(
-            userRef,
-            (docSnap) => {
-                if (docSnap.exists()) {
-                    setUserProfile({ ...docSnap.data(), id: docSnap.id });
-                } else {
-                    setUserProfile(null);
-                }
-                setIsProfileLoading(false);
-            },
-            (error) => {
-                console.warn('Profile fetch error:', error);
-                setUserProfile(null);
-                setIsProfileLoading(false);
+        async function ensureProfileDocByUid() {
+            // Some legacy users were created with auto-id docs instead of uid.
+            const snap = await getDoc(userRef);
+            if (snap.exists()) return;
+            if (!user.email) return;
+
+            const legacyQ = query(
+                collection(db, 'users'),
+                where('email', '==', user.email),
+                limit(1)
+            );
+            const legacySnap = await getDocs(legacyQ);
+            if (legacySnap.empty) return;
+
+            const legacy = legacySnap.docs[0];
+            await setDoc(
+                userRef,
+                {
+                    ...legacy.data(),
+                    migrated_from_doc_id: legacy.id,
+                    updated_at: new Date().toISOString(),
+                },
+                { merge: true }
+            );
+        }
+
+        void (async () => {
+            try {
+                await ensureProfileDocByUid();
+            } catch (err) {
+                console.warn('Profile migration check failed:', err);
             }
-        );
 
-        return () => unsubscribe();
+            if (cancelled) return;
+            unsubscribe = onSnapshot(
+                userRef,
+                (docSnap) => {
+                    if (docSnap.exists()) {
+                        setUserProfile({ ...docSnap.data(), id: docSnap.id });
+                    } else {
+                        setUserProfile(null);
+                    }
+                    setIsProfileLoading(false);
+                },
+                (error) => {
+                    console.warn('Profile fetch error:', error);
+                    setUserProfile(null);
+                    setIsProfileLoading(false);
+                }
+            );
+        })();
+
+        return () => {
+            cancelled = true;
+            if (unsubscribe) unsubscribe();
+        };
     }, [user, isConfigured]);
 
     const contextValue = useMemo((): FirebaseContextState => ({
