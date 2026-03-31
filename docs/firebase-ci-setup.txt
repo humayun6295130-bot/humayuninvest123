@@ -1,0 +1,15 @@
+Firebase auto-deploy from GitHub (Firestore rules + indexes)
+==============================================================
+
+1) On your PC (once), generate a CI token:
+   npx firebase-tools login:ci
+
+2) GitHub repo -> Settings -> Secrets and variables -> Actions -> New repository secret
+   Name:  FIREBASE_TOKEN
+   Value: (paste the token from step 1)
+
+3) Push changes to firestore.rules or firestore.indexes.json on branch "main".
+   The workflow "Deploy Firestore" will publish rules + indexes to project in .firebaserc.
+
+Vercel still deploys the Next.js app when you push; it does NOT deploy Firestore.
+This workflow keeps Firebase in sync with the repo so you do not have to run firebase deploy manually.
