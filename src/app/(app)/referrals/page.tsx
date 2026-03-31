@@ -161,19 +161,27 @@ export default function ReferralsPage() {
         );
     }, [withdrawalsRaw]);
 
-    // Build referral link with proper fallbacks
+    // Build stable base URL for referral links (prefers NEXT_PUBLIC_BASE_URL, falls back to window.origin, then a safe default)
+    const referralBaseUrl = useMemo(() => {
+        if (typeof window !== 'undefined' && window.location?.origin) {
+            return window.location.origin.replace(/\/+$/, '');
+        }
+        if (process.env.NEXT_PUBLIC_BASE_URL) {
+            return process.env.NEXT_PUBLIC_BASE_URL.replace(/\/+$/, '');
+        }
+        return 'https://btcmine.xyz';
+    }, []);
+
+    // Build referral link with proper fallbacks (code > username)
     const referralLink = useMemo(() => {
         if (userProfile?.referral_code) {
-            const origin = typeof window !== 'undefined' ? window.location.origin : '';
-            return `${origin}/register?ref=${userProfile.referral_code}`;
+            return `${referralBaseUrl}/register?ref=${encodeURIComponent(userProfile.referral_code)}`;
         }
-        // Fallback: use username if available
         if (userProfile?.username) {
-            const origin = typeof window !== 'undefined' ? window.location.origin : '';
-            return `${origin}/register?ref=${userProfile.username}`;
+            return `${referralBaseUrl}/register?ref=${encodeURIComponent(userProfile.username)}`;
         }
         return '';
-    }, [userProfile?.referral_code, userProfile?.username]);
+    }, [userProfile?.referral_code, userProfile?.username, referralBaseUrl]);
 
     /** Allow copy/share when username fallback link exists; only block while profile/code is generating */
     const isReferralLoading = !userProfile || isGeneratingCode;
@@ -194,14 +202,12 @@ export default function ReferralsPage() {
     const totalWithdrawn = withdrawals?.filter(w => w.status === 'approved').reduce((sum, w) => sum + w.amount, 0) || 0;
 
     const copyToClipboard = async () => {
-        // Build link with fallback
+        // Build link with fallback (base URL already normalised)
         let linkToCopy = referralLink;
         if (!linkToCopy && userProfile?.referral_code) {
-            const origin = typeof window !== 'undefined' ? window.location.origin : 'https://btcmine.xyz';
-            linkToCopy = `${origin}/register?ref=${userProfile.referral_code}`;
+            linkToCopy = `${referralBaseUrl}/register?ref=${encodeURIComponent(userProfile.referral_code)}`;
         } else if (!linkToCopy && userProfile?.username) {
-            const origin = typeof window !== 'undefined' ? window.location.origin : 'https://btcmine.xyz';
-            linkToCopy = `${origin}/register?ref=${userProfile.username}`;
+            linkToCopy = `${referralBaseUrl}/register?ref=${encodeURIComponent(userProfile.username)}`;
         }
 
         if (!linkToCopy || !linkToCopy.includes('/register?ref=')) {
@@ -249,9 +255,14 @@ export default function ReferralsPage() {
     };
 
     const shareReferral = async () => {
-        const linkToShare = referralLink;
+        let linkToShare = referralLink;
+        if (!linkToShare && userProfile?.referral_code) {
+            linkToShare = `${referralBaseUrl}/register?ref=${encodeURIComponent(userProfile.referral_code)}`;
+        } else if (!linkToShare && userProfile?.username) {
+            linkToShare = `${referralBaseUrl}/register?ref=${encodeURIComponent(userProfile.username)}`;
+        }
 
-        if (!linkToShare) {
+        if (!linkToShare || !linkToShare.includes('/register?ref=')) {
             toast({ variant: "destructive", title: "Error", description: "Please wait while your referral code is being generated." });
             return;
         }
@@ -272,9 +283,14 @@ export default function ReferralsPage() {
     };
 
     const shareToSocial = (platform: string) => {
-        const linkToShare = referralLink;
+        let linkToShare = referralLink;
+        if (!linkToShare && userProfile?.referral_code) {
+            linkToShare = `${referralBaseUrl}/register?ref=${encodeURIComponent(userProfile.referral_code)}`;
+        } else if (!linkToShare && userProfile?.username) {
+            linkToShare = `${referralBaseUrl}/register?ref=${encodeURIComponent(userProfile.username)}`;
+        }
 
-        if (!linkToShare) {
+        if (!linkToShare || !linkToShare.includes('/register?ref=')) {
             toast({ variant: "destructive", title: "Error", description: "No referral link available" });
             return;
         }
@@ -500,7 +516,7 @@ export default function ReferralsPage() {
                                 <Button
                                     variant="secondary"
                                     onClick={copyToClipboard}
-                                    disabled={!referralLink || isReferralLoading}
+                                    disabled={isReferralLoading}
                                     className="flex-1"
                                 >
                                     <Copy className="h-4 w-4 mr-2" />
@@ -509,7 +525,7 @@ export default function ReferralsPage() {
                                 <Button
                                     variant="secondary"
                                     onClick={shareReferral}
-                                    disabled={!referralLink || isReferralLoading}
+                                    disabled={isReferralLoading}
                                     className="flex-1"
                                 >
                                     <Share2 className="h-4 w-4 mr-2" />
