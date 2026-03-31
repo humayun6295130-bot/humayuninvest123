@@ -369,12 +369,16 @@ export default function InvestPage() {
     }
 
     if (plansError) {
+        const detail =
+            plansError instanceof Error ? plansError.message : String((plansError as { message?: string })?.message ?? plansError);
         return (
-            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-center space-y-2">
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-center space-y-3">
                 <p className="font-semibold text-foreground">Could not load investment plans</p>
                 <p className="text-sm text-muted-foreground">
-                    Check Firebase rules for <code className="text-xs">investment_plans</code> and your connection.
+                    If this persists, check Firestore rules for signed-in reads on{' '}
+                    <code className="text-xs">investment_plans</code> and your network. Details:
                 </p>
+                <p className="text-xs font-mono text-destructive/90 break-words max-w-lg mx-auto">{detail}</p>
             </div>
         );
     }

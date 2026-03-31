@@ -326,6 +326,7 @@ export function useRealtimeCollection<T = any>(
                 })) as T[];
                 setData(items);
                 setIsLoading(false);
+                setError(null);
                 hasInitialData.current = true;
             } catch (err: any) {
                 console.error('Error fetching data:', err);
@@ -346,12 +347,14 @@ export function useRealtimeCollection<T = any>(
                 })) as T[];
                 setData(items);
                 setIsLoading(false);
+                setError(null);
                 hasInitialData.current = true;
             },
             (err) => {
                 console.error('Realtime error:', err);
-                // Don't set error if we already have data
-                if (!data) {
+                // Must not use `data` from closure — it is stale and stays null, so errors
+                // would always surface even after a successful getDocs/onSnapshot read.
+                if (!hasInitialData.current) {
                     setError(err);
                     setIsLoading(false);
                 }
