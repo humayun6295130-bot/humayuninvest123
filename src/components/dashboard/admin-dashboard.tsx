@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense, useCallback, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminOverview } from "@/components/admin/admin-overview";
 import { UserControlPanel } from "@/components/admin/user-control-panel";
@@ -10,6 +12,7 @@ import { ReferralManager } from "@/components/admin/referral-manager";
 import { InvestmentApproval } from "@/components/admin/investment-approval";
 import { PaymentVerificationManager } from "@/components/admin/payment-verification-manager";
 import { AdminWithdrawalManager } from "@/components/admin/admin-withdrawal-manager";
+import { AdminCommandBar } from "@/components/admin/admin-command-bar";
 import {
   LayoutDashboard,
   ArrowDownUp,
@@ -19,18 +22,52 @@ import {
   Wallet,
   UserCog,
   Shield,
-  Banknote
+  Banknote,
 } from "lucide-react";
+import { isValidAdminTab, type AdminTabId } from "@/lib/admin-tabs";
 
-export function AdminDashboard() {
+function AdminDashboardInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeTab = useMemo(() => {
+    const raw = searchParams.get("tab");
+    return isValidAdminTab(raw) ? raw : "overview";
+  }, [searchParams]);
+
+  const jump = useCallback(
+    (tab: AdminTabId, opts?: { userQuery?: string }) => {
+      const p = new URLSearchParams(searchParams.toString());
+      p.set("tab", tab);
+      const q = opts?.userQuery?.trim();
+      if (q) p.set("q", q);
+      else if (opts && "userQuery" in opts) p.delete("q");
+      router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  const onTabChange = useCallback(
+    (value: string) => {
+      if (!isValidAdminTab(value)) return;
+      jump(value);
+    },
+    [jump]
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold">Admin Panel</h1>
-        <p className="text-muted-foreground">Full control center for platform management</p>
+        <p className="text-muted-foreground">
+          Use the action queue below for daily work. Tabs stay in the URL so you can bookmark a section.
+        </p>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <AdminCommandBar onJump={jump} />
+
+      <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-6">
         <TabsList className="flex w-full flex-wrap h-auto gap-1 p-1 justify-start">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
@@ -107,5 +144,21 @@ export function AdminDashboard() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function AdminDashboardFallback() {
+  return (
+    <div className="flex min-h-[40vh] w-full items-center justify-center rounded-lg border border-dashed">
+      <p className="text-muted-foreground text-sm">Loading admin…</p>
+    </div>
+  );
+}
+
+export function AdminDashboard() {
+  return (
+    <Suspense fallback={<AdminDashboardFallback />}>
+      <AdminDashboardInner />
+    </Suspense>
   );
 }

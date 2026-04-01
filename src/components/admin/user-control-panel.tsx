@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRealtimeCollection, updateRow, deleteRow, insertRow } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -61,7 +62,13 @@ interface User {
 
 export function UserControlPanel() {
     const { toast } = useToast();
+    const searchParams = useSearchParams();
+    const qFromUrl = searchParams.get("q") ?? "";
     const [searchTerm, setSearchTerm] = useState("");
+
+    useEffect(() => {
+        if (qFromUrl) setSearchTerm(qFromUrl);
+    }, [qFromUrl]);
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [roleFilter, setRoleFilter] = useState<string>("all");
     const [sortBy, setSortBy] = useState<{ field: keyof User; order: 'asc' | 'desc' }>({ field: 'created_at', order: 'desc' });
