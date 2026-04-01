@@ -53,7 +53,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
             }
         );
         return () => unsub();
-    }, [isConfigured, db]);
+    }, [isConfigured]);
 
     useEffect(() => {
         if (!isConfigured || !auth) {

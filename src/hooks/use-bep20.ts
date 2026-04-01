@@ -276,7 +276,7 @@ export function useTransactionHistory(
 
     useEffect(() => {
         fetchTransactions(1, false);
-    }, [address]);
+    }, [address, fetchTransactions]);
 
     const loadMore = useCallback(async () => {
         if (!isLoading && hasMore) {
@@ -455,6 +455,18 @@ export function useConfirmationTracker(
     const [error, setError] = useState<string | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+    const minConf = options.minConfirmations ?? 15;
+    const pollMs = options.pollInterval ?? 30000;
+    const onConfirmed = options.onConfirmed;
+
+    const stopTracking = useCallback(() => {
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+        setIsChecking(false);
+    }, []);
+
     const startTracking = useCallback((txID: string) => {
         if (!isValidTransactionHash(txID)) {
             setError('Invalid transaction hash');
@@ -464,18 +476,15 @@ export function useConfirmationTracker(
         setIsChecking(true);
         setError(null);
 
-        const minConfirmations = options.minConfirmations || 15;
-        const pollInterval = options.pollInterval || 30000; // 30 seconds
-
         const check = async () => {
             try {
-                const result = await checkConfirmations(txID, minConfirmations);
+                const result = await checkConfirmations(txID, minConf);
                 setConfirmations(result.confirmations);
                 setConfirmed(result.confirmed);
                 setSufficient(result.sufficient);
 
-                if (result.sufficient && options.onConfirmed) {
-                    options.onConfirmed();
+                if (result.sufficient && onConfirmed) {
+                    onConfirmed();
                     stopTracking();
                 }
             } catch (err: any) {
@@ -484,16 +493,8 @@ export function useConfirmationTracker(
         };
 
         check(); // Initial check
-        intervalRef.current = setInterval(check, pollInterval);
-    }, [options.minConfirmations, options.pollInterval, options.onConfirmed]);
-
-    const stopTracking = useCallback(() => {
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-        }
-        setIsChecking(false);
-    }, []);
+        intervalRef.current = setInterval(check, pollMs);
+    }, [minConf, pollMs, onConfirmed, stopTracking]);
 
     useEffect(() => {
         return () => stopTracking();
