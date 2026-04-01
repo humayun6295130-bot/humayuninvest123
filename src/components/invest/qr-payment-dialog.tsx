@@ -30,7 +30,7 @@ import {
     RefreshCw,
 } from "lucide-react";
 import Image from "next/image";
-import { generateGenericQRCode, getWalletInfo } from "@/lib/wallet-config";
+import { generateGenericQRCode, getWalletInfo, MIN_WALLET_DEPOSIT_USD } from "@/lib/wallet-config";
 import { isPaymentStatusComplete } from "@/lib/nowpayments-shared";
 import { resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
 import {
@@ -220,6 +220,11 @@ export function QrPaymentDialog({
         const amt = Number(investmentAmount);
         if (!Number.isFinite(amt) || amt <= 0) {
             setCreateError("Invalid investment amount.");
+            setOrderId("");
+            return;
+        }
+        if (paymentPurpose === "wallet_deposit" && amt < MIN_WALLET_DEPOSIT_USD) {
+            setCreateError(`Minimum wallet deposit is $${MIN_WALLET_DEPOSIT_USD}.`);
             setOrderId("");
             return;
         }

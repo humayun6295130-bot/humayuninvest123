@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getNowpaymentsEnv, npGetPayment, usdAmountsMatch, isPaymentStatusComplete } from '@/lib/nowpayments-internal';
 import { isWalletDepositOrderIdForUser } from '@/lib/investment-order-id';
 import { getAdminAuth, getAdminFirestore, isFirebaseAdminConfigured } from '@/lib/firebase-admin';
+import { MIN_WALLET_DEPOSIT_USD } from '@/lib/wallet-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +66,12 @@ export async function POST(request: NextRequest) {
         if (!Number.isFinite(expectedUsdAmount) || expectedUsdAmount <= 0) {
             return NextResponse.json({ ok: false, error: 'Invalid amount' }, { status: 400 });
         }
+        if (expectedUsdAmount < MIN_WALLET_DEPOSIT_USD) {
+            return NextResponse.json(
+                { ok: false, error: `Minimum wallet deposit is $${MIN_WALLET_DEPOSIT_USD}` },
+                { status: 400 }
+            );
+        }
         if (!isWalletDepositOrderIdForUser(orderId, userId)) {
             return NextResponse.json({ ok: false, error: 'Invalid wallet deposit order' }, { status: 403 });
         }
@@ -108,6 +115,12 @@ export async function POST(request: NextRequest) {
         }
 
         const creditUsd = Number.isFinite(priceAmt) && priceAmt > 0 ? priceAmt : expectedUsdAmount;
+        if (creditUsd < MIN_WALLET_DEPOSIT_USD) {
+            return NextResponse.json(
+                { ok: false, error: `Minimum wallet deposit is $${MIN_WALLET_DEPOSIT_USD}` },
+                { status: 400 }
+            );
+        }
         const nowIso = new Date().toISOString();
 
         const batch = adminDb.batch();

@@ -27,7 +27,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, insertRow, uploadFile } from "@/firebase";
-import { getAdminWalletAddress, generateBEP20QRCode, getWalletInfo, isWalletConfigured } from "@/lib/wallet-config";
+import {
+  getAdminWalletAddress,
+  generateBEP20QRCode,
+  getWalletInfo,
+  isWalletConfigured,
+  MIN_WALLET_DEPOSIT_USD,
+} from "@/lib/wallet-config";
 import { QrPaymentDialog, type InvestmentPlan } from "@/components/invest/qr-payment-dialog";
 import { NOWPAYMENTS_WALLET_PLAN_ID } from "@/lib/investment-order-id";
 
@@ -36,7 +42,10 @@ const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
 const walletReady = isWalletConfigured();
 
 const formSchema = z.object({
-  amount: z.coerce.number().positive("Amount must be a positive number.").min(10, "Minimum deposit is $10"),
+  amount: z.coerce
+    .number()
+    .positive("Amount must be a positive number.")
+    .min(MIN_WALLET_DEPOSIT_USD, `Minimum deposit is $${MIN_WALLET_DEPOSIT_USD}`),
   transactionHash: z.string().min(5, "Please enter a valid transaction hash or reference."),
 });
 
@@ -60,7 +69,7 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
 
   const nowpaymentsTopUpPlan = useMemo((): InvestmentPlan | null => {
     const a = Number(depositAmount);
-    if (!Number.isFinite(a) || a < 10) return null;
+    if (!Number.isFinite(a) || a < MIN_WALLET_DEPOSIT_USD) return null;
     return {
       id: NOWPAYMENTS_WALLET_PLAN_ID,
       name: "Wallet top-up",
@@ -283,6 +292,9 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
                         className="bg-slate-800 border-slate-700 text-white focus:border-orange-500 focus:ring-orange-500"
                       />
                     </FormControl>
+                    <FormDescription className="text-slate-500">
+                      Minimum ${MIN_WALLET_DEPOSIT_USD} per deposit.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

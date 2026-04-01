@@ -11,6 +11,7 @@ import {
     isWalletDepositOrderIdForUser,
     NOWPAYMENTS_WALLET_PLAN_ID,
 } from '@/lib/investment-order-id';
+import { MIN_WALLET_DEPOSIT_USD } from '@/lib/wallet-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,12 @@ export async function POST(request: NextRequest) {
         }
         if (!Number.isFinite(priceAmount) || priceAmount <= 0 || priceAmount > 1_000_000) {
             return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+        }
+        if (isWalletDeposit && priceAmount < MIN_WALLET_DEPOSIT_USD) {
+            return NextResponse.json(
+                { error: `Minimum wallet deposit is $${MIN_WALLET_DEPOSIT_USD}` },
+                { status: 400 }
+            );
         }
 
         const { payCurrency } = getNowpaymentsEnv();
