@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LogOut, Search, User as UserIcon, Menu, Bell, X, Briefcase, History, Newspaper, BadgeCheck, HelpCircle, Pickaxe, TrendingUp } from "lucide-react";
+import { LogOut, Search, User as UserIcon, Menu, Bell, X, Briefcase, History, Newspaper, BadgeCheck, HelpCircle, Pickaxe, TrendingUp, ShieldCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useUser, useAuth } from "@/firebase";
+import { isAdminProfile } from "@/lib/user-role";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 export function AppHeader() {
@@ -56,6 +57,7 @@ export function AppHeader() {
   const displayName = userProfile?.display_name || user?.displayName || "My Account";
   const userEmail = userProfile?.email || user?.email || "";
   const userId = user?.uid;
+  const showAdminEntry = isAdminProfile(userProfile);
 
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
@@ -113,6 +115,19 @@ export function AppHeader() {
                 <span>{item.label}</span>
               </Link>
             ))}
+            {showAdminEntry && (
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 ${pathname.startsWith('/admin')
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+              >
+                <ShieldCheck className="h-5 w-5" />
+                <span>Admin panel (full)</span>
+              </Link>
+            )}
             <div className="border-t my-2" />
             <Link
               href="/notifications"
@@ -141,10 +156,18 @@ export function AppHeader() {
       </Sheet>
 
       {/* Page Title */}
-      <div className="flex-1">
-        <h1 className="text-lg font-semibold md:text-xl animate-in fade-in slide-in-from-left-2 duration-300">
+      <div className="flex-1 flex items-center gap-3 min-w-0">
+        <h1 className="text-lg font-semibold md:text-xl animate-in fade-in slide-in-from-left-2 duration-300 truncate">
           {getPageTitle()}
         </h1>
+        {showAdminEntry && !pathname.startsWith('/admin') && (
+          <Button variant="outline" size="sm" className="hidden sm:inline-flex shrink-0 border-amber-500/40 text-amber-800 dark:text-amber-200" asChild>
+            <Link href="/admin">
+              <ShieldCheck className="h-4 w-4 mr-1.5" />
+              Admin
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -208,6 +231,14 @@ export function AppHeader() {
               <span>My Profile</span>
             </Link>
           </DropdownMenuItem>
+          {showAdminEntry && (
+            <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
+              <Link href="/admin" className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                <span>Admin panel</span>
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={handleLogout}

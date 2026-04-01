@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
 import { DollarSign } from "lucide-react";
+import { isAdminProfile } from "@/lib/user-role";
 
 export default function AdminPage() {
     const { user, isUserLoading, userProfile, isProfileLoading } = useUser();
@@ -13,7 +14,7 @@ export default function AdminPage() {
     useEffect(() => {
         if (!isUserLoading && !user) {
             router.push("/login");
-        } else if (!isProfileLoading && userProfile && userProfile.role !== "admin") {
+        } else if (!isProfileLoading && userProfile && !isAdminProfile(userProfile)) {
             router.push("/dashboard");
         }
     }, [user, isUserLoading, userProfile, isProfileLoading, router]);
@@ -29,7 +30,7 @@ export default function AdminPage() {
         );
     }
 
-    if (userProfile.role !== "admin") {
+    if (!isAdminProfile(userProfile)) {
         return null;
     }
 

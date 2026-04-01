@@ -22,9 +22,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import Link from "next/link";
+import { isAdminProfile, normalizeRoleString } from "@/lib/user-role";
 
 export function AdminSettings() {
-    const { userProfile } = useUser();
+    const { userProfile, user } = useUser();
     const { toast } = useToast();
 
     // System Settings State
@@ -61,6 +63,40 @@ export function AdminSettings() {
 
     return (
         <div className="space-y-6">
+            <Card className="border-amber-500/40 bg-amber-500/5">
+                <CardHeader>
+                    <CardTitle className="text-lg">Full admin tools live on /admin</CardTitle>
+                    <CardDescription>
+                        This Settings screen is only shortcuts. To approve deposits, search users, manage withdrawals, and pending investments, open the dedicated admin panel.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <Button asChild size="lg" className="w-full font-semibold">
+                        <Link href="/admin">
+                            <Shield className="w-4 h-4 mr-2" />
+                            Open admin panel — users, approvals, withdrawals
+                        </Link>
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                        If that page redirects you home, your Firestore <code className="rounded bg-muted px-1">users/&lt;your-uid&gt;.role</code> must be <code className="rounded bg-muted px-1">admin</code>, <code className="rounded bg-muted px-1">super_admin</code>, or <code className="rounded bg-muted px-1">administrator</code>.
+                    </p>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Your admin account (for support)</CardTitle>
+                    <CardDescription>Copy these if you need to verify the correct login in Firebase.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm font-mono break-all">
+                    <p><span className="text-muted-foreground font-sans">UID:</span> {user?.uid ?? "—"}</p>
+                    <p><span className="text-muted-foreground font-sans">Email:</span> {userProfile?.email ?? user?.email ?? "—"}</p>
+                    <p><span className="text-muted-foreground font-sans">role (raw):</span> {userProfile?.role != null ? JSON.stringify(userProfile.role) : "—"}</p>
+                    <p><span className="text-muted-foreground font-sans">normalized:</span> {normalizeRoleString(userProfile?.role)}</p>
+                    <p><span className="text-muted-foreground font-sans">admin panel access:</span> {isAdminProfile(userProfile) ? "yes" : "no"}</p>
+                </CardContent>
+            </Card>
+
             {/* Admin Overview Card */}
             <Card>
                 <CardHeader>
@@ -80,7 +116,7 @@ export function AdminSettings() {
                         </div>
                         <Badge className="bg-primary/10 text-primary border-primary/20">
                             <Shield className="w-3 h-3 mr-1" />
-                            {userProfile?.role === "super_admin" ? "Super Admin" : "Admin"}
+                            {normalizeRoleString(userProfile?.role) === "super_admin" ? "Super Admin" : "Admin"}
                         </Badge>
                     </div>
                 </CardContent>
@@ -156,11 +192,11 @@ export function AdminSettings() {
                 <CardContent>
                     <div className="grid gap-3 md:grid-cols-2">
                         <Button variant="outline" className="justify-start" asChild>
-                            <a href="/admin">
+                            <Link href="/admin">
                                 <Users className="w-4 h-4 mr-2" />
-                                Manage Users
+                                Open admin panel (users &amp; approvals)
                                 <ExternalLink className="w-3 h-3 ml-auto opacity-50" />
-                            </a>
+                            </Link>
                         </Button>
                         <Button variant="outline" className="justify-start" onClick={() => handleSystemAction("Clear Cache")}>
                             <Database className="w-4 h-4 mr-2" />

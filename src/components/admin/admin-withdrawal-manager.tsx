@@ -72,15 +72,22 @@ export function AdminWithdrawalManager() {
     const [rejectionReason, setRejectionReason] = useState("");
     const [processingId, setProcessingId] = useState<string | null>(null);
 
-    // Fetch withdrawal requests
     const withdrawalsOptions = useMemo(() => ({
         table: 'transactions',
         filters: [{ column: 'type', operator: '==' as const, value: 'withdrawal' }],
-        orderByColumn: { column: 'created_at', direction: 'desc' as const },
         enabled: true,
     }), []);
 
-    const { data: withdrawals, isLoading } = useRealtimeCollection<WithdrawalRequest>(withdrawalsOptions);
+    const { data: withdrawalsRaw, isLoading } = useRealtimeCollection<WithdrawalRequest>(withdrawalsOptions);
+
+    const withdrawals = useMemo(() => {
+        if (!withdrawalsRaw?.length) return withdrawalsRaw;
+        return [...withdrawalsRaw].sort(
+            (a, b) =>
+                new Date((b as any).created_at || 0).getTime() -
+                new Date((a as any).created_at || 0).getTime()
+        );
+    }, [withdrawalsRaw]);
 
     // Filter withdrawals
     const filteredWithdrawals = useMemo(() => {

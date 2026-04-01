@@ -19,6 +19,7 @@ import {
 import { AppHeader } from "@/components/layout/app-header";
 import { DollarSign, LayoutDashboard, Settings, Wallet, Newspaper, ShieldCheck, TrendingUp, History, Users, BadgeCheck, HelpCircle, Bell, User, Pickaxe } from "lucide-react";
 import { useUser, useAuth } from "@/firebase";
+import { isAdminProfile } from "@/lib/user-role";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut } from "lucide-react";
 
@@ -48,8 +49,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const isAdmin = userProfile?.role === 'admin';
-  const isAdminRoute = pathname === '/admin';
+  const isAdmin = isAdminProfile(userProfile);
+  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
   const displayName = userProfile?.display_name || user?.displayName || "User";
   const userEmail = userProfile?.email || user?.email || "";
   const userAvatar = `https://picsum.photos/seed/${user.uid}/100/100`;

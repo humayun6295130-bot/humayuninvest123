@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useUser } from "@/firebase";
+import { isAdminProfile } from "@/lib/user-role";
 import { AdminSettings } from "@/components/settings/admin-settings";
 import { UserSettings } from "@/components/settings/user-settings";
 import { Bep20WalletManager } from "@/components/settings/tron-wallet-manager";
@@ -73,7 +74,7 @@ export default function SettingsPage() {
               <p className="text-muted-foreground">Loading settings...</p>
             </div>
           ) : (
-            userProfile && (userProfile.role === 'admin' ? <AdminSettings /> : <UserSettings userProfile={userProfile} />)
+            userProfile && (isAdminProfile(userProfile) ? <AdminSettings /> : <UserSettings userProfile={userProfile} />)
           )}
         </CardContent>
       </Card>

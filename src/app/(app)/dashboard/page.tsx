@@ -3,9 +3,10 @@
 import { useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect, Suspense, useState } from "react";
+import Link from "next/link";
 import { UserDashboard } from "@/components/dashboard/user-dashboard";
-import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
 import { DollarSign } from "lucide-react";
+import { isAdminProfile } from "@/lib/user-role";
 
 function DashboardContent() {
   const { user, isUserLoading, userProfile, isProfileLoading } = useUser();
@@ -61,14 +62,21 @@ function DashboardContent() {
     active_investments_count: 0
   };
 
-  // Check if admin
-  const isAdmin = profile?.role === 'admin';
-
-  if (isAdmin) {
-    return <AdminDashboard />;
-  }
-
-  return <UserDashboard userProfile={profile} />;
+  // Admins use /admin for the full control panel; /dashboard stays the normal user home
+  return (
+    <div className="space-y-4">
+      {isAdminProfile(userProfile) && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+          <span className="font-medium">Administrator:</span> approvals, user search, and withdrawals are on the{' '}
+          <Link href="/admin" className="underline font-semibold hover:opacity-90">
+            Admin panel
+          </Link>{' '}
+          (not on this dashboard).
+        </div>
+      )}
+      <UserDashboard userProfile={profile} />
+    </div>
+  );
 }
 
 export default function DashboardPage() {

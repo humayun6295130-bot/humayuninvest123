@@ -9,17 +9,17 @@ import { SupportManager } from "@/components/admin/support-manager";
 import { ReferralManager } from "@/components/admin/referral-manager";
 import { InvestmentApproval } from "@/components/admin/investment-approval";
 import { PaymentVerificationManager } from "@/components/admin/payment-verification-manager";
+import { AdminWithdrawalManager } from "@/components/admin/admin-withdrawal-manager";
 import {
   LayoutDashboard,
-  Users,
   ArrowDownUp,
-  TrendingUp,
   ShieldCheck,
   Headphones,
   Gift,
   Wallet,
   UserCog,
-  Shield
+  Shield,
+  Banknote
 } from "lucide-react";
 
 export function AdminDashboard() {
@@ -31,7 +31,7 @@ export function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 lg:w-auto">
+        <TabsList className="flex w-full flex-wrap h-auto gap-1 p-1 justify-start">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -47,6 +47,10 @@ export function AdminDashboard() {
           <TabsTrigger value="transactions" className="flex items-center gap-2">
             <ArrowDownUp className="h-4 w-4" />
             <span className="hidden sm:inline">Transactions</span>
+          </TabsTrigger>
+          <TabsTrigger value="withdrawals" className="flex items-center gap-2">
+            <Banknote className="h-4 w-4" />
+            <span className="hidden sm:inline">Withdrawals</span>
           </TabsTrigger>
           <TabsTrigger value="investments" className="flex items-center gap-2">
             <Wallet className="h-4 w-4" />
@@ -80,6 +84,10 @@ export function AdminDashboard() {
 
         <TabsContent value="transactions">
           <TransactionManager />
+        </TabsContent>
+
+        <TabsContent value="withdrawals">
+          <AdminWithdrawalManager />
         </TabsContent>
 
         <TabsContent value="kyc">

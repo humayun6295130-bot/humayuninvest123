@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useUser, useRealtimeCollection } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -31,6 +32,7 @@ import { useState, useMemo } from 'react';
 import { LEVEL_CONFIG, getLevelInfo, getNextLevel, calculateDailyEarnings, calculateWeeklyEarnings, calculateMonthlyEarnings } from '@/lib/level-config';
 import { useToast } from '@/hooks/use-toast';
 import { formatSupportId } from '@/lib/support-id';
+import { isAdminProfile } from '@/lib/user-role';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
@@ -178,9 +180,14 @@ export default function ProfilePage() {
                             <><AlertCircle className="w-3 h-3 mr-1" /> KYC Pending</>
                         )}
                     </Badge>
-                    <Badge variant={userProfile.role === 'admin' ? 'default' : 'outline'} className="px-3 py-1">
-                        {userProfile.role === 'admin' ? 'Administrator' : 'Member'}
+                    <Badge variant={isAdminProfile(userProfile) ? 'default' : 'outline'} className="px-3 py-1">
+                        {isAdminProfile(userProfile) ? 'Administrator' : 'Member'}
                     </Badge>
+                    {isAdminProfile(userProfile) && (
+                        <Button asChild size="sm" className="bg-amber-600 hover:bg-amber-700 text-white">
+                            <Link href="/admin">Open admin panel</Link>
+                        </Button>
+                    )}
                 </div>
             </div>
 

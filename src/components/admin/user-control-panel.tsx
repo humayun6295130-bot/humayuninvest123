@@ -28,6 +28,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { isAdminRoleValue } from "@/lib/user-role";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
@@ -114,7 +115,9 @@ export function UserControlPanel() {
                 user.wallet_address?.toLowerCase().includes(searchLower);
 
             const matchesStatus = statusFilter === "all" || user.status === statusFilter;
-            const matchesRole = roleFilter === "all" || user.role === roleFilter;
+            const matchesRole =
+                roleFilter === "all" ||
+                (roleFilter === "admin" ? isAdminRoleValue(user.role) : user.role === roleFilter);
 
             return matchesSearch && matchesStatus && matchesRole;
         });
@@ -139,7 +142,7 @@ export function UserControlPanel() {
             total: users.length,
             active: users.filter(u => u.status === 'active' || !u.status).length,
             suspended: users.filter(u => u.status === 'suspended' || u.status === 'banned').length,
-            admins: users.filter(u => u.role === 'admin').length,
+            admins: users.filter(u => isAdminRoleValue(u.role)).length,
             totalBalance: users.reduce((sum, u) => sum + (u.balance || 0), 0),
             totalReferralBalance: users.reduce((sum, u) => sum + (u.referral_balance || 0), 0),
         };
@@ -429,7 +432,7 @@ export function UserControlPanel() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant={user.role === 'admin' ? 'default' : 'outline'} className="capitalize text-[10px]">
+                                                <Badge variant={isAdminRoleValue(user.role) ? 'default' : 'outline'} className="capitalize text-[10px]">
                                                     {user.role || 'user'}
                                                 </Badge>
                                             </TableCell>
