@@ -11,6 +11,9 @@ Firebase auto-deploy from GitHub (Firestore rules + indexes)
 3) Push changes to firestore.rules or firestore.indexes.json on branch "main".
    The workflow "Deploy Firestore" will publish rules + indexes to project in .firebaserc.
 
+If you do NOT add FIREBASE_TOKEN, the workflow skips the deploy job and still passes (no failed check).
+You can paste rules from firestore.rules into Firebase Console → Firestore → Rules instead.
+
 Vercel still deploys the Next.js app when you push; it does NOT deploy Firestore.
 This workflow keeps Firebase in sync with the repo so you do not have to run firebase deploy manually.
 
