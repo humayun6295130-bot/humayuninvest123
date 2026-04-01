@@ -1,5 +1,6 @@
 # Deploys Firestore rules + indexes to Firebase when those files change.
-# One-time: add repo secret FIREBASE_TOKEN (run locally: npx firebase-tools login:ci)
+# Optional: add repo secret FIREBASE_TOKEN (local: npx firebase-tools login:ci)
+# If FIREBASE_TOKEN is missing, this workflow skips deploy and still passes (no red X on PRs).
 name: Deploy Firestore
 
 on:
@@ -14,6 +15,8 @@ on:
 
 jobs:
   deploy:
+    name: Deploy Firestore rules & indexes
+    if: ${{ secrets.FIREBASE_TOKEN != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,9 +32,16 @@ jobs:
       - name: Deploy Firestore (rules + indexes)
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: firebase deploy --only firestore --non-interactive
+
+  # Always succeeds; explains why the deploy job did not run.
+  firestore-deploy-skipped:
+    name: Firestore deploy skipped (no FIREBASE_TOKEN)
+    if: ${{ secrets.FIREBASE_TOKEN == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notice
         run: |
-          if [ -z "$FIREBASE_TOKEN" ]; then
-            echo "::error::Add GitHub Actions secret FIREBASE_TOKEN (one-time: run npx firebase-tools login:ci locally, then paste in repo Settings → Secrets). See docs/firebase-ci-setup.txt"
-            exit 1
-          fi
-          firebase deploy --only firestore --non-interactive
+          echo "::notice::Repository secret FIREBASE_TOKEN is not set — automatic Firestore deploy was skipped."
+          echo "Rules and indexes are still in the repo; deploy manually: firebase deploy --only firestore"
+          echo "Or add FIREBASE_TOKEN (see docs/firebase-ci-setup.txt)."
