@@ -1,8 +1,8 @@
 import { insertRow } from '@/firebase/database';
 import { db } from '@/firebase/config';
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
-import { awardCommission, getReferralSettings } from '@/lib/referral-system';
-import { REFERRAL_COMMISSION_MAX_DEPTH, resolveDailyIncomeForDeposit } from '@/lib/deposit-income-tiers';
+import { collection, doc, getDoc, getDocs, increment, limit, query, updateDoc, where } from 'firebase/firestore';
+import { distributeInvestmentReferralCommissions } from '@/lib/referral-system';
+import { resolveDailyIncomeForDeposit } from '@/lib/deposit-income-tiers';
 
 export interface ActivateQrInvestmentParams {
     user_id: string;
@@ -30,10 +30,40 @@ export interface ActivateQrInvestmentParams {
 /**
  * Creates active investment + audit pending row + transaction + referral commissions
  * (same outcome as admin approval in investment-approval.tsx).
+ * @returns true if a new investment was created; false if this TX was already activated (idempotent).
  */
 export async function activateInvestmentAfterVerifiedPayment(
     params: ActivateQrInvestmentParams
-): Promise<void> {
+): Promise<boolean> {
+    if (!db) {
+        throw new Error('Firebase is not configured');
+    }
+
+    const txKey = params.transaction_id.trim().toLowerCase();
+
+    const invSnap = await getDocs(
+        query(collection(db, 'user_investments'), where('transaction_hash', '==', txKey), limit(25))
+    );
+    if (invSnap.docs.some((d) => d.data().user_id === params.user_id)) {
+        return false;
+    }
+
+    const txSnap = await getDocs(
+        query(collection(db, 'transactions'), where('transaction_hash', '==', txKey), limit(40))
+    );
+    const alreadyDebited = txSnap.docs.some((d) => {
+        const x = d.data();
+        return (
+            x.user_id === params.user_id &&
+            x.type === 'investment' &&
+            Number(x.amount) < 0 &&
+            (x.status === 'completed' || x.status === 'approved')
+        );
+    });
+    if (alreadyDebited) {
+        return false;
+    }
+
     const timestamp = new Date().toISOString();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + (params.duration_days > 0 ? params.duration_days : 30));
@@ -65,6 +95,10 @@ export async function activateInvestmentAfterVerifiedPayment(
         auto_compound: false,
         capital_return: true,
         payout_schedule: 'end_of_term',
+        transaction_hash: txKey,
+        blockchain_verified:
+            !String(params.payment_method || '').includes('admin') &&
+            !String(params.payment_method || '').toLowerCase().includes('balance'),
         ...(params.order_id ? { order_id: params.order_id } : {}),
     });
 
@@ -78,7 +112,7 @@ export async function activateInvestmentAfterVerifiedPayment(
         wallet_address: params.wallet_address,
         status: 'approved',
         payment_method: params.payment_method ?? 'usdt_bep20',
-        transaction_id: params.transaction_id,
+        transaction_id: txKey,
         proof_image_url: params.proof_image_url ?? null,
         processed_at: timestamp,
         notes: params.notes ?? 'Auto-verified',
@@ -91,13 +125,14 @@ export async function activateInvestmentAfterVerifiedPayment(
         amount: -params.amount,
         status: 'completed',
         description: `Investment in ${params.plan_name} — ${params.payment_method === 'nowpayments_usdt_bep20' ? 'NOWPayments' : 'BSC USDT'} (auto-verified)`,
-        transaction_hash: params.transaction_id,
+        transaction_hash: txKey,
     });
 
     if (db) {
         try {
             await updateDoc(doc(db, 'users', params.user_id), {
                 total_invested: increment(params.amount),
+                active_plan: params.plan_name,
                 updated_at: timestamp,
             });
         } catch (balErr) {
@@ -107,39 +142,21 @@ export async function activateInvestmentAfterVerifiedPayment(
 
     if (db) {
         try {
-            const settings = await getReferralSettings();
-            const commissionPercents = [
-                settings.level1_percent,
-                settings.level2_percent,
-                settings.level3_percent,
-            ];
-            const userDoc = await getDoc(doc(db, 'users', params.user_id));
-            if (userDoc.exists()) {
-                let currentReferrerId = userDoc.data().referrer_id;
-                let level = 0;
-                while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
-                    const percent = commissionPercents[level] ?? 0;
-                    const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
-                    if (!referrerDoc.exists()) break;
-                    if (percent > 0) {
-                        const commission = params.amount * (percent / 100);
-                        await awardCommission(
-                            db,
-                            currentReferrerId,
-                            params.user_id,
-                            userDoc.data().username || params.user_email || '',
-                            commission,
-                            'investment',
-                            params.amount,
-                            { uplineDepth: level + 1, percentApplied: percent }
-                        );
-                    }
-                    currentReferrerId = referrerDoc.data().referrer_id;
-                    level++;
-                }
-            }
+            const userDoc = await getDoc(doc(db, "users", params.user_id));
+            const display =
+                userDoc.exists() && userDoc.data().username
+                    ? userDoc.data().username
+                    : params.user_email || "";
+            await distributeInvestmentReferralCommissions(
+                db,
+                params.user_id,
+                params.amount,
+                display
+            );
         } catch (refErr) {
-            console.error('Referral commission error (non-fatal):', refErr);
+            console.error("Referral commission error (non-fatal):", refErr);
         }
     }
+
+    return true;
 }

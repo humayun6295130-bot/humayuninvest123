@@ -2,7 +2,13 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import { DEFAULT_REFERRAL_SETTINGS, type ReferralSettings } from '@/lib/referral-system';
 import type { ActivateQrInvestmentParams } from '@/lib/activate-qr-investment';
-import { REFERRAL_COMMISSION_MAX_DEPTH, resolveDailyIncomeForDeposit } from '@/lib/deposit-income-tiers';
+import {
+    DEPOSIT_INCOME_TIERS,
+    parseDepositTiersFirestore,
+    REFERRAL_COMMISSION_MAX_DEPTH,
+    resolveDailyIncomeForDeposit,
+    type DepositIncomeTier,
+} from '@/lib/deposit-income-tiers';
 
 async function getReferralSettingsAdmin(adminDb: Firestore): Promise<ReferralSettings> {
     const snap = await adminDb.collection('referral_settings').doc('default').get();
@@ -71,6 +77,8 @@ async function runReferralChainAdmin(
     investmentAmount: number
 ): Promise<void> {
     const settings = await getReferralSettingsAdmin(adminDb);
+    if (!settings.enabled) return;
+
     const commissionPercents = [
         settings.level1_percent,
         settings.level2_percent,
@@ -79,32 +87,47 @@ async function runReferralChainAdmin(
     const userDoc = await adminDb.collection('users').doc(investorUserId).get();
     if (!userDoc.exists) return;
     let currentReferrerId = userDoc.data()?.referrer_id as string | undefined;
+    if (typeof currentReferrerId === 'string') currentReferrerId = currentReferrerId.trim() || undefined;
     let level = 0;
     const fromName = userDoc.data()?.username || investorEmail || '';
 
     while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
-        const percent = commissionPercents[level] ?? 0;
+        const percent = Number(commissionPercents[level] ?? 0);
         const referrerDoc = await adminDb.collection('users').doc(currentReferrerId).get();
         if (!referrerDoc.exists) break;
         if (percent > 0) {
             const commission = investmentAmount * (percent / 100);
-            try {
-                await awardOneCommissionAdmin(
-                    adminDb,
-                    currentReferrerId,
-                    investorUserId,
-                    fromName,
-                    commission,
-                    'investment',
-                    level + 1,
-                    percent
-                );
-            } catch (e) {
-                console.error('Referral commission (admin) non-fatal:', e);
+            if (commission > 0) {
+                try {
+                    await awardOneCommissionAdmin(
+                        adminDb,
+                        currentReferrerId,
+                        investorUserId,
+                        fromName,
+                        commission,
+                        'investment',
+                        level + 1,
+                        percent
+                    );
+                } catch (e) {
+                    console.error('Referral commission (admin) non-fatal:', e);
+                }
             }
         }
-        currentReferrerId = referrerDoc.data()?.referrer_id as string | undefined;
+        const nextRaw = referrerDoc.data()?.referrer_id as string | undefined;
+        currentReferrerId =
+            typeof nextRaw === 'string' && nextRaw.trim().length > 0 ? nextRaw.trim() : undefined;
         level++;
+    }
+}
+
+async function loadTierTableAdmin(adminDb: Firestore): Promise<DepositIncomeTier[]> {
+    try {
+        const snap = await adminDb.collection('platform_settings').doc('main').get();
+        const parsed = parseDepositTiersFirestore(snap.data()?.deposit_tiers);
+        return parsed ?? DEPOSIT_INCOME_TIERS;
+    } catch {
+        return DEPOSIT_INCOME_TIERS;
     }
 }
 
@@ -116,12 +139,42 @@ export async function activateInvestmentWithAdminDb(
     adminDb: Firestore,
     params: ActivateQrInvestmentParams
 ): Promise<void> {
+    const txKey = params.transaction_id.trim().toLowerCase();
+
+    const invDup = await adminDb
+        .collection('user_investments')
+        .where('transaction_hash', '==', txKey)
+        .limit(25)
+        .get();
+    if (invDup.docs.some((d) => d.data().user_id === params.user_id)) {
+        return;
+    }
+
+    const txDup = await adminDb
+        .collection('transactions')
+        .where('transaction_hash', '==', txKey)
+        .limit(40)
+        .get();
+    const alreadyDebited = txDup.docs.some((d) => {
+        const x = d.data();
+        return (
+            x.user_id === params.user_id &&
+            x.type === 'investment' &&
+            Number(x.amount) < 0 &&
+            (x.status === 'completed' || x.status === 'approved')
+        );
+    });
+    if (alreadyDebited) {
+        return;
+    }
+
     const timestamp = new Date().toISOString();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + (params.duration_days > 0 ? params.duration_days : 30));
 
     const dur = params.duration_days > 0 ? params.duration_days : 30;
-    const tiered = resolveDailyIncomeForDeposit(params.amount);
+    const tierTable = await loadTierTableAdmin(adminDb);
+    const tiered = resolveDailyIncomeForDeposit(params.amount, tierTable);
     const daily_roi_percent = tiered.incomePercent;
     const daily_roi = tiered.dailyUsd;
     const total_profit = daily_roi * dur;
@@ -147,6 +200,7 @@ export async function activateInvestmentWithAdminDb(
         auto_compound: false,
         capital_return: true,
         payout_schedule: 'end_of_term',
+        transaction_hash: txKey,
         created_at: timestamp,
         updated_at: timestamp,
         ...(params.order_id ? { order_id: params.order_id } : {}),
@@ -162,7 +216,7 @@ export async function activateInvestmentWithAdminDb(
         wallet_address: params.wallet_address,
         status: 'approved',
         payment_method: params.payment_method ?? 'usdt_bep20',
-        transaction_id: params.transaction_id,
+        transaction_id: txKey,
         proof_image_url: params.proof_image_url ?? null,
         processed_at: timestamp,
         notes: params.notes ?? 'Auto-verified',
@@ -177,7 +231,7 @@ export async function activateInvestmentWithAdminDb(
         amount: -params.amount,
         status: 'completed',
         description: `Investment in ${params.plan_name} — ${params.payment_method === 'nowpayments_usdt_bep20' ? 'NOWPayments' : 'BSC USDT'} (auto-verified)`,
-        transaction_hash: params.transaction_id,
+        transaction_hash: txKey,
         created_at: timestamp,
         updated_at: timestamp,
     });
@@ -185,6 +239,7 @@ export async function activateInvestmentWithAdminDb(
     await adminDb.collection('users').doc(params.user_id).set(
         {
             total_invested: FieldValue.increment(params.amount),
+            active_plan: params.plan_name,
             updated_at: timestamp,
         },
         { merge: true }

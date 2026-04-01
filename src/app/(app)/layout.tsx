@@ -17,6 +17,7 @@ import {
   SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/layout/app-header";
+import { PublicBannerCarousel } from "@/components/layout/public-banner-carousel";
 import { DollarSign, LayoutDashboard, Settings, Wallet, Newspaper, ShieldCheck, TrendingUp, History, Users, BadgeCheck, HelpCircle, Bell, User, Pickaxe } from "lucide-react";
 import { useUser, useAuth } from "@/firebase";
 import { isAdminProfile } from "@/lib/user-role";
@@ -63,7 +64,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <Sidebar collapsible="icon" className="border-r border-sidebar-border/50">
         <SidebarHeader className="p-5 border-b border-sidebar-border/50">
-          <Link href="/dashboard" className="flex items-center gap-3 group/logo">
+          <Link href={isAdminRoute ? '/admin' : '/dashboard'} className="flex items-center gap-3 group/logo">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-300 group-hover/logo:scale-105 group-hover/logo:shadow-xl group-hover/logo:shadow-primary/30 group-data-[state=collapsed]:h-10 group-data-[state=collapsed]:w-10">
               <NoSsr>
                 <DollarSign className="h-6 w-6 transition-transform duration-300 group-hover/logo:rotate-12" />
@@ -85,10 +86,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <SidebarGroupLabel>Admin navigation</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="Return to user app">
+                  <SidebarMenuButton asChild tooltip="Member-facing app (for testing or support)">
                     <Link href="/dashboard">
                       <LayoutDashboard />
-                      <span>User dashboard</span>
+                      <span>Member app</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -102,7 +103,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenuItem>
               </SidebarMenu>
               <p className="px-2 py-3 text-xs text-muted-foreground leading-relaxed">
-                User menus are hidden here. Use the tabs on this page for users, verifications, transactions, and investments.
+                Operator tools only — users, finance, tiers, mining monitor, support, analytics, banners. Use <strong>Member app</strong> only if you need to see the product as a user.
               </p>
             </SidebarGroup>
           ) : (
@@ -296,13 +297,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <SidebarInset className="transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]">
         {isAdminRoute && (
           <div className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-center text-sm font-medium text-amber-950 dark:text-amber-100">
-            Administrator mode — platform management.{' '}
+            Administrator mode — support and platform controls (not for investing).{' '}
             <Link href="/dashboard" className="underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-50">
-              Exit to user dashboard
+              Open member app
             </Link>
           </div>
         )}
         <AppHeader />
+        {!isAdminRoute && <PublicBannerCarousel variant="app" />}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {children}
         </main>

@@ -1,17 +1,21 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useUser, useRealtimeCollection, insertRow } from "@/firebase";
+import { useUser, useRealtimeCollection } from "@/firebase";
 import { db } from "@/firebase/config";
-import { doc, increment, writeBatch } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Wallet, DollarSign, Clock, CheckCircle2, AlertCircle, Zap, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format, isToday, differenceInHours, differenceInMinutes } from "date-fns";
+import { format, differenceInHours, differenceInMinutes } from "date-fns";
 import Link from "next/link";
 import { getEffectiveDailyIncomeUsd } from "@/lib/deposit-income-tiers";
+import {
+    DAILY_CLAIM_ERR,
+    executeUnifiedDailyClaim,
+    hasClaimedDailyToday,
+} from "@/lib/daily-claim";
 
 interface DailyEarning {
     id: string;
@@ -28,6 +32,8 @@ interface UserInvestment {
     daily_roi: number;
     income_percent?: number;
     earned_so_far: number;
+    claimed_so_far?: number;
+    days_claimed?: number;
     total_return: number;
     status: string;
 }
@@ -68,7 +74,7 @@ export default function EarningsPage() {
 
     const lastClaimRaw = userProfile?.last_daily_claim;
     const lastClaimDate = lastClaimRaw ? new Date(lastClaimRaw) : null;
-    const alreadyClaimedToday = lastClaimDate ? isToday(lastClaimDate) : false;
+    const alreadyClaimedToday = hasClaimedDailyToday(lastClaimRaw);
     const hoursUntilNextClaim = lastClaimDate && alreadyClaimedToday
         ? Math.max(0, 24 - differenceInHours(new Date(), lastClaimDate))
         : 0;
@@ -99,47 +105,42 @@ export default function EarningsPage() {
 
         setIsClaiming(true);
         try {
-            const nowIso = new Date().toISOString();
-            const todayStr = format(new Date(), 'yyyy-MM-dd');
-
-            const batch = writeBatch(db);
-            const userRef = doc(db, 'users', user.uid);
-            batch.update(userRef, {
-                balance: increment(totalDailyEarnings),
-                total_earnings: increment(totalDailyEarnings),
-                last_daily_claim: nowIso,
-                updated_at: nowIso,
-            });
-            await batch.commit();
-
-            await insertRow('daily_earnings', {
-                user_id: user.uid,
-                amount: totalDailyEarnings,
-                date: todayStr,
-                status: 'credited',
-            });
-
-            await insertRow('transactions', {
-                user_id: user.uid,
-                user_display_name: userProfile.display_name || '',
-                user_email: userProfile.email || '',
-                type: 'daily_claim',
-                amount: totalDailyEarnings,
-                currency: 'USD',
-                status: 'completed',
-                description: `Daily claim — ${activeInvestments.length} investment(s)`,
+            const { totalClaimed, activeCount } = await executeUnifiedDailyClaim({
+                db,
+                userId: user.uid,
+                userProfile: {
+                    last_daily_claim: userProfile.last_daily_claim,
+                    email: userProfile.email,
+                    display_name: userProfile.display_name,
+                },
+                investments: (investments || []) as any[],
             });
 
             toast({
                 title: "Claimed",
-                description: `$${totalDailyEarnings.toFixed(2)} added to your wallet balance.`,
+                description: `$${totalClaimed.toFixed(2)} from ${activeCount} plan(s) added to your wallet balance.`,
             });
         } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Claim Failed",
-                description: error.message || "Something went wrong. Try again.",
-            });
+            const msg = error?.message;
+            if (msg === DAILY_CLAIM_ERR.ALREADY_TODAY) {
+                toast({
+                    variant: "destructive",
+                    title: "Already Claimed Today",
+                    description: `Next claim available in ${hoursUntilNextClaim}h ${minutesUntilNextClaim}m.`,
+                });
+            } else if (msg === DAILY_CLAIM_ERR.NOTHING) {
+                toast({
+                    variant: "destructive",
+                    title: "No Active Investments",
+                    description: "You need an active investment to claim daily income.",
+                });
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Claim Failed",
+                    description: msg || "Something went wrong. Try again.",
+                });
+            }
         } finally {
             setIsClaiming(false);
         }

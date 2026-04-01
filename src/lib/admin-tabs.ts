@@ -1,14 +1,14 @@
 /** Valid ?tab= values for /admin — keep in sync with AdminDashboard TabsContent */
 export const ADMIN_TAB_IDS = [
-    'overview',
     'users',
-    'payments',
-    'transactions',
-    'withdrawals',
-    'investments',
-    'referrals',
-    'kyc',
+    'finance',
+    'tiers',
+    'monitoring',
+    'platform',
     'support',
+    'messages',
+    'analytics',
+    'banners',
 ] as const;
 
 export type AdminTabId = (typeof ADMIN_TAB_IDS)[number];

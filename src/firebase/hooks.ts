@@ -26,8 +26,8 @@ import { useFirebaseContext } from './provider';
 // ─── Core Hooks ───────────────────────────────────────
 
 export function useFirebase() {
-    const { isConfigured } = useFirebaseContext();
-    return { auth, db, isConfigured };
+    const { isConfigured, depositIncomeTiers } = useFirebaseContext();
+    return { auth, db, isConfigured, depositIncomeTiers };
 }
 
 export function useUser(): {

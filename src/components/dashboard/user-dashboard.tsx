@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { INVESTMENT_LEVELS, getUserLevel } from "@/lib/level-config";
+import { getLiveInvestmentLevels, getUserLevel } from "@/lib/level-config";
 import { DEFAULT_REFERRAL_SETTINGS } from "@/lib/referral-system";
 import { useMemo } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -52,7 +52,8 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
         return Object.entries(days).map(([day, earnings]) => ({ day, earnings: parseFloat(earnings.toFixed(2)) }));
     }, [transactions]);
 
-    const nextLevel = INVESTMENT_LEVELS.find(l => l.level === userLevel.level + 1);
+    const liveLevels = getLiveInvestmentLevels();
+    const nextLevel = liveLevels.find(l => l.level === userLevel.level + 1);
     const progressToNext = nextLevel
         ? Math.min(100, ((totalInvested - userLevel.minInvestment) / (nextLevel.minInvestment - userLevel.minInvestment)) * 100)
         : 100;
@@ -270,7 +271,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                     </Link>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {INVESTMENT_LEVELS.slice(0, 3).map((level) => (
+                    {liveLevels.slice(0, 3).map((level) => (
                         <Card key={level.level} className={cn(
                             "border hover:border-orange-500/30 transition-colors",
                             level.level === userLevel.level && "border-orange-500/40 bg-orange-500/5"

@@ -1,6 +1,9 @@
 "use client";
 
-import { useRealtimeCollection, updateRow, incrementBalance } from "@/firebase";
+import { useRealtimeCollection, updateRow, incrementBalance, deleteRow } from "@/firebase";
+import { db } from "@/firebase/config";
+import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
+import { activateInvestmentAfterVerifiedPayment } from "@/lib/activate-qr-investment";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -52,27 +55,104 @@ export function TransactionManager() {
 
     const handleApproval = async (transaction: any) => {
         try {
-            // Update transaction status
+            const txType = String(transaction.type || "").toLowerCase();
+            const uid = transaction.user_id;
+            const txHash = String(transaction.transaction_hash || "").trim();
+
+            if (txType === "investment" || txType === "plan_activation") {
+                if (!db) throw new Error("Database not configured");
+                if (!txHash) {
+                    toast({
+                        variant: "destructive",
+                        title: "Missing transaction hash",
+                        description: "Cannot activate a plan without a blockchain transaction ID. Use Payment proofs or Investment approval.",
+                    });
+                    return;
+                }
+
+                let planId =
+                    (transaction.metadata && (transaction.metadata.plan_id as string)) ||
+                    (transaction.plan_id as string | undefined);
+                let planName = (transaction.plan_name as string | undefined) || "";
+
+                if (!planId) {
+                    const pvSnap = await getDocs(
+                        query(collection(db, "payment_verifications"), where("transaction_hash", "==", txHash), limit(25))
+                    );
+                    const hit = pvSnap.docs
+                        .map((d) => d.data())
+                        .find((p) => p.user_id === uid && p.plan_id);
+                    if (hit?.plan_id) {
+                        planId = String(hit.plan_id);
+                        planName = planName || String(hit.plan_name || "");
+                    }
+                }
+
+                if (!planId) {
+                    toast({
+                        variant: "destructive",
+                        title: "Cannot activate investment",
+                        description:
+                            "This pending row has no plan linked. Open Payment proofs → verify the payment, or approve from Pending investments (QR flow).",
+                    });
+                    return;
+                }
+
+                const planSnap = await getDoc(doc(db, "investment_plans", planId));
+                const p = planSnap.exists() ? planSnap.data() : null;
+                const retPct = Number(p?.return_percent) || 0;
+                const duration = Number(p?.duration_days) || 30;
+                const amt = Math.abs(Number(transaction.amount) || 0);
+                const expectedReturn =
+                    Number(p?.expected_return) && Number.isFinite(Number(p?.expected_return))
+                        ? Number(p?.expected_return)
+                        : amt * (1 + retPct / 100);
+
+                await deleteRow("transactions", transaction.id);
+
+                await activateInvestmentAfterVerifiedPayment({
+                    user_id: uid,
+                    user_email: transaction.user_email || "",
+                    plan_id: planId,
+                    plan_name: planName || String(p?.name || "Investment plan"),
+                    daily_roi_percent: Number(p?.daily_roi_percent) || 0,
+                    return_percent: retPct,
+                    amount: amt,
+                    expected_return: expectedReturn,
+                    duration_days: duration,
+                    transaction_id: txHash.toLowerCase(),
+                    proof_image_url: transaction.proof_url || transaction.metadata?.screenshot_url || null,
+                    wallet_address: String(transaction.metadata?.wallet_address_used || "admin_tx_approve"),
+                    payment_method: "usdt_bep20_admin_txlist",
+                    notes: "Recovered from pending transaction approval (admin)",
+                });
+
+                toast({
+                    title: "Investment activated",
+                    description: `Plan opened for ${transaction.user_email || uid} — wallet was not credited as deposit.`,
+                });
+                return;
+            }
+
             await updateRow("transactions", transaction.id, { status: "completed" });
 
-            // Increment user balance and set plan
             const plan = determinePlan(transaction.amount);
             await incrementBalance(transaction.user_id, transaction.amount);
             await updateRow("users", transaction.user_id, { active_plan: plan });
 
             toast({
                 title: "Transaction Approved",
-                description: `${transaction.user_display_name}'s deposit of $${transaction.amount} was successful.`
+                description: `${transaction.user_display_name}'s deposit of $${transaction.amount} was successful.`,
             });
         } catch (error) {
             console.error("Approval failed: ", error);
             toast({
                 variant: "destructive",
                 title: "Approval Failed",
-                description: "Could not approve the transaction."
+                description: error instanceof Error ? error.message : "Could not approve the transaction.",
             });
         }
-    }
+    };
 
     const handleRejection = async (transactionId: string) => {
         try {

@@ -2,7 +2,12 @@
  * User-facing “investment levels” for dashboard/profile — derived from deposit tier table
  * so percentages and ranges always match claims + landing (see `deposit-income-tiers.ts`).
  */
-import { DEPOSIT_INCOME_TIERS, resolveDailyIncomeForDeposit } from "./deposit-income-tiers";
+import {
+    DEPOSIT_INCOME_TIERS,
+    getClientDepositIncomeTiers,
+    resolveDailyIncomeForDeposit,
+    type DepositIncomeTier,
+} from "./deposit-income-tiers";
 
 export interface LevelConfig {
     level: number;
@@ -57,34 +62,45 @@ const TIER_PRESENTATION: {
     },
 ];
 
-export const INVESTMENT_LEVELS: LevelConfig[] = DEPOSIT_INCOME_TIERS.map((t, i) => {
-    const meta = TIER_PRESENTATION[i] ?? TIER_PRESENTATION[0];
-    return {
-        level: t.level,
-        name: meta.name,
-        minInvestment: t.min,
-        maxInvestment: t.max,
-        dailyIncomePercent: t.incomePercent,
-        color: meta.color,
-        min: t.min,
-        max: t.max,
-        income_percent: t.incomePercent,
-        features: meta.features,
-    };
-});
+function tiersToLevels(tiers: DepositIncomeTier[]): LevelConfig[] {
+    return tiers.map((t, i) => {
+        const meta = TIER_PRESENTATION[Math.min(i, TIER_PRESENTATION.length - 1)] ?? TIER_PRESENTATION[0];
+        return {
+            level: t.level,
+            name: meta.name,
+            minInvestment: t.min,
+            maxInvestment: t.max,
+            dailyIncomePercent: t.incomePercent,
+            color: meta.color,
+            min: t.min,
+            max: t.max,
+            income_percent: t.incomePercent,
+            features: meta.features,
+        };
+    });
+}
+
+/** Static snapshot at module load (tests, API shape). Prefer `getLiveInvestmentLevels()` in UI. */
+export const INVESTMENT_LEVELS: LevelConfig[] = tiersToLevels(DEPOSIT_INCOME_TIERS);
+
+export function getLiveInvestmentLevels(): LevelConfig[] {
+    return tiersToLevels(getClientDepositIncomeTiers());
+}
 
 export function getLevelByAmount(amount: number): LevelConfig | undefined {
     const a = Number(amount);
     if (!Number.isFinite(a)) return undefined;
-    const last = INVESTMENT_LEVELS[INVESTMENT_LEVELS.length - 1];
+    const levels = getLiveInvestmentLevels();
+    if (levels.length === 0) return undefined;
+    const last = levels[levels.length - 1];
     if (a > last.maxInvestment) {
         return last;
     }
-    return INVESTMENT_LEVELS.find((level) => a >= level.minInvestment && a <= level.maxInvestment);
+    return levels.find((level) => a >= level.minInvestment && a <= level.maxInvestment);
 }
 
 export function getLevelByNumber(level: number): LevelConfig | undefined {
-    return INVESTMENT_LEVELS.find((l) => l.level === level);
+    return getLiveInvestmentLevels().find((l) => l.level === level);
 }
 
 export function calculateDailyIncome(amount: number): number {
@@ -92,8 +108,9 @@ export function calculateDailyIncome(amount: number): number {
 }
 
 export function getUserLevel(totalInvested: number): LevelConfig {
-    const levels = [...INVESTMENT_LEVELS].reverse();
-    const level = levels.find((l) => totalInvested >= l.minInvestment) || INVESTMENT_LEVELS[0];
+    const live = getLiveInvestmentLevels();
+    const levels = [...live].reverse();
+    const level = levels.find((l) => totalInvested >= l.minInvestment) || live[0];
     return {
         ...level,
         min: level.minInvestment,
@@ -108,7 +125,8 @@ export function getLevelInfo(totalInvested: number): LevelConfig {
 
 export function getNextLevel(totalInvested: number): LevelConfig | null {
     const currentLevel = getUserLevel(totalInvested);
-    if (currentLevel.level >= INVESTMENT_LEVELS.length) return null;
+    const live = getLiveInvestmentLevels();
+    if (currentLevel.level >= live.length) return null;
     const nextLevel = getLevelByNumber(currentLevel.level + 1);
     if (!nextLevel) return null;
     return {

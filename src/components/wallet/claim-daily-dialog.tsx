@@ -13,10 +13,15 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Gift, Clock, TrendingUp, Coins, Loader2, CheckCircle } from 'lucide-react';
-import { useFirebase, useRealtimeCollection, insertRow } from '@/firebase';
+import { useFirebase, useRealtimeCollection } from '@/firebase';
 import { db } from '@/firebase/config';
-import { doc, increment, writeBatch } from 'firebase/firestore';
 import { getEffectiveDailyIncomeUsd } from '@/lib/deposit-income-tiers';
+import {
+    computeTotalDailyClaimUsd,
+    DAILY_CLAIM_ERR,
+    executeUnifiedDailyClaim,
+    hasClaimedDailyToday,
+} from '@/lib/daily-claim';
 
 interface ActiveInvestment {
     id: string;
@@ -36,7 +41,6 @@ export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) 
     const { isConfigured } = useFirebase();
 
     const userId = userProfile?.id || userProfile?.uid;
-    const today = new Date().toISOString().split('T')[0];
 
     // Fetch active investments in realtime
     const investmentsOptions = useMemo(() => ({
@@ -51,21 +55,10 @@ export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) 
     const { data: investments } = useRealtimeCollection<ActiveInvestment>(investmentsOptions);
 
     // Check if user already claimed today (stored in profile as last_daily_claim)
-    const lastClaimDate = userProfile?.last_daily_claim
-        ? userProfile.last_daily_claim.split('T')[0]
-        : null;
-    const alreadyClaimedToday = lastClaimDate === today;
+    const alreadyClaimedToday = hasClaimedDailyToday(userProfile?.last_daily_claim);
 
     // Calculate total claimable amount from all active investments
-    const totalClaimable = useMemo(() => {
-        if (!investments || investments.length === 0) return 0;
-        return investments.reduce((sum, inv) => {
-            if (inv.status === 'active') {
-                return sum + getEffectiveDailyIncomeUsd(inv);
-            }
-            return sum;
-        }, 0);
-    }, [investments]);
+    const totalClaimable = useMemo(() => computeTotalDailyClaimUsd(investments), [investments]);
 
     // Countdown to next claim (midnight)
     useEffect(() => {
@@ -108,42 +101,15 @@ export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) 
 
         setIsLoading(true);
         try {
-            const batch = writeBatch(db);
-            const timestampNow = new Date().toISOString();
-
-            // 1. Update user's balance and last_daily_claim date
-            const userRef = doc(db, 'users', userId);
-            batch.update(userRef, {
-                balance: increment(totalClaimable),
-                last_daily_claim: timestampNow,
-                updated_at: timestampNow,
-            });
-
-            // 2. Update each active investment's last_claim_date
-            if (investments) {
-                for (const inv of investments) {
-                    if (inv.status === 'active') {
-                        const invRef = doc(db, 'user_investments', inv.id);
-                        batch.update(invRef, {
-                            last_claim_date: today,
-                            days_claimed: (inv as any).days_claimed ? (inv as any).days_claimed + 1 : 1,
-                        });
-                    }
-                }
-            }
-
-            await batch.commit();
-
-            // 3. Record transaction
-            await insertRow('transactions', {
-                user_id: userId,
-                user_email: userProfile?.email,
-                type: 'daily_claim',
-                amount: totalClaimable,
-                currency: 'USD',
-                status: 'completed',
-                description: `Daily profit claim — ${investments?.length || 0} active investment(s)`,
-                created_at: timestampNow,
+            await executeUnifiedDailyClaim({
+                db,
+                userId,
+                userProfile: {
+                    last_daily_claim: userProfile?.last_daily_claim,
+                    email: userProfile?.email,
+                    display_name: userProfile?.display_name,
+                },
+                investments: (investments || []) as any[],
             });
 
             toast({
@@ -152,11 +118,26 @@ export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) 
             });
             setOpen(false);
         } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Claim Failed',
-                description: error.message || 'An unexpected error occurred.',
-            });
+            const msg = error?.message;
+            if (msg === DAILY_CLAIM_ERR.ALREADY_TODAY) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Already Claimed',
+                    description: 'You have already claimed today. Come back tomorrow!',
+                });
+            } else if (msg === DAILY_CLAIM_ERR.NOTHING) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Nothing to Claim',
+                    description: 'You have no active investments to claim from.',
+                });
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Claim Failed',
+                    description: msg || 'An unexpected error occurred.',
+                });
+            }
         } finally {
             setIsLoading(false);
         }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LogOut, Search, User as UserIcon, Menu, Bell, X, Briefcase, History, Newspaper, BadgeCheck, HelpCircle, Pickaxe, TrendingUp, ShieldCheck } from "lucide-react";
+import { LogOut, Search, User as UserIcon, Menu, Bell, ShieldCheck, Settings } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,23 +58,34 @@ export function AppHeader() {
   const userEmail = userProfile?.email || user?.email || "";
   const userId = user?.uid;
   const showAdminEntry = isAdminProfile(userProfile);
+  const isAdminRoute = pathname.startsWith("/admin");
 
-  const navItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-    { href: '/portfolio', label: 'Portfolio', icon: 'Briefcase' },
-    { href: '/wallet', label: 'Wallet', icon: 'Wallet' },
-    { href: '/mining', label: 'Mining', icon: 'Pickaxe' },
-    { href: '/invest', label: 'Invest', icon: 'TrendingUp' },
-    { href: '/earnings', label: 'Earnings', icon: 'DollarSign' },
-    { href: '/transactions', label: 'Transactions', icon: 'History' },
-    { href: '/referrals', label: 'Referrals', icon: 'Users' },
-    { href: '/content', label: 'Market Insights', icon: 'Newspaper' },
-    { href: '/profile', label: 'My Profile', icon: 'User' },
-    { href: '/kyc', label: 'KYC Verification', icon: 'BadgeCheck' },
-    { href: '/support', label: 'Support', icon: 'HelpCircle' },
-    { href: '/notifications', label: 'Notifications', icon: 'Bell' },
-    { href: '/settings', label: 'Settings', icon: 'Settings' },
+  /** Full member app menu — not shown on /admin (admin works on behalf of users, not as an investor). */
+  const memberNavItems = [
+    { href: '/dashboard', label: 'Dashboard' },
+    { href: '/portfolio', label: 'Portfolio' },
+    { href: '/wallet', label: 'Wallet' },
+    { href: '/mining', label: 'Mining' },
+    { href: '/invest', label: 'Invest' },
+    { href: '/earnings', label: 'Earnings' },
+    { href: '/transactions', label: 'Transactions' },
+    { href: '/referrals', label: 'Referrals' },
+    { href: '/content', label: 'Market Insights' },
+    { href: '/profile', label: 'My Profile' },
+    { href: '/kyc', label: 'KYC Verification' },
+    { href: '/support', label: 'Support' },
+    { href: '/notifications', label: 'Notifications' },
+    { href: '/settings', label: 'Settings' },
   ];
+
+  /** On admin routes: only tools an operator needs (no invest / wallet / mining shortcuts). */
+  const adminOperatorNavItems = [
+    { href: '/admin', label: 'Control center' },
+    { href: '/notifications', label: 'Notifications' },
+    { href: '/settings', label: 'Account settings' },
+  ];
+
+  const navItems = isAdminRoute ? adminOperatorNavItems : memberNavItems;
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background/95 px-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 sm:px-6 transition-all duration-300">
@@ -102,20 +113,28 @@ export function AppHeader() {
             </SheetTitle>
           </SheetHeader>
           <nav className="flex flex-col gap-1 p-4 overflow-y-auto">
+            {isAdminRoute && (
+              <p className="px-4 py-2 text-xs text-muted-foreground leading-relaxed border-b mb-2">
+                Member app links are hidden here. Use the sidebar “Member app” link or /dashboard only when you need to test or support as a user.
+              </p>
+            )}
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 ${pathname === item.href
+                className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 ${pathname === item.href || (item.href === '/admin' && pathname.startsWith('/admin'))
                   ? 'bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
               >
+                {item.href === '/admin' && <ShieldCheck className="h-5 w-5 shrink-0 text-amber-600" />}
+                {item.href === '/settings' && <Settings className="h-5 w-5 shrink-0 opacity-70" />}
+                {item.href === '/notifications' && <Bell className="h-5 w-5 shrink-0 opacity-70" />}
                 <span>{item.label}</span>
               </Link>
             ))}
-            {showAdminEntry && (
+            {!isAdminRoute && showAdminEntry && (
               <Link
                 href="/admin"
                 onClick={() => setMobileMenuOpen(false)}
@@ -125,32 +144,21 @@ export function AppHeader() {
                   }`}
               >
                 <ShieldCheck className="h-5 w-5" />
-                <span>Admin panel (full)</span>
+                <span>Admin control center</span>
               </Link>
             )}
             <div className="border-t my-2" />
-            <Link
-              href="/notifications"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 ${pathname === '/notifications'
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-            >
-              <Bell className="h-5 w-5" />
-              <span>Notifications</span>
-            </Link>
-            <Link
-              href="/settings"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 ${pathname === '/settings'
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                void handleLogout();
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10"
             >
               <LogOut className="h-5 w-5" />
-              <span>Settings</span>
-            </Link>
+              <span>Log out</span>
+            </button>
           </nav>
         </SheetContent>
       </Sheet>
@@ -170,15 +178,17 @@ export function AppHeader() {
         )}
       </div>
 
-      {/* Search Bar */}
-      <div className="relative hidden sm:block flex-1 max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 focus-within:text-primary" />
-        <Input
-          type="search"
-          placeholder="Search assets..."
-          className="w-full rounded-full bg-muted/80 pl-10 pr-4 border-0 focus-visible:ring-2 focus-visible:ring-primary/30 transition-all duration-300 hover:bg-muted"
-        />
-      </div>
+      {/* Search — member app only (not for admin operator screens). */}
+      {!isAdminRoute && (
+        <div className="relative hidden sm:block flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 focus-within:text-primary" />
+          <Input
+            type="search"
+            placeholder="Search assets..."
+            className="w-full rounded-full bg-muted/80 pl-10 pr-4 border-0 focus-visible:ring-2 focus-visible:ring-primary/30 transition-all duration-300 hover:bg-muted"
+          />
+        </div>
+      )}
 
       {/* Notifications - Visible on all screens */}
       <Link

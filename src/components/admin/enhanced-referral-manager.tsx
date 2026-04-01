@@ -57,6 +57,7 @@ interface User {
     email: string;
     display_name?: string;
     username?: string;
+    wonder_badge?: boolean;
     referral_balance?: number;
     referral_code?: string;
     referred_by?: string;
@@ -71,6 +72,7 @@ interface ReferralRelationship {
     referred_user_id: string;
     referred_email: string;
     referred_username?: string;
+    referred_name?: string;
     level: number; // 1, 2, 3, 4, or 5
     commission_percent: number;
     total_commission: number;
@@ -168,6 +170,7 @@ export function EnhancedReferralManager() {
         return users.filter(u =>
             u.email?.toLowerCase().includes(query) ||
             u.display_name?.toLowerCase().includes(query) ||
+            u.username?.toLowerCase().includes(query) ||
             u.referral_code?.toLowerCase().includes(query)
         );
     }, [users, searchQuery]);
@@ -243,6 +246,7 @@ export function EnhancedReferralManager() {
                 title: 'Referral Bonus Credited',
                 message: `You have received $${bonusAmount} ${bonusType.replace('_', ' ')} bonus!`,
                 type: 'referral',
+                is_read: false,
                 read: false,
                 created_at: new Date().toISOString()
             });
@@ -316,20 +320,29 @@ export function EnhancedReferralManager() {
                     <div key={node.id} className="border-l-2 border-primary/30 pl-4">
                         <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
                             <Badge variant="outline">Level {level}</Badge>
-                            <span className="font-medium">{node.user?.display_name || node.user?.email}</span>
-                            <span className="text-xs text-muted-foreground">({node.user?.referral_code})</span>
+                            <span className="font-medium font-mono">
+                                {(() => {
+                                    const uname = node.user?.username || node.referred_username;
+                                    if (uname) return `@${uname}`;
+                                    return node.user?.display_name || node.user?.email || node.referred_email || "Member";
+                                })()}
+                            </span>
+                            {node.user?.display_name && (node.user?.username || node.referred_username) && (
+                                <span className="text-xs text-muted-foreground">({node.user.display_name})</span>
+                            )}
+                            <span className="text-xs text-muted-foreground">[{node.user?.referral_code ?? "—"}]</span>
                             {node.children?.length > 0 && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => toggleExpand(node.user.id)}
+                                    onClick={() => toggleExpand(node.user?.id || node.referred_user_id)}
                                 >
-                                    {expandedUsers.has(node.user.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                    {expandedUsers.has(node.user?.id || node.referred_user_id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                                     {node.children.length} referrals
                                 </Button>
                             )}
                         </div>
-                        {expandedUsers.has(node.user.id) && renderReferralTree(node.children, level + 1)}
+                        {expandedUsers.has(node.user?.id || node.referred_user_id) && renderReferralTree(node.children, level + 1)}
                     </div>
                 ))}
             </div>
@@ -458,10 +471,20 @@ export function EnhancedReferralManager() {
                                                         <div className="p-2 bg-primary/10 rounded-full">
                                                             <User className="w-4 h-4 text-primary" />
                                                         </div>
-                                                        <div>
-                                                            <p className="font-medium">{user.display_name || "Unknown"}</p>
-                                                            <p className="text-sm text-muted-foreground">{user.email}</p>
-                                                            <p className="text-xs text-muted-foreground">Code: {user.referral_code}</p>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <p className="font-medium font-mono">
+                                                                    {user.username?.trim() ? `@${user.username.trim()}` : (user.display_name || "Unknown")}
+                                                                </p>
+                                                                {user.wonder_badge && (
+                                                                    <Badge className="bg-amber-500 text-black text-[10px] shrink-0">Wonder</Badge>
+                                                                )}
+                                                            </div>
+                                                            {user.username?.trim() && (
+                                                                <p className="text-sm text-muted-foreground truncate">{user.display_name || "—"}</p>
+                                                            )}
+                                                            <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                                                            <p className="text-xs text-muted-foreground">Code: {user.referral_code ?? "—"}</p>
                                                         </div>
                                                     </div>
                                                     <div className="text-right">
@@ -516,7 +539,9 @@ export function EnhancedReferralManager() {
                                     ) : bonuses?.length === 0 ? (
                                         <p className="text-center text-muted-foreground py-8">No bonuses yet</p>
                                     ) : (
-                                        bonuses?.map((bonus) => (
+                                        bonuses?.map((bonus) => {
+                                            const bonusUser = users?.find((u) => u.id === bonus.user_id);
+                                            return (
                                             <div
                                                 key={bonus.id}
                                                 className="flex items-center justify-between p-4 bg-muted rounded-lg"
@@ -534,8 +559,17 @@ export function EnhancedReferralManager() {
                                                             <XCircle className="w-4 h-4 text-red-600" />
                                                         )}
                                                     </div>
-                                                    <div>
-                                                        <p className="font-medium">{bonus.user_email}</p>
+                                                    <div className="min-w-0">
+                                                        <p className="font-medium font-mono">
+                                                            {bonusUser?.username?.trim()
+                                                                ? `@${bonusUser.username.trim()}`
+                                                                : (bonus.user_email || bonusUser?.email || "—")}
+                                                        </p>
+                                                        {(bonusUser?.display_name || bonus.user_email) && (
+                                                            <p className="text-xs text-muted-foreground truncate">
+                                                                {[bonusUser?.display_name, bonus.user_email || bonusUser?.email].filter(Boolean).join(" · ")}
+                                                            </p>
+                                                        )}
                                                         <p className="text-sm text-muted-foreground">{bonus.description}</p>
                                                         <div className="flex items-center gap-2 mt-1">
                                                             <Badge variant="outline">Level {bonus.level}</Badge>
@@ -550,7 +584,8 @@ export function EnhancedReferralManager() {
                                                     </p>
                                                 </div>
                                             </div>
-                                        ))
+                                        );
+                                        })
                                     )}
                                 </div>
                             </ScrollArea>
@@ -573,7 +608,11 @@ export function EnhancedReferralManager() {
                                             <CardHeader className="pb-2">
                                                 <div className="flex items-center gap-2">
                                                     <TreePine className="w-5 h-5 text-primary" />
-                                                    <CardTitle className="text-lg">{rootUser.display_name || rootUser.email}</CardTitle>
+                                                    <CardTitle className="text-lg font-mono">
+                                                        {rootUser.username?.trim()
+                                                            ? `@${rootUser.username.trim()}`
+                                                            : (rootUser.display_name || rootUser.email)}
+                                                    </CardTitle>
                                                     <Badge>Root</Badge>
                                                 </div>
                                             </CardHeader>

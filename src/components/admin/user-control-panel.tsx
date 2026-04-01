@@ -2,14 +2,15 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { updateRow, deleteRow, insertRow } from "@/firebase";
+import { updateRow, deleteRow, insertRow, db } from "@/firebase";
+import { runTransaction, doc, collection } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, Pencil, UserCog, Ban, CheckCircle, Trash2, Wallet, Gift, TrendingUp, Copy, Check, ExternalLink, UserPlus, ArrowUpDown } from "lucide-react";
+import { Search, Pencil, UserCog, Ban, CheckCircle, Trash2, Wallet, Gift, TrendingUp, Copy, Check, ExternalLink, UserPlus, ArrowUpDown, Scale, Sparkles } from "lucide-react";
 import { formatSupportId } from "@/lib/support-id";
 import {
     Dialog,
@@ -27,12 +28,19 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { isAdminRoleValue } from "@/lib/user-role";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+function roundMoney(n: number): number {
+    return Math.round(n * 100) / 100;
+}
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 
 export interface UserControlPanelUser {
     id: string;
@@ -61,6 +69,8 @@ export interface UserControlPanelUser {
     team_commission_enabled?: boolean;
     referral_code?: string;
     referrer_id?: string;
+    /** Admin-only: highlight top performers in lists */
+    wonder_badge?: boolean;
 }
 
 export interface UserControlPanelProps {
@@ -118,6 +128,7 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showBonusDialog, setShowBonusDialog] = useState(false);
+    const [showBalanceAdjustDialog, setShowBalanceAdjustDialog] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showUserDetails, setShowUserDetails] = useState(false);
 
@@ -136,6 +147,12 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
         type: "manual" as 'manual' | 'external_wallet' | 'binance' | 'trust_wallet',
         description: "",
         wallet_tx_id: "",
+    });
+
+    const [balanceAdjustForm, setBalanceAdjustForm] = useState({
+        direction: "add" as "add" | "subtract",
+        amount: "",
+        reason: "",
     });
 
     const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -223,6 +240,26 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
         }
     };
 
+    const handleWonderBadgeToggle = async (checked: boolean) => {
+        if (!selectedUser) return;
+        setIsProcessing(true);
+        try {
+            await updateRow("users", selectedUser.id, {
+                wonder_badge: checked,
+                updated_at: new Date().toISOString(),
+            });
+            setSelectedUser({ ...selectedUser, wonder_badge: checked });
+            toast({
+                title: checked ? "Wonder badge enabled" : "Wonder badge removed",
+                description: `${selectedUser.username ? `@${selectedUser.username}` : selectedUser.email}`,
+            });
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     const handleSendBonus = async () => {
         if (!selectedUser) return;
 
@@ -261,6 +298,96 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
             setShowBonusDialog(false);
         } catch (error: any) {
             toast({ variant: "destructive", title: "Error", description: error.message });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const openBalanceAdjust = (user: User) => {
+        setSelectedUser(user);
+        setBalanceAdjustForm({ direction: "add", amount: "", reason: "" });
+        setShowBalanceAdjustDialog(true);
+    };
+
+    const handleBalanceAdjust = async () => {
+        if (!selectedUser) return;
+
+        const raw = parseFloat(balanceAdjustForm.amount);
+        const amount = roundMoney(Math.abs(raw));
+        if (!amount || amount <= 0 || Number.isNaN(amount)) {
+            toast({
+                variant: "destructive",
+                title: "Invalid amount",
+                description: "Enter a positive dollar amount.",
+            });
+            return;
+        }
+
+        const reason = balanceAdjustForm.reason.trim();
+        if (reason.length < 3) {
+            toast({
+                variant: "destructive",
+                title: "Memo required",
+                description: "Enter a short description for the statement (at least 3 characters).",
+            });
+            return;
+        }
+
+        if (!db) {
+            toast({ variant: "destructive", title: "Firebase not configured" });
+            return;
+        }
+
+        const firestore = db;
+        const delta = balanceAdjustForm.direction === "add" ? amount : -amount;
+        const type = balanceAdjustForm.direction === "add" ? "wallet_credit" : "wallet_debit";
+
+        setIsProcessing(true);
+        try {
+            const now = new Date().toISOString();
+            await runTransaction(firestore, async (tx) => {
+                const userRef = doc(firestore, "users", selectedUser.id);
+                const snap = await tx.get(userRef);
+                if (!snap.exists()) throw new Error("User document not found");
+                const current = roundMoney(Number(snap.data().balance) || 0);
+                const next = roundMoney(current + delta);
+                if (next < 0) {
+                    throw new Error(
+                        `Insufficient balance: user has $${current.toFixed(2)}, cannot deduct $${amount.toFixed(2)}.`
+                    );
+                }
+
+                const txRef = doc(collection(firestore, "transactions"));
+                tx.set(txRef, {
+                    user_id: selectedUser.id,
+                    user_display_name: selectedUser.display_name || selectedUser.email || "User",
+                    user_email: selectedUser.email || "",
+                    type,
+                    amount,
+                    currency: "USD",
+                    status: "completed",
+                    description: reason,
+                    created_at: now,
+                    updated_at: now,
+                });
+                tx.update(userRef, {
+                    balance: next,
+                    updated_at: now,
+                });
+            });
+
+            toast({
+                title: "Balance updated",
+                description: "Saved. The member will see it on Transaction history as Credit or Debit with your memo.",
+            });
+            setShowBalanceAdjustDialog(false);
+            setBalanceAdjustForm({ direction: "add", amount: "", reason: "" });
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Adjustment failed",
+                description: error?.message || "Could not update balance",
+            });
         } finally {
             setIsProcessing(false);
         }
@@ -425,12 +552,22 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
                                                         <AvatarImage src={`https://picsum.photos/seed/${user.id}/100/100`} />
                                                         <AvatarFallback>{user.display_name?.[0] || user.email?.[0] || 'U'}</AvatarFallback>
                                                     </Avatar>
-                                                    <div>
-                                                        <div className="font-medium text-sm">{user.display_name || 'N/A'}</div>
-                                                        <div className="text-xs text-muted-foreground">{user.email}</div>
-                                                        {user.username && (
-                                                            <div className="text-xs text-muted-foreground">@{user.username}</div>
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="font-medium text-sm font-mono">
+                                                                {user.username?.trim() ? `@${user.username.trim()}` : (user.display_name || "—")}
+                                                            </span>
+                                                            {user.wonder_badge && (
+                                                                <Badge className="gap-0.5 bg-amber-500 text-black hover:bg-amber-500/90 text-[10px] shrink-0">
+                                                                    <Sparkles className="h-3 w-3" />
+                                                                    Wonder
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        {user.username?.trim() && (
+                                                            <div className="text-xs text-muted-foreground truncate">{user.display_name || "—"}</div>
                                                         )}
+                                                        <div className="text-xs text-muted-foreground truncate">{user.email}</div>
                                                     </div>
                                                 </div>
                                             </TableCell>
@@ -511,6 +648,15 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
                                                     <Button
                                                         size="icon"
                                                         variant="ghost"
+                                                        className="h-8 w-8 text-sky-600"
+                                                        title="Wallet credit or debit (with memo)"
+                                                        onClick={() => openBalanceAdjust(user)}
+                                                    >
+                                                        <Scale className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
                                                         className="h-8 w-8"
                                                         title="Edit User"
                                                         onClick={() => handleEditUser(user)}
@@ -551,6 +697,11 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
                         <DialogDescription>Update user details and settings</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                        <p className="text-xs text-muted-foreground rounded-md border border-dashed px-3 py-2">
+                            To <strong>credit or debit</strong> main wallet with a memo on the member&apos;s{" "}
+                            <strong>Transaction history</strong>, use <strong>Adjust balance</strong> (scale icon) instead of
+                            typing a new total here.
+                        </p>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Balance ($)</Label>
@@ -704,6 +855,107 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
                 </DialogContent>
             </Dialog>
 
+            {/* Wallet balance credit/debit (memo appears on member transaction history) */}
+            <Dialog open={showBalanceAdjustDialog} onOpenChange={setShowBalanceAdjustDialog}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Wallet balance adjustment</DialogTitle>
+                        <DialogDescription>
+                            Add to or subtract from <strong>main wallet balance</strong> (not referral balance). A completed
+                            entry appears on the member&apos;s <strong>Transaction history</strong> as <strong>Credit</strong>{" "}
+                            or <strong>Debit</strong>; only your memo text is shown in the description (e.g. weekly bonus,
+                            monthly salary, correction).
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedUser && (
+                        <div className="space-y-4 py-2">
+                            <div className="rounded-lg border bg-muted/50 px-3 py-2 text-sm">
+                                <span className="text-muted-foreground">Current balance: </span>
+                                <span className="font-semibold">${roundMoney(Number(selectedUser.balance) || 0).toFixed(2)}</span>
+                                <span className="text-muted-foreground"> · </span>
+                                <span className="truncate">{selectedUser.email}</span>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Action</Label>
+                                <RadioGroup
+                                    value={balanceAdjustForm.direction}
+                                    onValueChange={(v) =>
+                                        setBalanceAdjustForm((f) => ({ ...f, direction: v as "add" | "subtract" }))
+                                    }
+                                    className="flex flex-col gap-2 sm:flex-row sm:gap-4"
+                                >
+                                    <label className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                                        <RadioGroupItem value="add" id="bal-add" />
+                                        <span>Credit — add funds to wallet</span>
+                                    </label>
+                                    <label className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                                        <RadioGroupItem value="subtract" id="bal-sub" />
+                                        <span>Debit — remove funds from wallet</span>
+                                    </label>
+                                </RadioGroup>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="bal-amt">Amount ($)</Label>
+                                <Input
+                                    id="bal-amt"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    value={balanceAdjustForm.amount}
+                                    onChange={(e) => setBalanceAdjustForm((f) => ({ ...f, amount: e.target.value }))}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="bal-reason">Memo / description (required)</Label>
+                                <Textarea
+                                    id="bal-reason"
+                                    rows={3}
+                                    placeholder="e.g. Weekly bonus, Monthly salary, Deposit correction, Service fee adjustment…"
+                                    value={balanceAdjustForm.reason}
+                                    onChange={(e) => setBalanceAdjustForm((f) => ({ ...f, reason: e.target.value }))}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    This text is what the member sees on their statement—write it clearly, like a bank memo.
+                                </p>
+                            </div>
+
+                            {(() => {
+                                const cur = roundMoney(Number(selectedUser.balance) || 0);
+                                const amt = roundMoney(Math.abs(parseFloat(balanceAdjustForm.amount) || 0));
+                                const next =
+                                    balanceAdjustForm.direction === "add"
+                                        ? roundMoney(cur + amt)
+                                        : roundMoney(cur - amt);
+                                if (!amt) return null;
+                                return (
+                                    <p className="text-sm rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+                                        Preview: <strong>${cur.toFixed(2)}</strong>
+                                        {balanceAdjustForm.direction === "add" ? " + " : " − "}
+                                        <strong>${amt.toFixed(2)}</strong> ={" "}
+                                        <strong className={next < 0 ? "text-destructive" : ""}>${next.toFixed(2)}</strong>
+                                        {next < 0 && (
+                                            <span className="text-destructive"> (cannot deduct more than balance)</span>
+                                        )}
+                                    </p>
+                                );
+                            })()}
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowBalanceAdjustDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={() => void handleBalanceAdjust()} disabled={isProcessing}>
+                            {isProcessing ? "Processing…" : "Post to wallet"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Delete User Dialog */}
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <DialogContent>
@@ -737,10 +989,38 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
                                     <AvatarFallback className="text-2xl">{selectedUser.display_name?.[0] || 'U'}</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <h3 className="text-xl font-bold">{selectedUser.display_name || 'N/A'}</h3>
-                                    <p className="text-muted-foreground">{selectedUser.email}</p>
-                                    {selectedUser.username && <p className="text-sm text-muted-foreground">@{selectedUser.username}</p>}
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h3 className="text-xl font-bold font-mono">
+                                            {selectedUser.username?.trim() ? `@${selectedUser.username.trim()}` : (selectedUser.display_name || "N/A")}
+                                        </h3>
+                                        {selectedUser.wonder_badge && (
+                                            <Badge className="gap-0.5 bg-amber-500 text-black text-xs">
+                                                <Sparkles className="h-3 w-3" />
+                                                Wonder
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    {selectedUser.username?.trim() && (
+                                        <p className="text-muted-foreground">{selectedUser.display_name || "—"}</p>
+                                    )}
+                                    <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
                                 </div>
+                            </div>
+                            <div className="flex items-center justify-between gap-4 rounded-lg border p-3 bg-muted/30">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="wonder-badge" className="text-sm font-medium cursor-pointer">
+                                        Wonder badge
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Mark standout members for bonuses and reviews (visible in admin lists).
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="wonder-badge"
+                                    checked={!!selectedUser.wonder_badge}
+                                    onCheckedChange={(v) => void handleWonderBadgeToggle(v)}
+                                    disabled={isProcessing}
+                                />
                             </div>
                             <Separator />
 
@@ -869,8 +1149,11 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
                             )}
                         </div>
                     )}
-                    <DialogFooter>
+                    <DialogFooter className="flex-col gap-2 sm:flex-row">
                         <Button variant="outline" onClick={() => setShowUserDetails(false)}>Close</Button>
+                        <Button variant="secondary" onClick={() => { setShowUserDetails(false); openBalanceAdjust(selectedUser!); }}>
+                            Wallet adjustment
+                        </Button>
                         <Button onClick={() => { setShowUserDetails(false); handleEditUser(selectedUser!); }}>Edit User</Button>
                     </DialogFooter>
                 </DialogContent>

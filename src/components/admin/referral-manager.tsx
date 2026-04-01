@@ -434,7 +434,12 @@ export function ReferralManager() {
                                                         <Users className="h-5 w-5 text-primary" />
                                                     </div>
                                                     <div>
-                                                        <p className="font-medium">{user.display_name || user.username || 'User'}</p>
+                                                        <p className="font-medium font-mono">
+                                                            {user.username?.trim() ? `@${user.username.trim()}` : (user.display_name || "User")}
+                                                        </p>
+                                                        {user.username?.trim() && (
+                                                            <p className="text-sm text-muted-foreground">{user.display_name || "—"}</p>
+                                                        )}
                                                         <p className="text-sm text-muted-foreground">{user.email}</p>
                                                     </div>
                                                 </div>

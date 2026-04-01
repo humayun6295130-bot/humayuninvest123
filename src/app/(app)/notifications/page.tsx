@@ -5,7 +5,7 @@ import { useUser, useRealtimeCollection, updateRow } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, TrendingUp, Wallet, Gift, Check, CheckCheck } from "lucide-react";
+import { Bell, TrendingUp, Wallet, Gift, Check, CheckCheck, Megaphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -13,29 +13,41 @@ interface Notification {
     id: string;
     title: string;
     message: string;
-    type: 'investment' | 'withdrawal' | 'deposit' | 'system' | 'referral';
-    is_read: boolean;
+    type: 'investment' | 'withdrawal' | 'deposit' | 'system' | 'referral' | 'promotional';
+    /** Preferred; some older writes used `read` only. */
+    is_read?: boolean;
+    read?: boolean;
     created_at: string;
+}
+
+function isNotificationUnread(n: Pick<Notification, 'is_read' | 'read'>): boolean {
+    if (n.is_read === true || n.read === true) return false;
+    return true;
 }
 
 export default function NotificationsPage() {
     const { user } = useUser();
     const { toast } = useToast();
 
-    const notificationsOptions = useMemo(() => ({
-        table: 'notifications',
-        filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        orderByColumn: { column: 'created_at', direction: 'desc' as const },
-        enabled: !!user,
-    }), [user]);
+    const uid = user?.uid;
+    const notificationsOptions = useMemo(
+        () => ({
+            table: 'notifications',
+            filters: uid ? [{ column: 'user_id', operator: '==' as const, value: uid }] : [],
+            orderByColumn: { column: 'created_at', direction: 'desc' as const },
+            enabled: !!uid,
+        }),
+        [uid]
+    );
 
-    const { data: notifications, isLoading } = useRealtimeCollection<Notification>(notificationsOptions);
+    const { data: notifications, isLoading, error: notificationsError } =
+        useRealtimeCollection<Notification>(notificationsOptions);
 
-    const unreadCount = notifications?.filter(n => !n.is_read).length || 0;
+    const unreadCount = notifications?.filter((n) => isNotificationUnread(n)).length || 0;
 
     const markAsRead = async (id: string) => {
         try {
-            await updateRow('notifications', id, { is_read: true });
+            await updateRow('notifications', id, { is_read: true, read: true });
         } catch (error) {
             console.error('Error marking notification as read:', error);
         }
@@ -44,8 +56,10 @@ export default function NotificationsPage() {
     const markAllAsRead = async () => {
         if (!notifications) return;
 
-        const unreadNotifications = notifications.filter(n => !n.is_read);
-        await Promise.all(unreadNotifications.map(n => updateRow('notifications', n.id, { is_read: true })));
+        const unreadNotifications = notifications.filter((n) => isNotificationUnread(n));
+        await Promise.all(
+            unreadNotifications.map((n) => updateRow('notifications', n.id, { is_read: true, read: true }))
+        );
 
         toast({
             title: "All notifications marked as read",
@@ -61,6 +75,8 @@ export default function NotificationsPage() {
                 return <Wallet className="h-5 w-5 text-green-600" />;
             case 'referral':
                 return <Gift className="h-5 w-5 text-purple-600" />;
+            case 'promotional':
+                return <Megaphone className="h-5 w-5 text-amber-500" />;
             default:
                 return <Bell className="h-5 w-5 text-gray-600" />;
         }
@@ -70,6 +86,24 @@ export default function NotificationsPage() {
         return (
             <div className="flex h-full items-center justify-center">
                 <p className="text-muted-foreground">Loading notifications...</p>
+            </div>
+        );
+    }
+
+    if (notificationsError) {
+        return (
+            <div className="space-y-4">
+                <h1 className="text-3xl font-bold text-white">Notifications</h1>
+                <Card className="border-destructive/50">
+                    <CardHeader>
+                        <CardTitle className="text-destructive">Could not load notifications</CardTitle>
+                        <CardDescription>
+                            {notificationsError.message.includes('index') || notificationsError.message.includes('Index')
+                                ? 'Firestore needs a composite index for this query. Deploy indexes from the project (npm run firebase:deploy:indexes), or create the index from the link in the browser console.'
+                                : notificationsError.message}
+                        </CardDescription>
+                    </CardHeader>
+                </Card>
             </div>
         );
     }
@@ -107,7 +141,7 @@ export default function NotificationsPage() {
                             {notifications?.map((notification) => (
                                 <div
                                     key={notification.id}
-                                    className={`flex items-start gap-4 p-4 border rounded-lg ${!notification.is_read ? 'bg-orange-500/10 border-orange-500/30' : 'border-border'}`}
+                                    className={`flex items-start gap-4 p-4 border rounded-lg ${isNotificationUnread(notification) ? 'bg-orange-500/10 border-orange-500/30' : 'border-border'}`}
                                 >
                                     <div className="p-2 bg-[#1a1a1a] rounded-full">
                                         {getIcon(notification.type)}
@@ -121,7 +155,7 @@ export default function NotificationsPage() {
                                         </div>
                                         <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
                                     </div>
-                                    {!notification.is_read && (
+                                    {isNotificationUnread(notification) && (
                                         <Button
                                             variant="ghost"
                                             size="sm"

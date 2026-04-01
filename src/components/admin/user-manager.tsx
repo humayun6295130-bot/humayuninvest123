@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, Pencil, UserCog, Briefcase, Ban, CheckCircle, Hash, Copy, Check, Trash2 } from "lucide-react";
+import { Search, Pencil, UserCog, Briefcase, Ban, CheckCircle, Hash, Copy, Check, Trash2, Sparkles } from "lucide-react";
 import { formatSupportId } from "@/lib/support-id";
 import {
   Dialog,
@@ -210,9 +210,22 @@ export function UserManager() {
                           <AvatarImage src={user.profile_picture_url} />
                           <AvatarFallback>{user.display_name?.[0]}</AvatarFallback>
                         </Avatar>
-                        <div>
-                          <div className="font-medium text-sm">{user.display_name}</div>
-                          <div className="text-xs text-muted-foreground">{user.email}</div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm font-mono">
+                              {user.username?.trim() ? `@${user.username.trim()}` : (user.display_name || "—")}
+                            </span>
+                            {user.wonder_badge && (
+                              <Badge className="gap-0.5 bg-amber-500 text-black text-[10px] shrink-0">
+                                <Sparkles className="h-3 w-3" />
+                                Wonder
+                              </Badge>
+                            )}
+                          </div>
+                          {user.username?.trim() && (
+                            <div className="text-xs text-muted-foreground truncate">{user.display_name || "—"}</div>
+                          )}
+                          <div className="text-xs text-muted-foreground truncate">{user.email}</div>
                         </div>
                       </div>
                     </TableCell>

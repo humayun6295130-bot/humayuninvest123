@@ -187,6 +187,7 @@ export function AdminWithdrawalManager() {
                 title: 'Withdrawal Approved',
                 message: `Your withdrawal request for $${selectedWithdrawal.amount} has been approved.`,
                 type: 'withdrawal',
+                is_read: false,
                 read: false,
                 created_at: new Date().toISOString()
             });
@@ -249,6 +250,7 @@ export function AdminWithdrawalManager() {
                 title: 'Withdrawal Rejected',
                 message: `Your withdrawal request for $${selectedWithdrawal.amount} has been rejected. Reason: ${rejectionReason}`,
                 type: 'withdrawal',
+                is_read: false,
                 read: false,
                 created_at: new Date().toISOString()
             });

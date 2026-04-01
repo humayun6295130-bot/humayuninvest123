@@ -4,8 +4,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useRealtimeCollection, updateRow, insertRow } from "@/firebase";
 import { db } from "@/firebase/config";
 import { doc, getDoc, updateDoc, increment } from "firebase/firestore";
-import { awardCommission, getReferralSettings } from "@/lib/referral-system";
-import { REFERRAL_COMMISSION_MAX_DEPTH, resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
+import { distributeInvestmentReferralCommissions } from "@/lib/referral-system";
+import { resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -168,6 +168,7 @@ export function InvestmentApproval() {
                 try {
                     await updateDoc(doc(db, 'users', investment.user_id), {
                         total_invested: increment(investment.amount),
+                        active_plan: investment.plan_name,
                         updated_at: timestamp,
                     });
                 } catch (e) {
@@ -175,42 +176,21 @@ export function InvestmentApproval() {
                 }
             }
 
-            // Distribute referral commissions up the chain
             if (db) {
                 try {
-                    const settings = await getReferralSettings();
-                    const commissionPercents = [
-                        settings.level1_percent,
-                        settings.level2_percent,
-                        settings.level3_percent,
-                    ];
                     const userDoc = await getDoc(doc(db, 'users', investment.user_id));
-                    if (userDoc.exists()) {
-                        let currentReferrerId = userDoc.data().referrer_id;
-                        let level = 0;
-                        while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
-                            const percent = commissionPercents[level] ?? 0;
-                            const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
-                            if (!referrerDoc.exists()) break;
-                            if (percent > 0) {
-                                const commission = investment.amount * (percent / 100);
-                                await awardCommission(
-                                    db,
-                                    currentReferrerId,
-                                    investment.user_id,
-                                    userDoc.data().username || investment.user_email || '',
-                                    commission,
-                                    'investment',
-                                    investment.amount,
-                                    { uplineDepth: level + 1, percentApplied: percent }
-                                );
-                            }
-                            currentReferrerId = referrerDoc.data().referrer_id;
-                            level++;
-                        }
-                    }
+                    const display =
+                        userDoc.exists() && userDoc.data().username
+                            ? userDoc.data().username
+                            : investment.user_email || "";
+                    await distributeInvestmentReferralCommissions(
+                        db,
+                        investment.user_id,
+                        investment.amount,
+                        display
+                    );
                 } catch (refErr) {
-                    console.error('Referral commission error (non-fatal):', refErr);
+                    console.error("Referral commission error (non-fatal):", refErr);
                 }
             }
 

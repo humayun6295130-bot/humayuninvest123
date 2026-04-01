@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Bitcoin, ShieldCheck, Zap, ArrowRight, TrendingUp, Users, Globe, Hash, Cpu, Star, CheckCircle, DollarSign, Lock } from 'lucide-react';
 import { PublicHeader } from '@/components/layout/public-header';
 import { PublicFooter } from '@/components/layout/public-footer';
+import { PublicBannerCarousel } from '@/components/layout/public-banner-carousel';
 import { MiningVisualization } from '@/components/mining/mining-visualization';
-import { DEPOSIT_INCOME_TIERS } from '@/lib/deposit-income-tiers';
+import { useFirebase } from '@/firebase';
 import { DEFAULT_REFERRAL_SETTINGS } from '@/lib/referral-system';
 
 const STATS = [
@@ -98,11 +99,15 @@ const PERKS = [
 ];
 
 export default function LandingPage() {
+    const { depositIncomeTiers } = useFirebase();
+    const displayTiers = depositIncomeTiers;
+
     return (
         <div className="flex flex-col min-h-screen bg-[#050505] text-white">
             <PublicHeader />
 
             <main className="flex-1 overflow-x-hidden">
+                <PublicBannerCarousel />
 
                 {/* ── Hero ── */}
                 <section className="relative w-full py-16 md:py-24 overflow-hidden">
@@ -220,7 +225,7 @@ export default function LandingPage() {
                         </div>
 
                         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-                            {DEPOSIT_INCOME_TIERS.map((tier, i) => {
+                            {displayTiers.map((tier, i) => {
                                 const plan = LANDING_TIER_STYLES[i] ?? LANDING_TIER_STYLES[0];
                                 const minStr = tier.min >= 1000 ? tier.min.toLocaleString("en-US") : String(tier.min);
                                 const maxStr = tier.max.toLocaleString("en-US");
@@ -256,7 +261,7 @@ export default function LandingPage() {
                             })}
                         </div>
                         <p className="text-center text-xs text-slate-500 mt-6 max-w-xl mx-auto">
-                            Deposits above ${DEPOSIT_INCOME_TIERS[DEPOSIT_INCOME_TIERS.length - 1].max.toLocaleString("en-US")} use the same daily rate as Tier {DEPOSIT_INCOME_TIERS.length} ({DEPOSIT_INCOME_TIERS[DEPOSIT_INCOME_TIERS.length - 1].incomePercent}% of principal per day).
+                            Deposits above ${displayTiers[displayTiers.length - 1].max.toLocaleString("en-US")} use the same daily rate as Tier {displayTiers.length} ({displayTiers[displayTiers.length - 1].incomePercent}% of principal per day).
                         </p>
                     </div>
                 </section>

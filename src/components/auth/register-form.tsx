@@ -72,7 +72,13 @@ export function RegisterForm() {
   const { signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [referralCode, setReferralCode] = useState<string>("");
-  const [referralValid, setReferralValid] = useState<{ valid: boolean; message: string; userId?: string }>({ valid: false, message: "" });
+  const [referralValid, setReferralValid] = useState<{
+    valid: boolean;
+    message: string;
+    userId?: string;
+    username?: string;
+    displayName?: string;
+  }>({ valid: false, message: "" });
 
   // Get referral code from URL on mount
   useEffect(() => {
@@ -186,6 +192,7 @@ export function RegisterForm() {
         message: "Your account has been created successfully. Start exploring our BTC mining investment plans to start earning.",
         type: "system",
         is_read: false,
+        read: false,
         created_at: new Date().toISOString(),
       });
 
@@ -205,7 +212,8 @@ export function RegisterForm() {
             user.uid,
             values.email,
             values.username,
-            0 // Initial investment is 0, will be updated when user makes first investment
+            0,
+            values.name
           );
           toast({
             title: "Referral Applied!",
@@ -257,8 +265,20 @@ export function RegisterForm() {
               <span className="text-sm font-medium">Referral code applied!</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              You'll earn mining rewards with your team
+              You&apos;ll earn mining rewards with your team
             </p>
+            {(referralValid.username || referralValid.displayName) && (
+              <p className="text-sm text-green-200/95 mt-2">
+                <span className="text-green-400/80">Invited by: </span>
+                <span className="font-semibold">
+                  {referralValid.displayName?.trim() && referralValid.username?.trim()
+                    ? `${referralValid.displayName.trim()} (@${referralValid.username.trim()})`
+                    : referralValid.username?.trim()
+                      ? `@${referralValid.username.trim()}`
+                      : referralValid.displayName?.trim() || "Your sponsor"}
+                </span>
+              </p>
+            )}
           </div>
         )}
       </CardHeader>

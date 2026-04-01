@@ -1,28 +1,19 @@
 "use client";
 
 /**
- * Admin Wallet Monitor Component
- * 
- * Features:
- * - Real-time TRX and USDT balance display
- * - Incoming/outgoing transaction history
- * - TRC-20 token details
- * - Auto-refresh balance
- * - Deposit notifications
+ * Admin wallet monitor — BNB Smart Chain (BEP20 USDT).
+ * Balances and tx verification use public JSON-RPC (`NEXT_PUBLIC_BSC_RPC_URL`).
+ * Optional `NEXT_PUBLIC_BSCSCAN_API_KEY` enables full history via BscScan; otherwise history is recent blocks only.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useWalletBalance, useTransactionHistory } from "@/hooks/use-tron";
-import {
-    useRealtimeCollection,
-    updateRow,
-    insertRow,
-} from "@/firebase";
+import { useWalletBalance, useTransactionHistory } from "@/hooks/use-bep20";
+import { useRealtimeCollection } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import {
     Wallet,
@@ -41,18 +32,88 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-import { ADMIN_WALLET_ADDRESS, getAdminWalletAddress, isWalletConfigured } from "@/lib/wallet-config";
+import { getAdminWalletAddress, isWalletConfigured } from "@/lib/wallet-config";
+import { getAllTokenBalances, type BEP20Transaction } from "@/lib/bep20";
+
+function formatTxAmountWei(value: string): number {
+    try {
+        const n = BigInt(value || "0");
+        return Number(n) / 1e18;
+    } catch {
+        return parseFloat(value || "0") / 1e18;
+    }
+}
 
 export function AdminWalletMonitor() {
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState("overview");
     const [copied, setCopied] = useState(false);
     const [lastCheckedTx, setLastCheckedTx] = useState<string>("");
+    const [tokenList, setTokenList] = useState<{ symbol: string; balance: number }[]>([]);
+    const [tokensLoading, setTokensLoading] = useState(false);
 
     const adminAddress = getAdminWalletAddress();
+    const walletReady = isWalletConfigured();
 
-    // Validate wallet address is configured
-    if (!isWalletConfigured()) {
+    const { balance, isLoading: balanceLoading, refresh: refreshBalance } = useWalletBalance(
+        walletReady ? adminAddress : "",
+        { autoRefresh: walletReady, refreshInterval: 30000 }
+    );
+
+    const {
+        transactions,
+        isLoading: txLoading,
+        refresh: refreshTx,
+    } = useTransactionHistory(walletReady ? adminAddress : "", {
+        limit: 50,
+    });
+
+    const { data: pendingPayments } = useRealtimeCollection({
+        table: "payment_verifications",
+        filters: [{ column: "status", operator: "==", value: "pending_verification" }],
+        orderByColumn: { column: "submitted_at", direction: "desc" },
+    });
+
+    const loadTokens = useCallback(async () => {
+        if (!walletReady || !adminAddress) {
+            setTokenList([]);
+            return;
+        }
+        setTokensLoading(true);
+        try {
+            const rows = await getAllTokenBalances(adminAddress);
+            setTokenList(rows);
+        } catch {
+            setTokenList([]);
+        } finally {
+            setTokensLoading(false);
+        }
+    }, [walletReady, adminAddress]);
+
+    useEffect(() => {
+        void loadTokens();
+    }, [loadTokens]);
+
+    useEffect(() => {
+        if (!walletReady || !adminAddress) return;
+        const incomingTx = (transactions as BEP20Transaction[]).filter(
+            (tx) => tx.to.toLowerCase() === adminAddress.toLowerCase()
+        );
+
+        if (incomingTx.length > 0 && incomingTx[0].hash !== lastCheckedTx) {
+            const latestTx = incomingTx[0];
+            if (lastCheckedTx) {
+                const amt = formatTxAmountWei(latestTx.value);
+                toast({
+                    title: "🔔 New incoming transfer",
+                    description: `${amt.toFixed(4)} (wei-scaled) from ${latestTx.from.slice(0, 8)}… — open BscScan for asset type.`,
+                });
+            }
+            setLastCheckedTx(latestTx.hash);
+        }
+    }, [transactions, lastCheckedTx, toast, adminAddress, walletReady]);
+
+    if (!walletReady) {
         return (
             <Card className="border-destructive">
                 <CardHeader>
@@ -61,56 +122,12 @@ export function AdminWalletMonitor() {
                         Wallet Not Configured
                     </CardTitle>
                     <CardDescription>
-                        Please set NEXT_PUBLIC_ADMIN_WALLET_ADDRESS in your environment variables.
+                        Set NEXT_PUBLIC_BSC_ADMIN_WALLET_ADDRESS or NEXT_PUBLIC_ADMIN_WALLET_ADDRESS (BEP20 0x address).
                     </CardDescription>
                 </CardHeader>
             </Card>
         );
     }
-
-    // Real-time balance with auto-refresh every 30 seconds
-    const { balance, isLoading: balanceLoading, refresh: refreshBalance } = useWalletBalance(
-        adminAddress,
-        { autoRefresh: true, refreshInterval: 30000 }
-    );
-
-    // Transaction history
-    const {
-        transactions,
-        isLoading: txLoading,
-        refresh: refreshTx,
-    } = useTransactionHistory(adminAddress, {
-        limit: 50,
-        type: 'all',
-    });
-
-    // Pending payment verifications
-    const { data: pendingPayments } = useRealtimeCollection({
-        table: 'payment_verifications',
-        filters: [{ column: 'status', operator: '==', value: 'pending_verification' }],
-        orderByColumn: { column: 'submitted_at', direction: 'desc' },
-    });
-
-    // Check for new deposits
-    useEffect(() => {
-        const incomingTx = transactions.filter(
-            tx => tx.to_address.toLowerCase() === adminAddress.toLowerCase()
-        );
-
-        if (incomingTx.length > 0 && incomingTx[0].transaction_id !== lastCheckedTx) {
-            const latestTx = incomingTx[0];
-
-            // Check if this is a new transaction
-            if (lastCheckedTx) {
-                toast({
-                    title: "🔔 New Deposit Detected!",
-                    description: `Received ${parseInt(latestTx.quant) / 1e6} USDT from ${latestTx.from_address.slice(0, 8)}...`,
-                });
-            }
-
-            setLastCheckedTx(latestTx.transaction_id);
-        }
-    }, [transactions, lastCheckedTx, toast]);
 
     const copyAddress = () => {
         navigator.clipboard.writeText(adminAddress);
@@ -120,80 +137,118 @@ export function AdminWalletMonitor() {
     };
 
     const handleRefresh = async () => {
-        await Promise.all([refreshBalance(), refreshTx()]);
+        await Promise.all([refreshBalance(), refreshTx(), loadTokens()]);
         toast({ title: "Refreshed", description: "Wallet data updated" });
     };
 
-    const incomingTx = transactions.filter(
-        tx => tx.to_address.toLowerCase() === adminAddress.toLowerCase()
-    );
+    const txs = transactions as BEP20Transaction[];
+    const incomingTx = txs.filter((tx) => tx.to.toLowerCase() === adminAddress.toLowerCase());
+    const outgoingTx = txs.filter((tx) => tx.from.toLowerCase() === adminAddress.toLowerCase());
 
-    const outgoingTx = transactions.filter(
-        tx => tx.from_address.toLowerCase() === adminAddress.toLowerCase()
-    );
+    const totalIncoming = incomingTx.reduce((sum, tx) => sum + formatTxAmountWei(tx.value), 0);
+    const totalOutgoing = outgoingTx.reduce((sum, tx) => sum + formatTxAmountWei(tx.value), 0);
 
-    const totalIncoming = incomingTx.reduce(
-        (sum, tx) => sum + parseInt(tx.quant) / 1e6,
-        0
-    );
+    const renderTxRow = (tx: BEP20Transaction, variant: "neutral" | "incoming" | "outgoing") => {
+        const isIncoming = tx.to.toLowerCase() === adminAddress.toLowerCase();
+        const amount = formatTxAmountWei(tx.value);
+        const bg =
+            variant === "incoming"
+                ? "bg-green-50"
+                : variant === "outgoing"
+                  ? "bg-red-50"
+                  : "bg-muted";
 
-    const totalOutgoing = outgoingTx.reduce(
-        (sum, tx) => sum + parseInt(tx.quant) / 1e6,
-        0
-    );
+        return (
+            <div key={tx.hash} className={`flex items-center justify-between p-3 rounded-lg ${bg}`}>
+                <div className="flex items-center gap-3 min-w-0">
+                    <div
+                        className={`p-2 rounded-full shrink-0 ${isIncoming ? "bg-green-100" : "bg-red-100"}`}
+                    >
+                        {isIncoming ? (
+                            <ArrowDownLeft className="w-4 h-4 text-green-600" />
+                        ) : (
+                            <ArrowUpRight className="w-4 h-4 text-red-600" />
+                        )}
+                    </div>
+                    <div className="min-w-0">
+                        <p className="font-medium">
+                            {isIncoming ? "Received" : "Sent"} {amount.toFixed(6)}{" "}
+                            <span className="text-muted-foreground text-xs font-normal">(raw value ÷ 10¹⁸)</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                            {isIncoming
+                                ? `From: ${tx.from.slice(0, 10)}…${tx.from.slice(-8)}`
+                                : `To: ${tx.to.slice(0, 10)}…${tx.to.slice(-8)}`}
+                        </p>
+                    </div>
+                </div>
+                <div className="text-right shrink-0 ml-2">
+                    <p className="text-sm text-muted-foreground">
+                        {format(new Date(tx.timestamp), "MMM d, HH:mm")}
+                    </p>
+                    <a
+                        href={`https://bscscan.com/tx/${tx.hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline"
+                    >
+                        BscScan <ExternalLink className="w-3 h-3 inline" />
+                    </a>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg">
                         <Wallet className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Admin Wallet</h2>
+                        <h2 className="text-2xl font-bold">Admin Wallet (BSC)</h2>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <code className="text-xs">{adminAddress}</code>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyAddress}>
+                            <code className="text-xs break-all">{adminAddress}</code>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={copyAddress}>
                                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                             </Button>
                         </div>
                     </div>
                 </div>
-                <Button variant="outline" onClick={handleRefresh} disabled={balanceLoading}>
-                    <RefreshCw className={`w-4 h-4 mr-2 ${balanceLoading ? 'animate-spin' : ''}`} />
+                <Button variant="outline" onClick={handleRefresh} disabled={balanceLoading || txLoading}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${balanceLoading || txLoading ? "animate-spin" : ""}`} />
                     Refresh
                 </Button>
             </div>
 
-            {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardDescription>USDT Balance</CardDescription>
+                        <CardDescription>USDT (BEP20)</CardDescription>
                         <CardTitle className="text-3xl">
                             {balanceLoading ? (
-                                <span className="text-muted-foreground">...</span>
+                                <span className="text-muted-foreground">…</span>
                             ) : (
-                                `${balance?.usdtBalance.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+                                `${(balance?.usdtBalance ?? 0).toLocaleString("en-US", { maximumFractionDigits: 6 })}`
                             )}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <Badge variant="secondary" className="text-green-600">
-                            <Coins className="w-3 h-3 mr-1" /> TRC-20
+                            <Coins className="w-3 h-3 mr-1" /> BEP20
                         </Badge>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardDescription>TRX Balance</CardDescription>
+                        <CardDescription>BNB</CardDescription>
                         <CardTitle className="text-3xl">
                             {balanceLoading ? (
-                                <span className="text-muted-foreground">...</span>
+                                <span className="text-muted-foreground">…</span>
                             ) : (
-                                `${balance?.trxBalance.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+                                `${(balance?.bnbBalance ?? 0).toLocaleString("en-US", { maximumFractionDigits: 6 })}`
                             )}
                         </CardTitle>
                     </CardHeader>
@@ -206,34 +261,33 @@ export function AdminWalletMonitor() {
 
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardDescription>Total Incoming</CardDescription>
+                        <CardDescription>Incoming (history, scaled)</CardDescription>
                         <CardTitle className="text-3xl text-green-600">
-                            +{totalIncoming.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                            +{totalIncoming.toLocaleString("en-US", { maximumFractionDigits: 4 })}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <Badge variant="secondary" className="bg-green-50">
-                            <TrendingUp className="w-3 h-3 mr-1" /> {incomingTx.length} deposits
+                            <TrendingUp className="w-3 h-3 mr-1" /> {incomingTx.length} txs
                         </Badge>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardDescription>Total Outgoing</CardDescription>
+                        <CardDescription>Outgoing (history, scaled)</CardDescription>
                         <CardTitle className="text-3xl text-red-600">
-                            -{totalOutgoing.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                            −{totalOutgoing.toLocaleString("en-US", { maximumFractionDigits: 4 })}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <Badge variant="secondary" className="bg-red-50">
-                            <TrendingDown className="w-3 h-3 mr-1" /> {outgoingTx.length} withdrawals
+                            <TrendingDown className="w-3 h-3 mr-1" /> {outgoingTx.length} txs
                         </Badge>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Main Content Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -247,63 +301,21 @@ export function AdminWalletMonitor() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Activity className="w-5 h-5" />
-                                Recent Activity
+                                Recent activity
                             </CardTitle>
-                            <CardDescription>Latest transactions</CardDescription>
+                            <CardDescription>
+                                BSC — USDT rows from RPC (recent window without explorer API key). Confirm on BscScan if needed.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <ScrollArea className="h-[400px]">
                                 <div className="space-y-3">
                                     {txLoading ? (
-                                        <p className="text-center text-muted-foreground py-8">Loading transactions...</p>
-                                    ) : transactions.length === 0 ? (
+                                        <p className="text-center text-muted-foreground py-8">Loading…</p>
+                                    ) : txs.length === 0 ? (
                                         <p className="text-center text-muted-foreground py-8">No transactions found</p>
                                     ) : (
-                                        transactions.map((tx) => {
-                                            const isIncoming = tx.to_address.toLowerCase() === adminAddress.toLowerCase();
-                                            const amount = parseInt(tx.quant) / 1e6;
-
-                                            return (
-                                                <div
-                                                    key={tx.transaction_id}
-                                                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`p-2 rounded-full ${isIncoming ? 'bg-green-100' : 'bg-red-100'}`}>
-                                                            {isIncoming ? (
-                                                                <ArrowDownLeft className="w-4 h-4 text-green-600" />
-                                                            ) : (
-                                                                <ArrowUpRight className="w-4 h-4 text-red-600" />
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium">
-                                                                {isIncoming ? 'Received' : 'Sent'} {amount.toFixed(2)} USDT
-                                                            </p>
-                                                            <p className="text-xs text-muted-foreground">
-                                                                {isIncoming
-                                                                    ? `From: ${tx.from_address.slice(0, 8)}...${tx.from_address.slice(-8)}`
-                                                                    : `To: ${tx.to_address.slice(0, 8)}...${tx.to_address.slice(-8)}`
-                                                                }
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-sm text-muted-foreground">
-                                                            {format(tx.block_ts, 'MMM d, HH:mm')}
-                                                        </p>
-                                                        <a
-                                                            href={`https://tronscan.org/#/transaction/${tx.transaction_id}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-xs text-primary hover:underline"
-                                                        >
-                                                            View <ExternalLink className="w-3 h-3 inline" />
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
+                                        txs.map((tx) => renderTxRow(tx, "neutral"))
                                     )}
                                 </div>
                             </ScrollArea>
@@ -316,7 +328,7 @@ export function AdminWalletMonitor() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <ArrowDownLeft className="w-5 h-5 text-green-600" />
-                                Incoming Transactions
+                                Incoming
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -325,29 +337,7 @@ export function AdminWalletMonitor() {
                                     {incomingTx.length === 0 ? (
                                         <p className="text-center text-muted-foreground py-8">No incoming transactions</p>
                                     ) : (
-                                        incomingTx.map((tx) => (
-                                            <div
-                                                key={tx.transaction_id}
-                                                className="flex items-center justify-between p-4 bg-green-50 rounded-lg"
-                                            >
-                                                <div>
-                                                    <p className="font-bold text-green-800">
-                                                        +{(parseInt(tx.quant) / 1e6).toFixed(2)} USDT
-                                                    </p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        From: {tx.from_address.slice(0, 12)}...
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <Badge variant="outline" className="bg-[#1a1a1a]">
-                                                        {tx.confirmed ? 'Confirmed' : 'Pending'}
-                                                    </Badge>
-                                                    <p className="text-xs text-muted-foreground mt-1">
-                                                        {format(tx.block_ts, 'MMM d, yyyy HH:mm')}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))
+                                        incomingTx.map((tx) => renderTxRow(tx, "incoming"))
                                     )}
                                 </div>
                             </ScrollArea>
@@ -360,7 +350,7 @@ export function AdminWalletMonitor() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <ArrowUpRight className="w-5 h-5 text-red-600" />
-                                Outgoing Transactions
+                                Outgoing
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -369,29 +359,7 @@ export function AdminWalletMonitor() {
                                     {outgoingTx.length === 0 ? (
                                         <p className="text-center text-muted-foreground py-8">No outgoing transactions</p>
                                     ) : (
-                                        outgoingTx.map((tx) => (
-                                            <div
-                                                key={tx.transaction_id}
-                                                className="flex items-center justify-between p-4 bg-red-50 rounded-lg"
-                                            >
-                                                <div>
-                                                    <p className="font-bold text-red-800">
-                                                        -{(parseInt(tx.quant) / 1e6).toFixed(2)} USDT
-                                                    </p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        To: {tx.to_address.slice(0, 12)}...
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <Badge variant="outline" className="bg-[#1a1a1a]">
-                                                        {tx.confirmed ? 'Confirmed' : 'Pending'}
-                                                    </Badge>
-                                                    <p className="text-xs text-muted-foreground mt-1">
-                                                        {format(tx.block_ts, 'MMM d, yyyy HH:mm')}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))
+                                        outgoingTx.map((tx) => renderTxRow(tx, "outgoing"))
                                     )}
                                 </div>
                             </ScrollArea>
@@ -404,35 +372,30 @@ export function AdminWalletMonitor() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Coins className="w-5 h-5" />
-                                TRC-20 Token Balances
+                                Token balances (USDT via RPC)
                             </CardTitle>
-                            <CardDescription>All tokens in the admin wallet</CardDescription>
+                            <CardDescription>BEP20 tokens for this wallet (API list).</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
-                                {balance?.tokens.length === 0 ? (
-                                    <p className="text-center text-muted-foreground py-8">No tokens found</p>
+                                {tokensLoading ? (
+                                    <p className="text-center text-muted-foreground py-8">Loading tokens…</p>
+                                ) : tokenList.length === 0 ? (
+                                    <p className="text-center text-muted-foreground py-8">No tokens returned</p>
                                 ) : (
-                                    balance?.tokens.map((token) => (
+                                    tokenList.map((token) => (
                                         <div
-                                            key={token.contractAddress}
+                                            key={token.symbol}
                                             className="flex items-center justify-between p-4 bg-muted rounded-lg"
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 bg-primary/10 rounded-full">
                                                     <Coins className="w-4 h-4 text-primary" />
                                                 </div>
-                                                <div>
-                                                    <p className="font-medium">{token.name}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {token.symbol} • {token.contractAddress.slice(0, 8)}...
-                                                    </p>
-                                                </div>
+                                                <p className="font-medium">{token.symbol}</p>
                                             </div>
                                             <p className="font-bold">
-                                                {token.balance.toLocaleString('en-US', {
-                                                    maximumFractionDigits: token.decimals
-                                                })} {token.symbol}
+                                                {token.balance.toLocaleString("en-US", { maximumFractionDigits: 8 })}
                                             </p>
                                         </div>
                                     ))
@@ -443,13 +406,12 @@ export function AdminWalletMonitor() {
                 </TabsContent>
             </Tabs>
 
-            {/* Pending Payments Alert */}
             {pendingPayments && pendingPayments.length > 0 && (
                 <Card className="border-yellow-200 bg-yellow-50">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-yellow-800">
                             <Bell className="w-5 h-5" />
-                            Pending Verifications
+                            Pending verifications
                         </CardTitle>
                     </CardHeader>
                     <CardContent>

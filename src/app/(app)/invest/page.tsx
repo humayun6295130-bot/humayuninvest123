@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useUser, useRealtimeCollection, updateRow, insertRow } from "@/firebase";
+import { useUser, useRealtimeCollection } from "@/firebase";
+import { db } from "@/firebase/config";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QrPaymentDialog } from "@/components/invest/qr-payment-dialog";
+import { ReinvestFromBalanceCard } from "@/components/invest/reinvest-from-balance-card";
 import { InvestmentProgress } from "@/components/invest/InvestmentProgress";
 import { ActiveMiningDialog } from "@/components/mining/active-mining-dialog";
 import { PremiumInvestmentCard } from "@/components/invest/premium-investment-card";
@@ -19,6 +21,7 @@ import { ChipNavigation, TabSwitcher, SortDropdown, SortOption } from "@/compone
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { getEffectiveDailyIncomeUsd, resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
+import { DAILY_CLAIM_ERR, executeUnifiedDailyClaim, hasClaimedDailyToday } from "@/lib/daily-claim";
 import {
     TrendingUp,
     Wallet,
@@ -264,69 +267,48 @@ export default function InvestPage() {
     };
 
     const handleClaimEarnings = async () => {
-        if (!user || !selectedInvestment) return;
+        if (!user || !userProfile || !db) return;
 
         setIsClaiming(true);
         try {
-            const today = new Date().toISOString().split('T')[0];
-
-            if (selectedInvestment.last_claim_date === today) {
-                toast({
-                    variant: "destructive",
-                    title: "Already Claimed",
-                    description: "You have already claimed today's earnings for this investment.",
-                });
-                setIsClaiming(false);
-                return;
-            }
-
-            const claimAmount = getEffectiveDailyIncomeUsd(selectedInvestment);
-            const newClaimedAmount = (selectedInvestment.claimed_so_far || 0) + claimAmount;
-            const newDaysClaimed = (selectedInvestment.days_claimed || 0) + 1;
-            const newEarnedSoFar = claimAmount * newDaysClaimed;
-
-            await updateRow('user_investments', selectedInvestment.id, {
-                claimed_so_far: newClaimedAmount,
-                earned_so_far: newEarnedSoFar,
-                days_claimed: newDaysClaimed,
-                last_claim_date: today,
-            });
-
-            await updateRow('users', user.uid, {
-                balance: (userProfile?.balance || 0) + claimAmount,
-                total_earned: (userProfile?.total_earned || 0) + claimAmount,
-            });
-
-            await insertRow('investment_earnings', {
-                user_id: user.uid,
-                investment_id: selectedInvestment.id,
-                plan_name: selectedInvestment.plan_name,
-                amount: claimAmount,
-                date: today,
-                claimed_at: new Date().toISOString(),
-            });
-
-            await insertRow('transactions', {
-                user_id: user.uid,
-                type: 'earning_claim',
-                amount: claimAmount,
-                status: 'completed',
-                description: `Earnings from ${selectedInvestment.plan_name}`,
-                reference_id: selectedInvestment.id,
+            const { totalClaimed, activeCount } = await executeUnifiedDailyClaim({
+                db,
+                userId: user.uid,
+                userProfile: {
+                    last_daily_claim: userProfile.last_daily_claim,
+                    email: userProfile.email,
+                    display_name: userProfile.display_name,
+                },
+                investments: (userInvestments || []) as any[],
             });
 
             toast({
                 title: "Earnings Claimed! 💰",
-                description: `$${claimAmount.toFixed(2)} has been added to your balance.`,
+                description: `$${totalClaimed.toFixed(2)} from ${activeCount} active plan(s) added to your balance (one claim per day for your account).`,
             });
 
             setSelectedInvestment(null);
         } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Claim Failed",
-                description: error.message,
-            });
+            const msg = error?.message;
+            if (msg === DAILY_CLAIM_ERR.ALREADY_TODAY) {
+                toast({
+                    variant: "destructive",
+                    title: "Already Claimed",
+                    description: "You have already claimed today. Wallet and Earnings use the same daily claim.",
+                });
+            } else if (msg === DAILY_CLAIM_ERR.NOTHING) {
+                toast({
+                    variant: "destructive",
+                    title: "Nothing to Claim",
+                    description: "No active plans with claimable daily income.",
+                });
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Claim Failed",
+                    description: msg || "Something went wrong.",
+                });
+            }
         } finally {
             setIsClaiming(false);
         }
@@ -355,8 +337,9 @@ export default function InvestPage() {
     };
 
     const canClaimToday = (investment: UserInvestment) => {
-        const today = new Date().toISOString().split('T')[0];
-        return investment.last_claim_date !== today && investment.status === 'active';
+        if (investment.status !== "active") return false;
+        if (hasClaimedDailyToday(userProfile?.last_daily_claim)) return false;
+        return getEffectiveDailyIncomeUsd(investment) > 0;
     };
 
     const formatCurrency = (amount: number) => {
@@ -432,6 +415,19 @@ export default function InvestPage() {
                     variant="warning"
                 />
             </div>
+
+            {user && userProfile && (
+                <ReinvestFromBalanceCard
+                    userId={user.uid}
+                    userEmail={userProfile.email || user.email || ""}
+                    balance={Number(userProfile.balance) || 0}
+                    plans={activePlans}
+                    reinvestCount={Number(userProfile.reinvest_count) || 0}
+                    reinvestTotal={Number(userProfile.reinvest_total_usd) || 0}
+                    withdrawalRequestCount={Number(userProfile.withdrawal_request_count) || 0}
+                    withdrawalRequestTotal={Number(userProfile.withdrawal_request_total_usd) || 0}
+                />
+            )}
 
             {/* Navigation - Mobile Chips / Desktop Tabs */}
             <div className="space-y-4">
@@ -817,14 +813,15 @@ export default function InvestPage() {
                             Claim Daily Earnings
                         </DialogTitle>
                         <DialogDescription>
-                            Claim your daily earnings from {selectedInvestment?.plan_name}
+                            One claim per day credits every active plan (same as Wallet / Earnings). From:{" "}
+                            {selectedInvestment?.plan_name}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
                         <div className="border border-border-subtle rounded-xl p-6 text-center">
-                            <p className="text-sm text-muted-foreground mb-2">Today's Earnings</p>
+                            <p className="text-sm text-muted-foreground mb-2">Today&apos;s total (all active plans)</p>
                             <p className="font-headline text-4xl font-bold text-foreground">
-                                +${selectedInvestment ? getEffectiveDailyIncomeUsd(selectedInvestment).toFixed(2) : "0.00"}
+                                +${dailyEarning.toFixed(2)}
                             </p>
                         </div>
                         <div className="mt-4 space-y-2 text-sm">
@@ -847,7 +844,11 @@ export default function InvestPage() {
                         <Button
                             className="btn-primary"
                             onClick={handleClaimEarnings}
-                            disabled={isClaiming}
+                            disabled={
+                                isClaiming ||
+                                hasClaimedDailyToday(userProfile?.last_daily_claim) ||
+                                dailyEarning <= 0
+                            }
                         >
                             {isClaiming ? 'Processing...' : 'Claim Earnings'}
                         </Button>

@@ -33,7 +33,12 @@ import Image from "next/image";
 import { generateGenericQRCode, getWalletInfo } from "@/lib/wallet-config";
 import { isPaymentStatusComplete } from "@/lib/nowpayments-shared";
 import { resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
-import { buildInvestmentOrderId } from "@/lib/investment-order-id";
+import {
+    buildInvestmentOrderId,
+    buildWalletDepositOrderId,
+    NOWPAYMENTS_WALLET_PLAN_ID,
+} from "@/lib/investment-order-id";
+import { creditWalletAfterNowpaymentsDeposit } from "@/lib/nowpayments-wallet-deposit";
 
 const POLL_MS = 10_000;
 
@@ -81,6 +86,8 @@ interface QrPaymentDialogProps {
     userId: string;
     userEmail?: string;
     customAmount?: number;
+    /** Wallet top-up: credits balance only (no plan activation). */
+    paymentPurpose?: "investment" | "wallet_deposit";
 }
 
 type NpTerminal = "ok" | "fail" | null;
@@ -92,6 +99,7 @@ export function QrPaymentDialog({
     userId,
     userEmail,
     customAmount,
+    paymentPurpose = "investment",
 }: QrPaymentDialogProps) {
     const { toast } = useToast();
     const { user } = useUser();
@@ -216,7 +224,10 @@ export function QrPaymentDialog({
             return;
         }
 
-        const prebuiltOrderId = buildInvestmentOrderId(userId, plan!.id);
+        const prebuiltOrderId =
+            paymentPurpose === "wallet_deposit"
+                ? buildWalletDepositOrderId(userId)
+                : buildInvestmentOrderId(userId, plan!.id);
         setOrderId(prebuiltOrderId);
 
         async function create() {
@@ -227,10 +238,16 @@ export function QrPaymentDialog({
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         priceAmount: amt,
-                        planId: plan!.id,
+                        planId:
+                            paymentPurpose === "wallet_deposit"
+                                ? NOWPAYMENTS_WALLET_PLAN_ID
+                                : plan!.id,
                         planName: plan!.name,
                         userId,
                         order_id: prebuiltOrderId,
+                        ...(paymentPurpose === "wallet_deposit"
+                            ? { purpose: "wallet_deposit" }
+                            : {}),
                     }),
                 });
                 const j = (await res.json().catch(() => ({}))) as {
@@ -274,7 +291,7 @@ export function QrPaymentDialog({
         return () => {
             cancelled = true;
         };
-    }, [open, plan?.id, plan?.name, userId, investmentAmount]);
+    }, [open, plan?.id, plan?.name, userId, investmentAmount, paymentPurpose]);
 
     const finalizePayment = useCallback(async () => {
         if (!plan || !userId || npPaymentId == null || !orderId) return;
@@ -322,58 +339,104 @@ export function QrPaymentDialog({
                 screenshotUrl = await uploadScreenshot();
             }
 
+            const isWalletTopUp = paymentPurpose === "wallet_deposit";
+
             /** Prefer server-side Admin writes on Vercel (set FIREBASE_SERVICE_ACCOUNT_JSON). */
             if (user) {
                 const idToken = await user.getIdToken();
-                const completeRes = await fetch("/api/nowpayments/complete-investment", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${idToken}`,
-                    },
-                    body: JSON.stringify({
-                        paymentId: String(npPaymentId),
-                        orderId,
-                        userId,
-                        expectedUsdAmount: amt,
-                        planId: plan.id,
-                        planName: plan.name,
-                        dailyRoiPercent: plan.daily_roi_percent,
-                        returnPercent: plan.return_percent,
-                        amount: amt,
-                        expectedReturn,
-                        durationDays: plan.duration_days > 0 ? plan.duration_days : 30,
-                        userEmail: email,
-                        transactionId: txLower,
-                        proofImageUrl: screenshotUrl,
-                        payAddress: payAddress || "NOWPayments",
-                        paymentMethod: "nowpayments_usdt_bep20",
-                    }),
-                });
-                const completeJson = (await completeRes.json().catch(() => ({}))) as {
-                    ok?: boolean;
-                    error?: string;
-                    alreadyProcessed?: boolean;
-                };
-                if (completeRes.ok && (completeJson.ok === true || completeJson.alreadyProcessed)) {
-                    toast({
-                        title: "Plan activated",
-                        description: "Your crypto payment was confirmed and your investment is now active.",
+                if (isWalletTopUp) {
+                    const completeRes = await fetch("/api/nowpayments/complete-deposit", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${idToken}`,
+                        },
+                        body: JSON.stringify({
+                            paymentId: String(npPaymentId),
+                            orderId,
+                            userId,
+                            expectedUsdAmount: amt,
+                            userEmail: email,
+                            transactionId: txLower,
+                            payAddress: payAddress || "NOWPayments",
+                        }),
                     });
-                    setScreenshot(null);
-                    setScreenshotPreview(null);
-                    setTerminal("ok");
-                    onOpenChange(false);
-                    return;
-                }
-                if (completeRes.status !== 501) {
-                    toast({
-                        variant: "destructive",
-                        title: "Activation failed",
-                        description: completeJson.error || "Could not activate investment on the server.",
+                    const completeJson = (await completeRes.json().catch(() => ({}))) as {
+                        ok?: boolean;
+                        error?: string;
+                        alreadyProcessed?: boolean;
+                    };
+                    if (completeRes.ok && (completeJson.ok === true || completeJson.alreadyProcessed)) {
+                        toast({
+                            title: "Balance credited",
+                            description: "Your NOWPayments deposit was added to your wallet.",
+                        });
+                        setScreenshot(null);
+                        setScreenshotPreview(null);
+                        setTerminal("ok");
+                        onOpenChange(false);
+                        return;
+                    }
+                    if (completeRes.status !== 501) {
+                        toast({
+                            variant: "destructive",
+                            title: "Deposit failed",
+                            description: completeJson.error || "Could not credit wallet on the server.",
+                        });
+                        activatedRef.current = false;
+                        return;
+                    }
+                } else {
+                    const completeRes = await fetch("/api/nowpayments/complete-investment", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${idToken}`,
+                        },
+                        body: JSON.stringify({
+                            paymentId: String(npPaymentId),
+                            orderId,
+                            userId,
+                            expectedUsdAmount: amt,
+                            planId: plan.id,
+                            planName: plan.name,
+                            dailyRoiPercent: plan.daily_roi_percent,
+                            returnPercent: plan.return_percent,
+                            amount: amt,
+                            expectedReturn,
+                            durationDays: plan.duration_days > 0 ? plan.duration_days : 30,
+                            userEmail: email,
+                            transactionId: txLower,
+                            proofImageUrl: screenshotUrl,
+                            payAddress: payAddress || "NOWPayments",
+                            paymentMethod: "nowpayments_usdt_bep20",
+                        }),
                     });
-                    activatedRef.current = false;
-                    return;
+                    const completeJson = (await completeRes.json().catch(() => ({}))) as {
+                        ok?: boolean;
+                        error?: string;
+                        alreadyProcessed?: boolean;
+                    };
+                    if (completeRes.ok && (completeJson.ok === true || completeJson.alreadyProcessed)) {
+                        toast({
+                            title: "Plan activated",
+                            description: "Your crypto payment was confirmed and your investment is now active.",
+                        });
+                        setScreenshot(null);
+                        setScreenshotPreview(null);
+                        setTerminal("ok");
+                        onOpenChange(false);
+                        return;
+                    }
+                    if (completeRes.status !== 501) {
+                        toast({
+                            variant: "destructive",
+                            title: "Activation failed",
+                            description: completeJson.error || "Could not activate investment on the server.",
+                        });
+                        activatedRef.current = false;
+                        return;
+                    }
                 }
             }
 
@@ -402,28 +465,48 @@ export function QrPaymentDialog({
                 return;
             }
 
-            await activateInvestmentAfterVerifiedPayment({
-                user_id: userId,
-                user_email: email,
-                plan_id: plan.id,
-                plan_name: plan.name,
-                daily_roi_percent: plan.daily_roi_percent,
-                return_percent: plan.return_percent,
-                amount: amt,
-                expected_return: expectedReturn,
-                order_id: orderId,
-                duration_days: plan.duration_days > 0 ? plan.duration_days : 30,
-                transaction_id: txLower,
-                proof_image_url: screenshotUrl,
-                wallet_address: payAddress || "NOWPayments",
-                payment_method: "nowpayments_usdt_bep20",
-                notes: "Auto-verified (NOWPayments)",
-            });
+            if (isWalletTopUp) {
+                const credited = await creditWalletAfterNowpaymentsDeposit({
+                    user_id: userId,
+                    user_email: email,
+                    user_display_name: user?.displayName,
+                    amount: amt,
+                    order_id: orderId,
+                    payment_id: npPaymentId,
+                    pay_address: payAddress || "NOWPayments",
+                });
+                toast({
+                    title: credited ? "Balance credited" : "Already recorded",
+                    description: credited
+                        ? "Your wallet balance was updated."
+                        : "This payment was already recorded.",
+                });
+            } else {
+                const didActivate = await activateInvestmentAfterVerifiedPayment({
+                    user_id: userId,
+                    user_email: email,
+                    plan_id: plan.id,
+                    plan_name: plan.name,
+                    daily_roi_percent: plan.daily_roi_percent,
+                    return_percent: plan.return_percent,
+                    amount: amt,
+                    expected_return: expectedReturn,
+                    order_id: orderId,
+                    duration_days: plan.duration_days > 0 ? plan.duration_days : 30,
+                    transaction_id: txLower,
+                    proof_image_url: screenshotUrl,
+                    wallet_address: payAddress || "NOWPayments",
+                    payment_method: "nowpayments_usdt_bep20",
+                    notes: "Auto-verified (NOWPayments)",
+                });
 
-            toast({
-                title: "Plan activated",
-                description: "Your crypto payment was confirmed and your investment is now active.",
-            });
+                toast({
+                    title: didActivate ? "Plan activated" : "Already active",
+                    description: didActivate
+                        ? "Your crypto payment was confirmed and your investment is now active."
+                        : "This payment was already recorded for your account.",
+                });
+            }
 
             setScreenshot(null);
             setScreenshotPreview(null);
@@ -450,6 +533,7 @@ export function QrPaymentDialog({
         payAddress,
         onOpenChange,
         toast,
+        paymentPurpose,
     ]);
 
     finalizeRef.current = finalizePayment;
@@ -526,10 +610,15 @@ export function QrPaymentDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-orange-400">
                         <Wallet className="h-5 w-5" />
-                        Complete Your Investment
+                        {paymentPurpose === "wallet_deposit"
+                            ? "Deposit via NOWPayments"
+                            : "Complete Your Investment"}
                     </DialogTitle>
                     <DialogDescription className="text-slate-400">
                         Pay with USDT (BEP20 on BNB Smart Chain) via NOWPayments — status updates every few seconds.
+                        {paymentPurpose === "wallet_deposit"
+                            ? " Funds go to your wallet balance when payment completes."
+                            : ""}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -537,17 +626,23 @@ export function QrPaymentDialog({
                     <Card className="bg-slate-800 border-orange-500/20">
                         <CardContent className="p-4">
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-slate-400">Plan</span>
+                                <span className="text-slate-400">
+                                    {paymentPurpose === "wallet_deposit" ? "Type" : "Plan"}
+                                </span>
                                 <span className="font-semibold text-white">{plan.name}</span>
                             </div>
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-slate-400">Investment (USD)</span>
+                                <span className="text-slate-400">
+                                    {paymentPurpose === "wallet_deposit" ? "Amount (USD)" : "Investment (USD)"}
+                                </span>
                                 <span className="font-bold text-lg text-orange-400">${investmentAmount}</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-slate-400">Potential upside</span>
-                                <span className="font-bold text-green-400 text-lg">Up to 60X</span>
-                            </div>
+                            {paymentPurpose !== "wallet_deposit" && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-slate-400">Potential upside</span>
+                                    <span className="font-bold text-green-400 text-lg">Up to 60X</span>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 

@@ -190,6 +190,29 @@ export async function batchUpdate(operations: BatchOperation[]): Promise<void> {
     }
 }
 
+/** Create many documents in chunks of 500 (Firestore batch limit). */
+export async function batchInsertRows(table: string, rows: Record<string, any>[]): Promise<void> {
+    if (!db) {
+        throw new Error('Firebase is not configured. Please check your environment variables.');
+    }
+    if (rows.length === 0) return;
+    const CHUNK = 500;
+    const now = new Date().toISOString();
+    for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunk = rows.slice(i, i + CHUNK);
+        const batch = writeBatch(db);
+        for (const data of chunk) {
+            const ref = doc(collection(db, table));
+            batch.set(ref, {
+                ...data,
+                created_at: data.created_at ?? now,
+                updated_at: now,
+            });
+        }
+        await batch.commit();
+    }
+}
+
 // ─── Increment Balance ──────────────────────────────────
 
 export async function incrementBalance(userId: string, amount: number): Promise<void> {

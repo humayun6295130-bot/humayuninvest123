@@ -3,7 +3,11 @@
  * https://api.nowpayments.io/v1
  */
 
-import { buildInvestmentOrderId, isInvestmentOrderIdForUser } from './investment-order-id';
+import {
+    buildInvestmentOrderId,
+    isInvestmentOrderIdForUser,
+    isWalletDepositOrderIdForUser,
+} from './investment-order-id';
 
 export const NOWPAYMENTS_API_BASE = 'https://api.nowpayments.io/v1';
 
@@ -217,5 +221,5 @@ export function orderIdForUser(userId: string, planId: string): string {
 }
 
 export function isOrderIdOwnedByUser(orderId: string, userId: string): boolean {
-    return isInvestmentOrderIdForUser(orderId, userId);
+    return isInvestmentOrderIdForUser(orderId, userId) || isWalletDepositOrderIdForUser(orderId, userId);
 }

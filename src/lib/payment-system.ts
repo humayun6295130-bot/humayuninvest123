@@ -481,6 +481,7 @@ export async function sendNotification(
         await insertRow('notifications', {
             ...notification,
             status: 'pending',
+            is_read: false,
             read: false,
             created_at: new Date().toISOString(),
         });

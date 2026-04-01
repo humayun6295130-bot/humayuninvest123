@@ -48,6 +48,7 @@ export function PublicFooter() {
               <Link className="text-xs sm:text-sm text-slate-400 hover:text-orange-400 transition-colors" href="/about">About Us</Link>
               <Link className="text-xs sm:text-sm text-slate-400 hover:text-orange-400 transition-colors" href="/contact">Contact</Link>
               <Link className="text-xs sm:text-sm text-slate-400 hover:text-orange-400 transition-colors" href="/terms">Terms</Link>
+              <Link className="text-xs sm:text-sm text-slate-400 hover:text-orange-400 transition-colors" href="/privacy">Privacy</Link>
             </div>
             <div className="flex flex-col gap-2 min-w-[80px]">
               <h5 className="font-semibold text-sm text-white">Support</h5>

@@ -17,6 +17,7 @@ export {
     fetchRows,
     fetchRow,
     batchUpdate,
+    batchInsertRows,
     incrementBalance,
     type FetchOptions,
     type BatchOperation,

@@ -9,23 +9,39 @@
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from "@/firebase/config";
+import { BEP20_USDT_CONTRACT, BSCSAN_API_KEY, BSCSAN_API_URL } from "@/lib/bsc-config";
+import {
+    BSC_LOG_HISTORY_BLOCKS,
+    hexToBigInt,
+    parseUsdtTransferFromReceipt,
+    rpcConfirmationsForReceipt,
+    rpcEthGasPriceWei,
+    rpcGetBnbBalanceWei,
+    rpcGetBlockTimestamp,
+    rpcGetErc20BalanceRaw,
+    rpcGetLatestBlockNumber,
+    rpcGetTransactionByHash,
+    rpcGetTransactionReceipt,
+    rpcGetUsdtTransferLogsForAddress,
+    type RpcReceipt,
+} from "@/lib/bsc-rpc";
 
-// ==========================================
-// Constants
-// ==========================================
-
-// BEP20 USDT Contract on BNB Smart Chain
-export const BEP20_USDT_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
+// Re-export for callers that imported from bep20.
+export {
+    BEP20_USDT_CONTRACT,
+    BSC_RPC_URL,
+    BSCSAN_API_KEY,
+    BSCSAN_API_URL,
+} from "@/lib/bsc-config";
 
 // Admin wallet for deposits
 export const ADMIN_WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || "0x";
 
-// BSC RPC URL (public endpoint)
-export const BSC_RPC_URL = process.env.NEXT_PUBLIC_BSC_RPC_URL || "https://bsc-dataseed1.binance.org";
-
-// BSCScan API for transaction verification
-export const BSCSAN_API_URL = "https://api.bscscan.com/api";
-export const BSCSAN_API_KEY = process.env.NEXT_PUBLIC_BSCSAN_API_KEY || "";
+async function bscscanApiJson(query: Record<string, string>): Promise<Record<string, unknown>> {
+    const params = new URLSearchParams({ ...query, apikey: BSCSAN_API_KEY });
+    const response = await fetch(`${BSCSAN_API_URL}?${params.toString()}`);
+    return (await response.json()) as Record<string, unknown>;
+}
 
 // ==========================================
 // Types
@@ -126,17 +142,8 @@ export async function getBNBBalance(address: string): Promise<number> {
     }
 
     try {
-        const response = await fetch(
-            `${BSCSAN_API_URL}?module=account&action=balance&address=${address}&tag=latest&apikey=${BSCSAN_API_KEY}`
-        );
-        const data = await response.json();
-
-        if (data.status === '1') {
-            // Balance is returned in Wei (18 decimals), convert to BNB
-            return parseFloat(data.result) / Math.pow(10, 18);
-        }
-
-        return 0;
+        const wei = await rpcGetBnbBalanceWei(address);
+        return Number(wei) / Math.pow(10, 18);
     } catch (error) {
         console.error('Error fetching BNB balance:', error);
         return 0;
@@ -152,18 +159,8 @@ export async function getUSDTBalance(address: string): Promise<number> {
     }
 
     try {
-        // Call balanceOf contract method
-        const response = await fetch(
-            `${BSCSAN_API_URL}?module=account&action=tokenbalance&contractaddress=${BEP20_USDT_CONTRACT}&address=${address}&tag=latest&apikey=${BSCSAN_API_KEY}`
-        );
-        const data = await response.json();
-
-        if (data.status === '1') {
-            // USDT has 18 decimals
-            return parseFloat(data.result) / Math.pow(10, 18);
-        }
-
-        return 0;
+        const raw = await rpcGetErc20BalanceRaw(address, BEP20_USDT_CONTRACT);
+        return Number(raw) / Math.pow(10, 18);
     } catch (error) {
         console.error('Error fetching USDT balance:', error);
         return 0;
@@ -190,29 +187,13 @@ export async function getWalletInfo(address: string): Promise<WalletBalance> {
 /**
  * Gets all BEP20 token balances for an address
  */
+/** USDT (BEP20) only via RPC; full multi-token lists need an indexer or explorer API. */
 export async function getAllTokenBalances(address: string): Promise<{ symbol: string; balance: number }[]> {
     if (!isValidBEP20Address(address)) {
         throw new Error('Invalid BEP20 address');
     }
-
-    try {
-        const response = await fetch(
-            `${BSCSAN_API_URL}?module=account&action=tokenbalance&address=${address}&page=1&offset=100&apikey=${BSCSAN_API_KEY}`
-        );
-        const data = await response.json();
-
-        if (data.status === '1' && Array.isArray(data.result)) {
-            return data.result.map((token: any) => ({
-                symbol: token.tokenSymbol || 'Unknown',
-                balance: parseFloat(token.balance) / Math.pow(10, parseInt(token.tokenDecimal) || 18),
-            }));
-        }
-
-        return [];
-    } catch (error) {
-        console.error('Error fetching token balances:', error);
-        return [];
-    }
+    const usdt = await getUSDTBalance(address);
+    return [{ symbol: "USDT", balance: usdt }];
 }
 
 // ==========================================
@@ -228,13 +209,14 @@ export async function getTransactionById(txHash: string): Promise<BEP20Transacti
     }
 
     try {
-        const response = await fetch(
-            `${BSCSAN_API_URL}?module=transaction&action=gettxinfo&txhash=${txHash}&apikey=${BSCSAN_API_KEY}`
-        );
-        const data = await response.json();
+        const data = await bscscanApiJson({
+            module: "transaction",
+            action: "gettxinfo",
+            txhash: txHash,
+        });
 
-        if (data.status === '1' && data.result) {
-            const tx = data.result;
+        if ((data.status === "1" || data.status === 1) && data.result && typeof data.result === "object") {
+            const tx = data.result as Record<string, string>;
             return {
                 hash: tx.hash,
                 blockNumber: parseInt(tx.blockNumber),
@@ -268,32 +250,28 @@ export async function verifyUSDTTransfer(
     tx?: TokenTransfer;
 }> {
     try {
-        // First get the transaction details
-        const response = await fetch(
-            `${BSCSAN_API_URL}?module=account&action=tokentx&contractaddress=${BEP20_USDT_CONTRACT}&txhash=${txHash}&apikey=${BSCSAN_API_KEY}`
-        );
-        const data = await response.json();
-
-        if (data.status !== '1' || !data.result || data.result.length === 0) {
+        const receipt = await rpcGetTransactionReceipt(txHash);
+        if (!receipt) {
             return {
                 valid: false,
-                error: 'Transaction not found or not a USDT transfer',
+                error: "Transaction not found or still pending",
+            };
+        }
+        const status = (receipt.status ?? "").toLowerCase();
+        if (status === "0x0") {
+            return { valid: false, error: "Transaction failed on chain" };
+        }
+
+        const parsed = parseUsdtTransferFromReceipt(receipt, txHash, expectedToAddress);
+        if (!parsed) {
+            return {
+                valid: false,
+                error: "No matching USDT (BEP20) transfer in this transaction",
             };
         }
 
-        const tx = data.result[0];
-
-        // Check if it's to our admin wallet (for deposits)
-        if (expectedToAddress && tx.to.toLowerCase() !== expectedToAddress.toLowerCase()) {
-            return {
-                valid: false,
-                error: `Transaction recipient doesn't match expected address`,
-            };
-        }
-
-        // Check amount if specified
         if (expectedAmount !== undefined) {
-            const txAmount = parseFloat(tx.value) / Math.pow(10, 18);
+            const txAmount = parseFloat(parsed.valueRaw) / Math.pow(10, 18);
             if (txAmount < expectedAmount) {
                 return {
                     valid: false,
@@ -302,8 +280,7 @@ export async function verifyUSDTTransfer(
             }
         }
 
-        // Check confirmations (require at least 15 for BEP20)
-        const confirmations = parseInt(tx.confirmations) || 0;
+        const confirmations = await rpcConfirmationsForReceipt(receipt);
         if (confirmations < 15) {
             return {
                 valid: false,
@@ -311,26 +288,28 @@ export async function verifyUSDTTransfer(
             };
         }
 
+        const blockHex = receipt.blockNumber;
+        const blockNumber = blockHex ? Number(hexToBigInt(blockHex)) : 0;
+        const timestamp = blockHex ? await rpcGetBlockTimestamp(blockHex) : 0;
+
         return {
             valid: true,
             tx: {
-                hash: tx.hash,
-                blockNumber: parseInt(tx.blockNumber),
-                timestamp: parseInt(tx.timeStamp) * 1000,
-                from: tx.from,
-                to: tx.to,
-                value: tx.value,
-                tokenSymbol: 'USDT',
+                hash: txHash,
+                blockNumber,
+                timestamp,
+                from: parsed.from,
+                to: parsed.to,
+                value: parsed.valueRaw,
+                tokenSymbol: "USDT",
                 tokenDecimal: 18,
                 confirmations,
                 isError: 0,
             },
         };
-    } catch (error: any) {
-        return {
-            valid: false,
-            error: error.message || 'Verification failed',
-        };
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : "Verification failed";
+        return { valid: false, error: msg };
     }
 }
 
@@ -343,22 +322,17 @@ export async function checkConfirmations(txHash: string, minConfirmations: numbe
     sufficient: boolean;
 }> {
     try {
-        const response = await fetch(
-            `${BSCSAN_API_URL}?module=transaction&action=gettxinfo&txhash=${txHash}&apikey=${BSCSAN_API_KEY}`
-        );
-        const data = await response.json();
-
-        if (data.status === '1' && data.result) {
-            const confirmations = parseInt(data.result.confirmations) || 0;
-            return {
-                confirmed: confirmations >= 1,
-                confirmations,
-                sufficient: confirmations >= minConfirmations,
-            };
+        const receipt = await rpcGetTransactionReceipt(txHash);
+        if (!receipt?.blockNumber) {
+            return { confirmed: false, confirmations: 0, sufficient: false };
         }
-
-        return { confirmed: false, confirmations: 0, sufficient: false };
-    } catch (error) {
+        const confirmations = await rpcConfirmationsForReceipt(receipt);
+        return {
+            confirmed: confirmations >= 1,
+            confirmations,
+            sufficient: confirmations >= minConfirmations,
+        };
+    } catch {
         return { confirmed: false, confirmations: 0, sufficient: false };
     }
 }
@@ -383,65 +357,134 @@ export async function getTransactionHistory(
         throw new Error('Invalid BEP20 address');
     }
 
+    const page = options?.page || 1;
+    const offset = options?.offset || 20;
+
+    if (BSCSAN_API_KEY) {
+        try {
+            const [normalData, tokenData] = await Promise.all([
+                bscscanApiJson({
+                    module: "account",
+                    action: "txlist",
+                    address,
+                    startblock: String(options?.startBlock ?? 0),
+                    endblock: String(options?.endBlock ?? 99_999_999),
+                    page: String(page),
+                    offset: String(offset),
+                    sort: "desc",
+                }),
+                bscscanApiJson({
+                    module: "account",
+                    action: "tokentx",
+                    contractaddress: BEP20_USDT_CONTRACT,
+                    address,
+                    page: String(page),
+                    offset: String(offset),
+                    sort: "desc",
+                }),
+            ]);
+
+            const transactions: BEP20Transaction[] = [];
+
+            if (normalData.status === "1" && Array.isArray(normalData.result)) {
+                normalData.result.forEach((tx: Record<string, string>) => {
+                    transactions.push({
+                        hash: tx.hash,
+                        blockNumber: parseInt(tx.blockNumber, 10),
+                        timestamp: parseInt(tx.timeStamp, 10) * 1000,
+                        from: tx.from,
+                        to: tx.to,
+                        value: tx.value,
+                        gasUsed: tx.gasUsed,
+                        gasPrice: tx.gasPrice,
+                        confirmations: parseInt(tx.confirmations, 10) || 0,
+                    });
+                });
+            }
+
+            if ((tokenData.status === "1" || tokenData.status === 1) && Array.isArray(tokenData.result)) {
+                tokenData.result.forEach((tx: Record<string, string>) => {
+                    transactions.push({
+                        hash: tx.hash,
+                        blockNumber: parseInt(tx.blockNumber, 10),
+                        timestamp: parseInt(tx.timeStamp, 10) * 1000,
+                        from: tx.from,
+                        to: tx.to,
+                        value: tx.value,
+                        gasUsed: tx.gasUsed,
+                        gasPrice: tx.gasPrice,
+                        confirmations: parseInt(tx.confirmations, 10) || 0,
+                    });
+                });
+            }
+
+            transactions.sort((a, b) => b.timestamp - a.timestamp);
+            return transactions.slice(0, offset);
+        } catch (error) {
+            console.error("Error fetching transaction history (BscScan):", error);
+            return [];
+        }
+    }
+
     try {
-        const page = options?.page || 1;
-        const offset = options?.offset || 20;
+        const latest = await rpcGetLatestBlockNumber();
+        let fromBlock = Math.max(0, latest - BSC_LOG_HISTORY_BLOCKS);
+        let toBlock = latest;
+        if (options?.startBlock != null) fromBlock = Math.max(fromBlock, options.startBlock);
+        if (options?.endBlock != null) toBlock = Math.min(toBlock, options.endBlock);
 
-        // Get both normal transactions and token transfers
-        const [normalResponse, tokenResponse] = await Promise.all([
-            fetch(
-                `${BSCSAN_API_URL}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${offset}&sort=desc&apikey=${BSCSAN_API_KEY}`
-            ),
-            fetch(
-                `${BSCSAN_API_URL}?module=account&action=tokentx&contractaddress=${BEP20_USDT_CONTRACT}&address=${address}&page=${page}&offset=${offset}&sort=desc&apikey=${BSCSAN_API_KEY}`
-            ),
-        ]);
+        const rows = await rpcGetUsdtTransferLogsForAddress(address, fromBlock, toBlock);
+        const slice = rows.slice(0, offset);
 
-        const normalData = await normalResponse.json();
-        const tokenData = await tokenResponse.json();
+        const blockNums = [...new Set(slice.map((r) => r.blockNumber))];
+        const blockTs = new Map<number, number>();
+        await Promise.all(
+            blockNums.map(async (bn) => {
+                const hex = "0x" + bn.toString(16);
+                blockTs.set(bn, await rpcGetBlockTimestamp(hex));
+            })
+        );
 
-        const transactions: BEP20Transaction[] = [];
+        const receiptCache = new Map<string, RpcReceipt | null>();
+        const txCache = new Map<string, Awaited<ReturnType<typeof rpcGetTransactionByHash>>>();
 
-        // Add normal BNB transactions
-        if (normalData.status === '1' && Array.isArray(normalData.result)) {
-            normalData.result.forEach((tx: any) => {
-                transactions.push({
-                    hash: tx.hash,
-                    blockNumber: parseInt(tx.blockNumber),
-                    timestamp: parseInt(tx.timeStamp) * 1000,
-                    from: tx.from,
-                    to: tx.to,
-                    value: tx.value,
-                    gasUsed: tx.gasUsed,
-                    gasPrice: tx.gasPrice,
-                    confirmations: parseInt(tx.confirmations) || 0,
-                });
+        async function receiptFor(h: string) {
+            if (!receiptCache.has(h)) {
+                receiptCache.set(h, await rpcGetTransactionReceipt(h));
+            }
+            return receiptCache.get(h) ?? null;
+        }
+
+        async function txFor(h: string) {
+            if (!txCache.has(h)) {
+                txCache.set(h, await rpcGetTransactionByHash(h));
+            }
+            return txCache.get(h) ?? null;
+        }
+
+        const out: BEP20Transaction[] = [];
+        for (const row of slice) {
+            const rec = await receiptFor(row.txHash);
+            const tx = await txFor(row.txHash);
+            const gasUsed = rec?.gasUsed ? String(hexToBigInt(rec.gasUsed)) : "0";
+            const gasPrice = tx?.gasPrice ? String(hexToBigInt(tx.gasPrice)) : "0";
+            out.push({
+                hash: row.txHash,
+                blockNumber: row.blockNumber,
+                timestamp: blockTs.get(row.blockNumber) ?? 0,
+                from: row.from,
+                to: row.to,
+                value: row.valueRaw,
+                gasUsed,
+                gasPrice,
+                confirmations: Math.max(0, latest - row.blockNumber + 1),
             });
         }
 
-        // Add USDT token transfers
-        if (tokenData.status === '1' && Array.isArray(tokenData.result)) {
-            tokenData.result.forEach((tx: any) => {
-                transactions.push({
-                    hash: tx.hash,
-                    blockNumber: parseInt(tx.blockNumber),
-                    timestamp: parseInt(tx.timeStamp) * 1000,
-                    from: tx.from,
-                    to: tx.to,
-                    value: tx.value,
-                    gasUsed: tx.gasUsed,
-                    gasPrice: tx.gasPrice,
-                    confirmations: parseInt(tx.confirmations) || 0,
-                });
-            });
-        }
-
-        // Sort by timestamp descending
-        transactions.sort((a, b) => b.timestamp - a.timestamp);
-
-        return transactions.slice(0, offset);
+        out.sort((a, b) => b.timestamp - a.timestamp);
+        return out;
     } catch (error) {
-        console.error('Error fetching transaction history:', error);
+        console.error("Error fetching transaction history (RPC):", error);
         return [];
     }
 }
@@ -484,32 +527,22 @@ export async function calculateTransactionFee(
     const gasLimit = 65000; // Safe upper limit for BEP20 token transfers
 
     try {
-        // Get current gas price from API
-        const response = await fetch(
-            `${BSCSAN_API_URL}?module=proxy&action=eth_gasPrice&apikey=${BSCSAN_API_KEY}`
-        );
-        const data = await response.json();
-
-        // Gas price in Wei (convert to Gwei for display)
-        const gasPriceWei = parseInt(data.result || '5000000000');
+        const gasPriceWei = Number(await rpcEthGasPriceWei());
         const gasPriceGwei = gasPriceWei / Math.pow(10, 9);
-
-        // Calculate total fee in BNB
         const totalFeeBNB = (gasLimit * gasPriceWei) / Math.pow(10, 18);
 
         return {
             gasLimit,
             gasPrice: Math.round(gasPriceGwei * 100) / 100,
             totalFee: Math.round(totalFeeBNB * 10000) / 10000,
-            unit: 'BNB',
+            unit: "BNB",
         };
-    } catch (error) {
-        // Return default estimates if API fails
+    } catch {
         return {
             gasLimit,
-            gasPrice: 5, // Default 5 Gwei
-            totalFee: 0.000325, // ~$0.20 at current BNB price
-            unit: 'BNB',
+            gasPrice: 5,
+            totalFee: 0.000325,
+            unit: "BNB",
         };
     }
 }
@@ -523,13 +556,10 @@ export async function calculateTransactionFee(
  */
 export async function isTransactionProcessed(txHash: string): Promise<boolean> {
     try {
-        const response = await fetch(
-            `${BSCSAN_API_URL}?module=transaction&action=gettxinfo&txhash=${txHash}&apikey=${BSCSAN_API_KEY}`
-        );
-        const data = await response.json();
-
-        return data.status === '1' && data.result && parseInt(data.result.blockNumber) > 0;
-    } catch (error) {
+        const receipt = await rpcGetTransactionReceipt(txHash);
+        if (!receipt?.blockNumber) return false;
+        return Number(hexToBigInt(receipt.blockNumber)) > 0;
+    } catch {
         return false;
     }
 }

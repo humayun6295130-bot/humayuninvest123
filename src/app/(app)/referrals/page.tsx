@@ -41,12 +41,14 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { referralMemberPrimaryLabel, referralMemberSecondaryLabel } from "@/lib/display-user";
 
 interface Referral {
     id: string;
     referred_user_id: string;
     referred_email: string;
     referred_name?: string;
+    referred_username?: string;
     level: number;
     commission_percent: number;
     total_commission: number;
@@ -832,7 +834,9 @@ function ReferralsList({ referrals, level }: { referrals: Referral[]; level: num
         <Card>
             <CardContent className="p-0">
                 <div className="divide-y">
-                    {referrals.map((referral) => (
+                    {referrals.map((referral) => {
+                        const sub = referralMemberSecondaryLabel(referral);
+                        return (
                         <div key={referral.id} className="p-3 sm:p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors">
                             <div className={cn(
                                 "h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center shrink-0",
@@ -846,7 +850,14 @@ function ReferralsList({ referrals, level }: { referrals: Referral[]; level: num
                                 )} />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">{referral.referred_name || referral.referred_email}</p>
+                                <p className="font-medium text-sm truncate">
+                                    {referralMemberPrimaryLabel(referral)}
+                                </p>
+                                {sub && (
+                                    <p className="text-xs text-muted-foreground truncate">
+                                        {sub}
+                                    </p>
+                                )}
                                 <div className="flex items-center gap-1 sm:gap-2 text-xs text-muted-foreground flex-wrap">
                                     <Badge variant="outline" className="text-xs">L{referral.level}</Badge>
                                     <span>{referral.commission_percent}% rate</span>
@@ -859,7 +870,8 @@ function ReferralsList({ referrals, level }: { referrals: Referral[]; level: num
                                 </p>
                             </div>
                         </div>
-                    ))}
+                    );
+                    })}
                 </div>
             </CardContent>
         </Card>

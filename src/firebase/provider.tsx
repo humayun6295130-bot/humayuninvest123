@@ -4,6 +4,12 @@ import React, { createContext, useContext, useEffect, useState, useMemo, type Re
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { auth, db, isFirebaseConfigured } from './config';
+import {
+    DEPOSIT_INCOME_TIERS,
+    parseDepositTiersFirestore,
+    setClientDepositIncomeTiers,
+    type DepositIncomeTier,
+} from '@/lib/deposit-income-tiers';
 
 interface FirebaseContextState {
     user: User | null;
@@ -11,6 +17,8 @@ interface FirebaseContextState {
     userProfile: any | null;
     isProfileLoading: boolean;
     isConfigured: boolean;
+    /** Live deposit → daily % tiers (Firestore override or defaults). */
+    depositIncomeTiers: DepositIncomeTier[];
 }
 
 const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
@@ -20,7 +28,32 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const [userProfile, setUserProfile] = useState<any | null>(null);
     const [isProfileLoading, setIsProfileLoading] = useState(true);
+    const [depositIncomeTiers, setDepositIncomeTiers] = useState<DepositIncomeTier[]>(DEPOSIT_INCOME_TIERS);
     const isConfigured = isFirebaseConfigured();
+
+    // Platform deposit tier table (public read) — keeps claims / dashboard in sync with admin edits.
+    useEffect(() => {
+        if (!isConfigured || !db) {
+            setDepositIncomeTiers(DEPOSIT_INCOME_TIERS);
+            setClientDepositIncomeTiers(null);
+            return;
+        }
+        const ref = doc(db, 'platform_settings', 'main');
+        const unsub = onSnapshot(
+            ref,
+            (snap) => {
+                const parsed = parseDepositTiersFirestore(snap.data()?.deposit_tiers);
+                const next = parsed ?? DEPOSIT_INCOME_TIERS;
+                setDepositIncomeTiers(next);
+                setClientDepositIncomeTiers(parsed);
+            },
+            () => {
+                setDepositIncomeTiers(DEPOSIT_INCOME_TIERS);
+                setClientDepositIncomeTiers(null);
+            }
+        );
+        return () => unsub();
+    }, [isConfigured, db]);
 
     useEffect(() => {
         if (!isConfigured || !auth) {
@@ -127,7 +160,8 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         userProfile,
         isProfileLoading,
         isConfigured,
-    }), [user, isLoading, userProfile, isProfileLoading, isConfigured]);
+        depositIncomeTiers,
+    }), [user, isLoading, userProfile, isProfileLoading, isConfigured, depositIncomeTiers]);
 
     return (
         <FirebaseContext.Provider value={contextValue}>

@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { appendFinancialActivity } from "@/lib/financial-activity-log";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -187,7 +188,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
             });
 
             const requestedAt = new Date().toISOString();
-            await insertRow("transactions", {
+            const txRow = await insertRow("transactions", {
                 user_id: user?.uid,
                 user_display_name: userProfile.display_name,
                 user_email: userProfile.email,
@@ -210,6 +211,19 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                     address_validated: true,
                 },
             });
+
+            try {
+                await appendFinancialActivity({
+                    user_id: user.uid,
+                    kind: "withdrawal_request",
+                    amount_usd: withdrawalData.amount,
+                    source: "user",
+                    note: `Fee incl. total deducted: $${totalDeduct.toFixed(2)}`,
+                    linked_transaction_id: txRow.id,
+                });
+            } catch (logErr) {
+                console.error("Withdrawal activity log (non-fatal):", logErr);
+            }
 
             setStep('success');
 

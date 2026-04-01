@@ -13,8 +13,9 @@ import {
     limit,
     writeBatch,
     increment,
-    Firestore
+    Firestore,
 } from 'firebase/firestore';
+import { REFERRAL_COMMISSION_MAX_DEPTH } from '@/lib/deposit-income-tiers';
 
 // Helper to ensure db is not null
 const getDb = (): Firestore => {
@@ -50,6 +51,8 @@ export interface UserReferral {
     referred_user_id: string;
     referred_email: string;
     referred_username: string;
+    /** Display name at signup (not an email substitute for username in UI). */
+    referred_name?: string;
     level: number;
     commission_percent: number;
     total_commission: number;
@@ -160,8 +163,13 @@ export async function processNewReferral(
     referredUserId: string,
     referredEmail: string,
     referredUsername: string,
-    investmentAmount: number = 0
+    investmentAmount: number = 0,
+    referredDisplayName?: string
 ): Promise<void> {
+    const referredName =
+        referredDisplayName?.trim() ||
+        referredUsername?.trim() ||
+        "";
     const firestore = getDb();
     const batch = writeBatch(firestore);
     const timestamp = new Date().toISOString();
@@ -191,6 +199,7 @@ export async function processNewReferral(
         referred_user_id: referredUserId,
         referred_email: referredEmail,
         referred_username: referredUsername,
+        referred_name: referredName,
         level: 1,
         commission_percent: commissionPercent,
         total_commission: 0,
@@ -235,77 +244,94 @@ export async function processNewReferral(
         });
     }
 
-    // 3. If there's an upstream referrer, create level 2 referral
-    if (referrerData.referrer_id) {
+    // 3. If there's an upstream referrer, create level-2 row (grandparent sees new member C in gen 2)
+    const grandparentId = referrerData.referrer_id as string | undefined;
+    if (grandparentId) {
         const level2Config = levels.find(l => l.level === 2) || levels[1];
         const level2Ref = doc(collection(firestore, 'referrals'));
         batch.set(level2Ref, {
-            referrer_id: referrerData.referrer_id,
-            referred_user_id: referrerId,
-            referred_email: referrerData.email,
-            referred_username: referrerData.username,
+            referrer_id: grandparentId,
+            referred_user_id: referredUserId,
+            referred_email: referredEmail,
+            referred_username: referredUsername,
+            referred_name: referredName,
+            /** Immediate referrer (direct parent) — same as level-1 referrer for this signup */
+            parent_referrer_id: referrerId,
             level: 2,
             commission_percent: level2Config.commissionPercent,
             total_commission: 0,
             status: 'active',
-            investment_amount: referrerData.total_investment || 0,
+            investment_amount: investmentAmount,
             created_at: timestamp,
         });
 
-        // Update level 2 referrer's team
-        const level2TeamRef = doc(firestore, 'user_teams', referrerData.referrer_id);
-        const level2TeamDoc = await getDoc(level2TeamRef);
-        if (level2TeamDoc.exists()) {
-            const teamData = level2TeamDoc.data();
-            batch.update(level2TeamRef, {
-                level2_count: (teamData.level2_count || 0) + 1,
-                total_members: (teamData.total_members || 0) + 1,
+        const level2TeamRef = doc(firestore, 'user_teams', grandparentId);
+        batch.set(
+            level2TeamRef,
+            {
+                user_id: grandparentId,
+                level2_count: increment(1),
+                total_members: increment(1),
                 updated_at: timestamp,
-            });
-        }
+            },
+            { merge: true }
+        );
 
-        // Check for level 3 referrer
-        const level2UserDoc = await getDoc(doc(firestore, 'users', referrerData.referrer_id));
-        if (level2UserDoc.exists() && level2UserDoc.data().referrer_id) {
+        const grandparentDoc = await getDoc(doc(firestore, 'users', grandparentId));
+        const greatGrandparentId = grandparentDoc.exists()
+            ? (grandparentDoc.data().referrer_id as string | undefined)
+            : undefined;
+
+        if (greatGrandparentId) {
             const level3Config = levels.find(l => l.level === 3) || levels[2];
             const level3Ref = doc(collection(firestore, 'referrals'));
             batch.set(level3Ref, {
-                referrer_id: level2UserDoc.data().referrer_id,
-                referred_user_id: referrerData.referrer_id,
-                referred_email: level2UserDoc.data().email,
-                referred_username: level2UserDoc.data().username,
+                referrer_id: greatGrandparentId,
+                referred_user_id: referredUserId,
+                referred_email: referredEmail,
+                referred_username: referredUsername,
+                referred_name: referredName,
+                parent_referrer_id: referrerId,
+                intermediate_referrer_id: grandparentId,
                 level: 3,
                 commission_percent: level3Config.commissionPercent,
                 total_commission: 0,
                 status: 'active',
-                investment_amount: level2UserDoc.data().total_investment || 0,
+                investment_amount: investmentAmount,
                 created_at: timestamp,
             });
 
-            // Update level 3 referrer's team
-            const level3TeamRef = doc(firestore, 'user_teams', level2UserDoc.data().referrer_id);
-            const level3TeamDoc = await getDoc(level3TeamRef);
-            if (level3TeamDoc.exists()) {
-                const teamData = level3TeamDoc.data();
-                batch.update(level3TeamRef, {
-                    level3_count: (teamData.level3_count || 0) + 1,
-                    total_members: (teamData.total_members || 0) + 1,
+            const level3TeamRef = doc(firestore, 'user_teams', greatGrandparentId);
+            batch.set(
+                level3TeamRef,
+                {
+                    user_id: greatGrandparentId,
+                    level3_count: increment(1),
+                    total_members: increment(1),
                     updated_at: timestamp,
-                });
-            }
-
+                },
+                { merge: true }
+            );
         }
     }
 
-    // 4. Award initial commission if there's investment and team commission is enabled
+    await batch.commit();
+
+    // 4. Initial signup commission only after referral graph is committed (investment > 0 is rare on register)
     if (investmentAmount > 0 && teamCommissionEnabled) {
         const commission = investmentAmount * (commissionPercent / 100);
-        await awardCommission(firestore, referrerId, referredUserId, referredUsername, commission, 'investment', investmentAmount);
+        await awardCommission(
+            firestore,
+            referrerId,
+            referredUserId,
+            referredUsername,
+            commission,
+            'investment',
+            investmentAmount
+        );
     } else if (investmentAmount > 0 && !teamCommissionEnabled) {
         console.log(`Skipping initial commission for referrer ${referrerId}: Team commission disabled`);
     }
-
-    await batch.commit();
 }
 
 /**
@@ -397,6 +423,67 @@ export async function awardCommission(
     });
 
     await batch.commit();
+}
+
+/**
+ * When a deposit/investment is confirmed (client Firestore), pay up to 3 uplines
+ * using `referral_settings` percentages. Single entry point so every activation path stays consistent.
+ */
+export async function distributeInvestmentReferralCommissions(
+    firestore: Firestore,
+    investorUserId: string,
+    investmentAmount: number,
+    investorDisplayName: string
+): Promise<void> {
+    if (investmentAmount <= 0) return;
+
+    const settings = await getReferralSettings();
+    if (!settings.enabled) {
+        return;
+    }
+
+    const commissionPercents = [
+        settings.level1_percent,
+        settings.level2_percent,
+        settings.level3_percent,
+    ];
+
+    const userDoc = await getDoc(doc(firestore, 'users', investorUserId));
+    if (!userDoc.exists()) return;
+
+    let currentReferrerId = userDoc.data().referrer_id as string | undefined;
+    if (!currentReferrerId || typeof currentReferrerId !== 'string') return;
+    currentReferrerId = currentReferrerId.trim();
+    if (!currentReferrerId) return;
+
+    let level = 0;
+    while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
+        const percent = Number(commissionPercents[level] ?? 0);
+        const referrerDoc = await getDoc(doc(firestore, 'users', currentReferrerId));
+        if (!referrerDoc.exists()) break;
+
+        if (percent > 0) {
+            const commission = investmentAmount * (percent / 100);
+            if (commission > 0) {
+                await awardCommission(
+                    firestore,
+                    currentReferrerId,
+                    investorUserId,
+                    investorDisplayName,
+                    commission,
+                    'investment',
+                    investmentAmount,
+                    { uplineDepth: level + 1, percentApplied: percent }
+                );
+            }
+        }
+
+        const nextRaw = referrerDoc.data().referrer_id as string | undefined;
+        const next =
+            nextRaw && typeof nextRaw === 'string' && nextRaw.trim().length > 0 ? nextRaw.trim() : undefined;
+        currentReferrerId = next;
+        level++;
+    }
 }
 
 /**
@@ -569,6 +656,7 @@ export async function validateReferralCode(code: string): Promise<{
     valid: boolean;
     userId?: string;
     username?: string;
+    displayName?: string;
     message: string;
 }> {
     try {
@@ -589,10 +677,12 @@ export async function validateReferralCode(code: string): Promise<{
 
         if (!byCodeSnapshot.empty) {
             const userDoc = byCodeSnapshot.docs[0];
+            const d = userDoc.data();
             return {
                 valid: true,
                 userId: userDoc.id,
-                username: userDoc.data().username,
+                username: d.username,
+                displayName: d.display_name,
                 message: 'Valid referral code'
             };
         }
@@ -610,10 +700,12 @@ export async function validateReferralCode(code: string): Promise<{
         }
 
         const userDoc = byUsernameSnapshot.docs[0];
+        const d = userDoc.data();
         return {
             valid: true,
             userId: userDoc.id,
-            username: userDoc.data().username,
+            username: d.username,
+            displayName: d.display_name,
             message: 'Valid referral code'
         };
     } catch (error) {

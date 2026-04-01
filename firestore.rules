@@ -1,18 +1,273 @@
 rules_version = '2';
 
-// Deploy with: firebase deploy --only firestore:rules
-// investment_plans: public read avoids "permission-denied" when the client queries
-// before the auth token is attached to Firestore (common race on /invest).
+// Deploy: firebase deploy --only firestore:rules
+//
+// SECURITY NOTE (read before tightening further):
+// This app performs some referral and commission updates from the *client* (e.g. updating
+// another user's `users` doc and `user_teams`). Perfect isolation in rules would require
+// Cloud Functions + Admin SDK for those writes. The `users` and `user_teams` rules below
+// stay permissive on updates so the current codebase keeps working; migrate sensitive
+// payouts to the server when you can.
+//
+// `users`: any signed-in user can read (needed for referral_code / username / support_id
+// queries during registration and lookups). Deletes are admin-only.
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    match /investment_plans/{planId} {
-      allow read: if true;
-      allow create, update, delete: if request.auth != null;
+    function isSignedIn() {
+      return request.auth != null;
     }
 
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Administrator'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin'
+        );
+    }
+
+    function ownsUserId(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ─── Public / catalog ─────────────────────────────────────
+
+    match /investment_plans/{planId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /platform_settings/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /site_banners/{bannerId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /referral_settings/{docId} {
+      allow read: if true;
+      allow create: if isSignedIn() && (docId == 'default' || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    match /published_posts/{postId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /public_profiles/{username} {
+      allow read: if true;
+      allow create, update: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.user_id == request.auth.uid;
+    }
+
+    // ─── Accounts (see SECURITY NOTE) ─────────────────────────
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /user_teams/{teamDocId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /roles_admin/{docId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── Money / investments ────────────────────────────────
+
+    match /transactions/{txId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /user_investments/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+    }
+
+    match /pending_investments/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+    }
+
+    match /payment_verifications/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /daily_earnings/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /investment_earnings/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /daily_profit_claims/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── Referrals ─────────────────────────────────────────────
+
+    match /referrals/{docId} {
+      allow read: if isSignedIn()
+        && (
+          resource.data.referrer_id == request.auth.uid
+          || resource.data.referred_user_id == request.auth.uid
+          || isAdmin()
+        );
+      allow create: if isSignedIn()
+        && request.resource.data.referred_user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /referral_bonuses/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    match /referral_withdrawals/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── Portfolio (demo / tracking) ──────────────────────────
+
+    match /portfolios/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+    }
+
+    match /assets/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+    }
+
+    match /portfolio_transactions/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── Ops / support / content ──────────────────────────────
+
+    match /financial_activity_log/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && (
+          request.resource.data.user_id == request.auth.uid
+          || isAdmin()
+        );
+      allow update, delete: if isAdmin();
+    }
+
+    match /kyc_documents/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /support_tickets/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && (
+          request.resource.data.user_id == request.auth.uid
+          || isAdmin()
+        );
+      allow update: if isSignedIn()
+        && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /draft_posts/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.author_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.author_id == request.auth.uid;
+      allow update, delete: if isSignedIn()
+        && (resource.data.author_id == request.auth.uid || isAdmin());
+    }
+
+    // Client double-spend check (read-only in repo); no client writes expected.
+    match /processed_transactions/{txHash} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // Deny anything not listed (adjust if you add collections).
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

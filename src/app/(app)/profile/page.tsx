@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState, useMemo } from 'react';
-import { LEVEL_CONFIG, getLevelInfo, getNextLevel, calculateDailyEarnings, calculateWeeklyEarnings, calculateMonthlyEarnings } from '@/lib/level-config';
+import { getLiveInvestmentLevels, getLevelInfo, getNextLevel, calculateDailyEarnings, calculateWeeklyEarnings, calculateMonthlyEarnings } from '@/lib/level-config';
 import { DEFAULT_REFERRAL_SETTINGS } from '@/lib/referral-system';
 import { useToast } from '@/hooks/use-toast';
 import { formatSupportId } from '@/lib/support-id';
@@ -442,7 +442,7 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                     <div className="grid gap-3 md:grid-cols-5">
-                        {LEVEL_CONFIG.map((level) => (
+                        {getLiveInvestmentLevels().map((level) => (
                             <div
                                 key={level.level}
                                 className={`p-3 rounded-lg text-center border-2 ${level.level === levelInfo.level

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -28,6 +28,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, insertRow, uploadFile } from "@/firebase";
 import { getAdminWalletAddress, generateBEP20QRCode, getWalletInfo, isWalletConfigured } from "@/lib/wallet-config";
+import { QrPaymentDialog, type InvestmentPlan } from "@/components/invest/qr-payment-dialog";
+import { NOWPAYMENTS_WALLET_PLAN_ID } from "@/lib/investment-order-id";
 
 // Get safe version for internal usage
 const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
@@ -42,6 +44,7 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
   const { toast } = useToast();
   const { user, isUserLoading, isProfileLoading } = useUser();
   const [open, setOpen] = useState(false);
+  const [npOpen, setNpOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,6 +57,21 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
   });
 
   const depositAmount = form.watch("amount") || 0;
+
+  const nowpaymentsTopUpPlan = useMemo((): InvestmentPlan | null => {
+    const a = Number(depositAmount);
+    if (!Number.isFinite(a) || a < 10) return null;
+    return {
+      id: NOWPAYMENTS_WALLET_PLAN_ID,
+      name: "Wallet top-up",
+      min_amount: a,
+      max_amount: a,
+      fixed_amount: a,
+      duration_days: 1,
+      return_percent: 0,
+      daily_roi_percent: 0,
+    };
+  }, [depositAmount]);
 
   const handleCopy = () => {
     if (!ADMIN_WALLET_ADDRESS) {
@@ -156,11 +174,44 @@ export default function DepositDialog({ userProfile }: { userProfile: any }) {
         <DialogHeader>
           <DialogTitle className="text-orange-400">Deposit Funds</DialogTitle>
           <DialogDescription className="text-slate-400">
-            Transfer USDT to the wallet below and provide transaction details.
+            Add funds with NOWPayments (recommended) or send USDT manually and submit proof for admin review.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {nowpaymentsTopUpPlan && user?.uid && (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
+                onClick={() => setNpOpen(true)}
+              >
+                <QrCodeIcon className="mr-2 h-4 w-4" />
+                Pay with NOWPayments (USDT BEP20)
+              </Button>
+              <p className="text-[11px] text-slate-500 text-center">
+                Same gateway as Invest — no BscScan API needed. Your balance updates when payment completes.
+              </p>
+              <QrPaymentDialog
+                open={npOpen}
+                onOpenChange={setNpOpen}
+                plan={nowpaymentsTopUpPlan}
+                userId={user.uid}
+                userEmail={userProfile?.email || user?.email || undefined}
+                customAmount={Number(depositAmount)}
+                paymentPurpose="wallet_deposit"
+              />
+            </div>
+          )}
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-slate-700" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-slate-900 px-2 text-slate-500">Or manual transfer</span>
+            </div>
+          </div>
           {!walletReady && (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
               <p className="font-medium text-amber-200">Receive address not shown in UI yet</p>
