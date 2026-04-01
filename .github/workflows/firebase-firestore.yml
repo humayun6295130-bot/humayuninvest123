@@ -1,6 +1,6 @@
-# Deploys Firestore rules + indexes to Firebase when those files change.
-# Optional: add repo secret FIREBASE_TOKEN (local: npx firebase-tools login:ci)
-# If FIREBASE_TOKEN is missing, this workflow skips deploy and still passes (no red X on PRs).
+# Deploys Firestore rules + indexes when these files change on main.
+# Secret FIREBASE_TOKEN: npx firebase-tools login:ci
+# One job always runs (avoids GitHub "No jobs were run" when secret if-expressions skip all jobs).
 name: Deploy Firestore
 
 on:
@@ -11,12 +11,12 @@ on:
       - "firestore.indexes.json"
       - "firebase.json"
       - ".firebaserc"
+      - ".github/workflows/firebase-firestore.yml"
   workflow_dispatch:
 
 jobs:
   deploy:
-    name: Deploy Firestore rules & indexes
-    if: ${{ secrets.FIREBASE_TOKEN != '' }}
+    name: Firestore rules & indexes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,22 +26,14 @@ jobs:
           node-version-file: ".nvmrc"
           cache: npm
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools@15.12.0
-
-      - name: Deploy Firestore (rules + indexes)
+      - name: Deploy Firestore (or skip if no token)
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        run: firebase deploy --only firestore --non-interactive
-
-  # Always succeeds; explains why the deploy job did not run.
-  firestore-deploy-skipped:
-    name: Firestore deploy skipped (no FIREBASE_TOKEN)
-    if: ${{ secrets.FIREBASE_TOKEN == '' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Notice
         run: |
-          echo "::notice::Repository secret FIREBASE_TOKEN is not set — automatic Firestore deploy was skipped."
-          echo "Rules and indexes are still in the repo; deploy manually: firebase deploy --only firestore"
-          echo "Or add FIREBASE_TOKEN (see docs/firebase-ci-setup.txt)."
+          set -e
+          if [ -z "${FIREBASE_TOKEN}" ]; then
+            echo "::notice::FIREBASE_TOKEN is empty — skipped firebase deploy. Rules still apply if you published them in Firebase Console."
+            exit 0
+          fi
+          npm install -g firebase-tools@15.12.0
+          firebase deploy --only firestore --non-interactive
