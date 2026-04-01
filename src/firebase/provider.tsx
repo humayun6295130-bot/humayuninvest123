@@ -53,9 +53,13 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        const uid = user.uid;
+        const email = user.email;
+        const firestore = db;
+
         setIsProfileLoading(true);
 
-        const userRef = doc(db, 'users', user.uid);
+        const userRef = doc(firestore, 'users', uid);
         let unsubscribe: (() => void) | null = null;
         let cancelled = false;
 
@@ -63,11 +67,11 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
             // Some legacy users were created with auto-id docs instead of uid.
             const snap = await getDoc(userRef);
             if (snap.exists()) return;
-            if (!user.email) return;
+            if (!email) return;
 
             const legacyQ = query(
-                collection(db, 'users'),
-                where('email', '==', user.email),
+                collection(firestore, 'users'),
+                where('email', '==', email),
                 limit(1)
             );
             const legacySnap = await getDocs(legacyQ);

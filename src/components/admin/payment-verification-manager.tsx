@@ -199,7 +199,7 @@ export function PaymentVerificationManager() {
                         const amt = selectedPayment.amount;
                         const expectedReturn =
                             Number(p?.expected_return) && Number.isFinite(Number(p?.expected_return))
-                                ? Number(p.expected_return)
+                                ? Number(p?.expected_return)
                                 : amt * (1 + retPct / 100);
 
                         const txSnap = await getDocs(

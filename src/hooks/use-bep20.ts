@@ -4,7 +4,7 @@
  * React Hooks for BEP20/BNB Smart Chain Blockchain Operations
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     isValidBEP20Address,
     isValidTransactionHash,

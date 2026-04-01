@@ -200,7 +200,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                 recipient_address: withdrawalData.walletAddress,
                 requested_at: requestedAt,
                 balance_deducted_on_request: true,
-                network_fee_estimate: fee?.estimatedTrxFee || 0,
+                network_fee_estimate: fee?.estimatedTrxFee ?? fee?.totalFee ?? 0,
                 withdrawal_fee: feeAmount,
                 withdrawal_fee_percentage: WITHDRAWAL_FEE_PERCENTAGE,
                 total_deduction: totalDeduct,

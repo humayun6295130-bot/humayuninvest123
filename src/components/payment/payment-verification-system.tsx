@@ -164,7 +164,9 @@ export function PaymentVerificationSystem({
 
             // Try on-chain verification + auto-approval (especially for deposits)
             try {
-                const toAddress = WALLET_ADDRESSES[selectedMethod as keyof typeof WALLET_ADDRESSES] || ADMIN_WALLET_ADDRESS;
+                const rawAddr = WALLET_ADDRESSES[selectedMethod as keyof typeof WALLET_ADDRESSES];
+                const toAddress =
+                    typeof rawAddr === 'string' && rawAddr ? rawAddr : ADMIN_WALLET_ADDRESS;
                 const chainCheck = await verifyTransactionWithDoubleSpendCheck(
                     transactionHash,
                     toAddress,
@@ -209,7 +211,7 @@ export function PaymentVerificationSystem({
                             const duration = Number(p?.duration_days) || 30;
                             const expectedReturn =
                                 Number(p?.expected_return) && Number.isFinite(Number(p?.expected_return))
-                                    ? Number(p.expected_return)
+                                    ? Number(p?.expected_return)
                                     : amount * (1 + retPct / 100);
 
                             await deleteRow('transactions', tx.id);
@@ -383,12 +385,21 @@ export function PaymentVerificationSystem({
                             <Label className="text-center block mb-4">Send to this address</Label>
                             <div className="flex items-center gap-2">
                                 <code className="flex-1 p-3 bg-background rounded-lg text-xs font-mono break-all">
-                                    {WALLET_ADDRESSES[selectedMethod as keyof typeof WALLET_ADDRESSES]}
+                                    {String(
+                                        typeof WALLET_ADDRESSES[selectedMethod as keyof typeof WALLET_ADDRESSES] ===
+                                            'string'
+                                            ? WALLET_ADDRESSES[selectedMethod as keyof typeof WALLET_ADDRESSES]
+                                            : ADMIN_WALLET_ADDRESS
+                                    )}
                                 </code>
                                 <Button
                                     variant="outline"
                                     size="icon"
-                                    onClick={() => copyToClipboard(WALLET_ADDRESSES[selectedMethod as keyof typeof WALLET_ADDRESSES], 'address')}
+                                    onClick={() => {
+                                        const v = WALLET_ADDRESSES[selectedMethod as keyof typeof WALLET_ADDRESSES];
+                                        const addr = typeof v === 'string' ? v : ADMIN_WALLET_ADDRESS;
+                                        void copyToClipboard(addr, 'address');
+                                    }}
                                 >
                                     {copiedField === 'address' ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                                 </Button>

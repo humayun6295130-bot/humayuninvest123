@@ -56,6 +56,8 @@ export interface TransactionFee {
     gasPrice: number;
     totalFee: number;
     unit: string;
+    /** Optional UI label for TRX/BNB-style fee estimates */
+    estimatedTrxFee?: number;
 }
 
 export interface TokenTransfer {

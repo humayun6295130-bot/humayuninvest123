@@ -130,7 +130,7 @@ Users table needs `parent_id` field:
 
 ### 3.1 BEP20 Wallet Storage
 
-New field in users table: `saved_bep20_address`
+Use users document fields: `bep20_wallet_address`, `bep20_wallet_verified`, `bep20_wallet_added_at` (same as Settings UI).
 
 ### 3.2 User Settings API
 
@@ -147,7 +147,7 @@ Request headers required: `x-user-id`
 ### 3.3 Withdrawal Flow
 
 1. User requests withdrawal
-2. System checks `saved_bep20_address`
+2. System checks `bep20_wallet_address` on the user profile
 3. Auto-fills wallet address field if saved
 4. User can override with manual entry
 5. Admin approves/rejects
@@ -201,10 +201,12 @@ if (result.data.valid) {
 
 ```typescript
 // Get saved wallet address
+const idToken = await auth.currentUser?.getIdToken();
 const response = await fetch('/api/user/settings/wallet', {
-    headers: { 'x-user-id': userId }
+    headers: { Authorization: `Bearer ${idToken}` }
 });
-const { walletAddress } = await response.json();
+const { data } = await response.json();
+const walletAddress = data?.walletAddress ?? '';
 
 // Pre-fill form
 <Input defaultValue={walletAddress} placeholder="Wallet address" />

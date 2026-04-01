@@ -82,6 +82,7 @@ export interface AdminAction {
     new_value?: any;
     notes?: string;
     created_at: string;
+    ip_address?: string;
 }
 
 export interface Notification {
@@ -112,11 +113,11 @@ export const WITHDRAWAL_CONFIG = {
 // DATABASE HELPERS
 // ============================================================================
 
-async function insertRow<T>(table: string, data: T): Promise<T & { id: string }> {
+async function insertRow<T extends Record<string, any>>(table: string, data: T): Promise<T & { id: string }> {
     return firebaseInsertRow(table, data);
 }
 
-async function updateRow<T>(table: string, id: string, data: Partial<T>): Promise<void> {
+async function updateRow<T extends Record<string, any>>(table: string, id: string, data: Partial<T>): Promise<void> {
     return firebaseUpdateRow(table, id, data);
 }
 

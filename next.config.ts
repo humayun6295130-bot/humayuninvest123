@@ -15,10 +15,10 @@ const nextConfig: NextConfig = {
     '3051d67a-328b-41ee-906e-57a8190323b2-00-cptnkjanxr7a.janeway.repl.co',
   ],
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   env: {
     // Do not put ETHERSCAN/BSCSCAN keys here — it inlines at build time and can leak to the client bundle.

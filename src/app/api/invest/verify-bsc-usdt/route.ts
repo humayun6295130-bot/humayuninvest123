@@ -439,24 +439,25 @@ export async function POST(request: NextRequest) {
         const usdt = USDT_CONTRACT_BSC.toLowerCase();
 
         // 1) Receipt — public BSC RPC first (no API key; avoids Etherscan V2 free-tier BSC blocks).
-        let receiptSource: 'etherscan' | 'rpc' = 'rpc';
-        let receipt: Record<string, unknown> | null = await fetchBscRpcReceipt(txHash);
-        let receiptPayload: {
+        type ReceiptApiPayload = {
             status?: string;
             message?: string;
             result?: Record<string, unknown> | string | null;
             error?: unknown;
-        } | null = null;
+        };
+        let receiptFromExplorer = false;
+        let receipt: Record<string, unknown> | null = await fetchBscRpcReceipt(txHash);
+        let receiptPayload: ReceiptApiPayload | null = null;
 
         if (!receipt && apiKey) {
             const bscK = resolveBscScanOnlyKey();
             const ethK = resolveEtherscanOnlyKey();
-            const applyReceiptPayload = (payload: NonNullable<typeof receiptPayload>) => {
+            const applyReceiptPayload = (payload: ReceiptApiPayload) => {
                 if (payload.error == null && String(payload.status ?? '') !== '0') {
                     const r = parseReceiptPayload(payload.result);
                     if (r) {
                         receipt = r;
-                        receiptSource = 'etherscan';
+                        receiptFromExplorer = true;
                     }
                 }
             };
@@ -467,7 +468,7 @@ export async function POST(request: NextRequest) {
                         action: 'eth_getTransactionReceipt',
                         txhash: txHash,
                         apikey: bscK,
-                    })) as typeof receiptPayload;
+                    })) as ReceiptApiPayload;
                 } catch {
                     return NextResponse.json(
                         { valid: false, error: 'Invalid response from blockchain API (receipt)' },
@@ -483,7 +484,7 @@ export async function POST(request: NextRequest) {
                         action: 'eth_getTransactionReceipt',
                         txhash: txHash,
                         apikey: ethK,
-                    })) as typeof receiptPayload;
+                    })) as ReceiptApiPayload;
                 } catch {
                     return NextResponse.json(
                         { valid: false, error: 'Invalid response from blockchain API (receipt)' },
@@ -517,13 +518,12 @@ export async function POST(request: NextRequest) {
 
         let receivedToPlatform = sumUsdtTransfersToRecipient(logs, usdt, expectedRecipient);
 
-        if (receivedToPlatform === 0n && receiptSource === 'etherscan' && apiKey) {
+        if (receivedToPlatform === 0n && receiptFromExplorer && apiKey) {
             const rpcReceipt = await fetchBscRpcReceipt(txHash);
             if (rpcReceipt) {
                 logs = (rpcReceipt as { logs?: Array<Record<string, unknown>> }).logs || [];
                 txBlock = receiptBlockNumber(rpcReceipt as { blockNumber?: unknown });
                 receivedToPlatform = sumUsdtTransfersToRecipient(logs, usdt, expectedRecipient);
-                receiptSource = 'rpc';
             }
         }
 

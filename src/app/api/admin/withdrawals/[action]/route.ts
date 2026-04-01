@@ -18,7 +18,7 @@ import {
  *   notes?: string;
  * }
  */
-export async function approveRequest(request: NextRequest) {
+async function approveRequest(request: NextRequest) {
     try {
         // Get admin info from headers (in real app, use proper auth)
         const adminId = request.headers.get('x-admin-id') || 'admin';
@@ -75,7 +75,7 @@ export async function approveRequest(request: NextRequest) {
  *   reason: string;
  * }
  */
-export async function rejectRequest(request: NextRequest) {
+async function rejectRequest(request: NextRequest) {
     try {
         const adminId = request.headers.get('x-admin-id') || 'admin';
         const adminEmail = request.headers.get('x-admin-email') || 'admin@example.com';
@@ -140,7 +140,7 @@ export async function rejectRequest(request: NextRequest) {
  *   notes?: string;
  * }
  */
-export async function completeRequest(request: NextRequest) {
+async function completeRequest(request: NextRequest) {
     try {
         const adminId = request.headers.get('x-admin-id') || 'admin';
         const adminEmail = request.headers.get('x-admin-email') || 'admin@example.com';

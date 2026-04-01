@@ -39,7 +39,9 @@ interface ActiveMiningDialogProps {
 export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMiningDialogProps) {
     const [isMining, setIsMining] = useState(false);
     const [miningProgress, setMiningProgress] = useState(0);
-    const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number; duration: number }>>([]);
+    const [particles, setParticles] = useState<
+        Array<{ id: number; x: number; y: number; delay: number; duration: number; opacity?: number }>
+    >([]);
     const [stats, setStats] = useState({
         hashRate: "0 TH/s",
         blocks: 0,

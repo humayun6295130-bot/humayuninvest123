@@ -174,7 +174,9 @@ export default function MiningPage() {
     });
 
     // Particles for 3D effect
-    const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number; duration: number }>>([]);
+    const [particles, setParticles] = useState<
+        Array<{ id: number; x: number; y: number; delay: number; duration: number; opacity?: number }>
+    >([]);
 
     // Real user investments from Firebase
     const investmentsOptions = useMemo(() => ({
