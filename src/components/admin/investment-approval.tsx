@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRealtimeCollection, updateRow, insertRow } from "@/firebase";
 import { db } from "@/firebase/config";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, increment } from "firebase/firestore";
 import { awardCommission, getReferralSettings } from "@/lib/referral-system";
+import { REFERRAL_COMMISSION_MAX_DEPTH, resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
     CheckCircle,
     XCircle,
@@ -41,6 +44,8 @@ interface PendingInvestment {
     status: 'pending_payment_confirmation' | 'payment_received' | 'approved' | 'rejected';
     payment_method: 'usdt' | 'eth' | 'usdt_bep20';
     transaction_id?: string;
+    /** NOWPayments / user invoice reference (optional) */
+    order_id?: string | null;
     proof_image_url?: string;
     created_at: string;
     processed_at?: string;
@@ -54,6 +59,34 @@ export function InvestmentApproval() {
     const [showDetailsDialog, setShowDetailsDialog] = useState(false);
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
     const [rejectionReason, setRejectionReason] = useState("");
+    const [orderIdDraft, setOrderIdDraft] = useState("");
+    const [savingOrderId, setSavingOrderId] = useState(false);
+
+    useEffect(() => {
+        if (selectedInvestment) {
+            setOrderIdDraft((selectedInvestment.order_id ?? "").trim() ? String(selectedInvestment.order_id) : "");
+        } else {
+            setOrderIdDraft("");
+        }
+    }, [selectedInvestment?.id, selectedInvestment?.order_id, showDetailsDialog]);
+
+    const handleSaveOrderId = async () => {
+        if (!selectedInvestment) return;
+        setSavingOrderId(true);
+        try {
+            const v = orderIdDraft.trim();
+            await updateRow("pending_investments", selectedInvestment.id, {
+                order_id: v || null,
+                updated_at: new Date().toISOString(),
+            });
+            setSelectedInvestment({ ...selectedInvestment, order_id: v || undefined });
+            toast({ title: "Saved", description: "Order / reference ID stored on this request." });
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        } finally {
+            setSavingOrderId(false);
+        }
+    };
 
     const pendingOptions = useMemo(
         () => ({
@@ -82,17 +115,26 @@ export function InvestmentApproval() {
         try {
             const timestamp = new Date().toISOString();
             const endDate = new Date();
-            endDate.setDate(endDate.getDate() + 30); // 30 days plan
+            const durationDays = 30;
+            endDate.setDate(endDate.getDate() + durationDays);
 
-            // Create actual investment
+            const tiered = resolveDailyIncomeForDeposit(investment.amount);
+            const daily_roi = tiered.dailyUsd;
+            const daily_roi_percent = tiered.incomePercent;
+            const total_profit = daily_roi * durationDays;
+            const total_return = investment.amount + total_profit;
+
             await insertRow('user_investments', {
                 user_id: investment.user_id,
                 plan_id: investment.plan_id,
                 plan_name: investment.plan_name,
                 amount: investment.amount,
-                daily_roi: 0, // End of term plan
-                total_return: investment.expected_return,
-                total_profit: investment.expected_return - investment.amount,
+                daily_roi,
+                daily_roi_percent,
+                deposit_tier_level: tiered.tierLevel,
+                income_percent: tiered.incomePercent,
+                total_return,
+                total_profit,
                 earned_so_far: 0,
                 claimed_so_far: 0,
                 days_claimed: 0,
@@ -102,6 +144,7 @@ export function InvestmentApproval() {
                 auto_compound: false,
                 capital_return: true,
                 payout_schedule: 'end_of_term',
+                ...(investment.order_id ? { order_id: investment.order_id } : {}),
             });
 
             // Update pending status
@@ -118,7 +161,19 @@ export function InvestmentApproval() {
                 amount: -investment.amount,
                 status: 'completed',
                 description: `Investment in ${investment.plan_name} - QR Payment`,
+                transaction_hash: investment.transaction_id || undefined,
             });
+
+            if (db) {
+                try {
+                    await updateDoc(doc(db, 'users', investment.user_id), {
+                        total_invested: increment(investment.amount),
+                        updated_at: timestamp,
+                    });
+                } catch (e) {
+                    console.error('total_invested increment (non-fatal):', e);
+                }
+            }
 
             // Distribute referral commissions up the chain
             if (db) {
@@ -128,14 +183,12 @@ export function InvestmentApproval() {
                         settings.level1_percent,
                         settings.level2_percent,
                         settings.level3_percent,
-                        settings.level4_percent ?? 0,
-                        settings.level5_percent ?? 0,
                     ];
                     const userDoc = await getDoc(doc(db, 'users', investment.user_id));
                     if (userDoc.exists()) {
                         let currentReferrerId = userDoc.data().referrer_id;
                         let level = 0;
-                        while (currentReferrerId && level < 5) {
+                        while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
                             const percent = commissionPercents[level] ?? 0;
                             const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
                             if (!referrerDoc.exists()) break;
@@ -441,6 +494,34 @@ export function InvestmentApproval() {
                                 </div>
                             )}
 
+                            <div className="p-3 bg-muted rounded-lg space-y-2">
+                                <Label htmlFor="admin-order-id" className="text-sm font-medium">
+                                    Order / reference ID
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    User panel shows this for NOWPayments invoices. Paste the user&apos;s value here if it was missing from the request.
+                                </p>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <Input
+                                        id="admin-order-id"
+                                        className="font-mono text-xs"
+                                        placeholder="e.g. inv_uid_planId_timestamp"
+                                        value={orderIdDraft}
+                                        onChange={(e) => setOrderIdDraft(e.target.value)}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        className="shrink-0"
+                                        onClick={() => void handleSaveOrderId()}
+                                        disabled={savingOrderId}
+                                    >
+                                        {savingOrderId ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save ID"}
+                                    </Button>
+                                </div>
+                            </div>
+
                             {/* Proof Screenshot */}
                             {selectedInvestment.proof_image_url && (
                                 <div className="space-y-2">
@@ -591,6 +672,11 @@ function InvestmentList({
                                     <div>
                                         <p className="font-medium">{inv.user_email}</p>
                                         <p className="text-sm text-muted-foreground">{inv.plan_name}</p>
+                                        {inv.order_id && (
+                                            <p className="text-xs text-muted-foreground font-mono truncate max-w-[220px]" title={inv.order_id}>
+                                                Order: {inv.order_id}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="text-right">

@@ -2,7 +2,8 @@
 
 import { useRealtimeCollection } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, DollarSign, ArrowDownUp, ShieldCheck, Link, CheckCircle2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Users, DollarSign, ArrowDownUp, ShieldCheck, Link, CheckCircle2, Gift } from "lucide-react";
 import { useMemo } from "react";
 
 export function AdminOverview() {
@@ -22,15 +23,25 @@ export function AdminOverview() {
     enabled: true,
   }), []);
 
-  const { data: users } = useRealtimeCollection(usersOptions);
-  const { data: transactions } = useRealtimeCollection(transactionsOptions);
-  const { data: pendingTxs } = useRealtimeCollection(pendingTxOptions);
+  const pendingReferralWdOptions = useMemo(() => ({
+    table: 'referral_withdrawals',
+    filters: [{ column: 'status', operator: '==' as const, value: 'pending' }],
+    enabled: true,
+  }), []);
+
+  const { data: users, error: usersError } = useRealtimeCollection(usersOptions);
+  const { data: transactions, error: transactionsError } = useRealtimeCollection(transactionsOptions);
+  const { data: pendingTxs, error: pendingTxError } = useRealtimeCollection(pendingTxOptions);
+  const { data: pendingReferralWds, error: referralWdError } = useRealtimeCollection(pendingReferralWdOptions);
+
+  const overviewError = usersError || transactionsError || pendingTxError || referralWdError;
 
   const totalUsers = users?.length || 0;
   const totalBalance = users?.reduce((acc: number, user: any) => acc + (user.balance || 0), 0) || 0;
   const totalDeposits = transactions?.filter((t: any) => t.type === 'deposit' && t.status === 'completed')
     .reduce((acc: number, t: any) => acc + t.amount, 0) || 0;
   const pendingCount = pendingTxs?.length || 0;
+  const pendingReferralWdCount = pendingReferralWds?.length || 0;
 
   // Blockchain stats
   const blockchainVerifiedCount = transactions?.filter((t: any) => t.blockchain_verified).length || 0;
@@ -79,7 +90,14 @@ export function AdminOverview() {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="space-y-4">
+      {overviewError && (
+        <Alert variant="destructive">
+          <AlertTitle>Some overview data failed to load</AlertTitle>
+          <AlertDescription>{overviewError.message}</AlertDescription>
+        </Alert>
+      )}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
       {stats.map((stat, index) => (
         <Card key={index} className={stat.highlight ? "border-primary/50 shadow-md" : ""}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -92,6 +110,7 @@ export function AdminOverview() {
           </CardContent>
         </Card>
       ))}
+      </div>
     </div>
   );
 }

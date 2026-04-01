@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { INVESTMENT_LEVELS, getUserLevel } from "@/lib/level-config";
+import { DEFAULT_REFERRAL_SETTINGS } from "@/lib/referral-system";
 import { useMemo } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -94,8 +95,8 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
     const quickActions = [
         { href: "/wallet", icon: Wallet, label: "Deposit", desc: "Add funds", color: "bg-orange-500/10 text-orange-400" },
         { href: "/invest", icon: TrendingUp, label: "Invest", desc: "Start earning", color: "bg-green-500/10 text-green-400" },
-        { href: "/earnings", icon: DollarSign, label: "Claim ROI", desc: "Daily rewards", color: "bg-blue-500/10 text-blue-400" },
-        { href: "/referrals", icon: Users, label: "Refer", desc: "Earn 5%", color: "bg-purple-500/10 text-purple-400" },
+        { href: "/earnings", icon: DollarSign, label: "Claim", desc: "Daily income", color: "bg-blue-500/10 text-blue-400" },
+        { href: "/referrals", icon: Users, label: "Refer", desc: `${DEFAULT_REFERRAL_SETTINGS.level1_percent}%·${DEFAULT_REFERRAL_SETTINGS.level2_percent}%·${DEFAULT_REFERRAL_SETTINGS.level3_percent}%`, color: "bg-purple-500/10 text-purple-400" },
     ];
 
     return (
@@ -107,7 +108,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                         Welcome back, <span className="text-orange-400">{userProfile?.display_name?.split(' ')[0] || 'Investor'}</span> 👋
                     </h1>
                     <p className="text-muted-foreground text-sm mt-1">
-                        Claim your <span className="text-orange-400 font-semibold">60X daily ROI</span> every 24 hours
+                        Claim tier-based daily income once every 24 hours
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -168,7 +169,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                             </div>
                             <div>
                                 <p className="font-semibold text-sm">Level {userLevel.level} — {userLevel.name}</p>
-                                <p className="text-xs text-muted-foreground">{userLevel.dailyIncomePercent}% daily ROI</p>
+                                <p className="text-xs text-muted-foreground">{userLevel.dailyIncomePercent}% / day (plan level)</p>
                             </div>
                         </div>
                         <Badge className="bg-orange-500/20 text-orange-400 border-0">
@@ -183,14 +184,14 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                             </div>
                             <Progress value={progressToNext} className="h-2" />
                             <p className="text-xs text-muted-foreground">
-                                ${Math.max(0, (nextLevel.minInvestment - totalInvested)).toLocaleString('en-US')} more to Level {nextLevel.level} ({nextLevel.dailyIncomePercent}% daily)
+                                ${Math.max(0, (nextLevel.minInvestment - totalInvested)).toLocaleString('en-US')} more to Level {nextLevel.level} ({nextLevel.dailyIncomePercent}% / day)
                             </p>
                         </div>
                     )}
                     {!nextLevel && (
                         <div className="flex items-center gap-2 text-xs text-orange-400">
                             <CheckCircle className="h-4 w-4" />
-                            <span>You've reached the highest level! Maximum daily ROI unlocked.</span>
+                            <span>You&apos;ve reached the highest plan level.</span>
                         </div>
                     )}
                 </CardContent>
@@ -208,7 +209,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                             Last 7 days
                         </Badge>
                     </div>
-                    <CardDescription className="text-xs">Daily ROI claims & referral bonuses</CardDescription>
+                    <CardDescription className="text-xs">Daily claims & referral bonuses</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-2">
                     {chartData.some(d => d.earnings > 0) ? (
@@ -246,7 +247,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
                             <Activity className="h-10 w-10 text-muted-foreground/30" />
                             <div className="text-center">
                                 <p className="text-sm font-medium text-muted-foreground">No earnings yet</p>
-                                <p className="text-xs text-muted-foreground/60">Invest and claim daily ROI to see your chart</p>
+                                <p className="text-xs text-muted-foreground/60">Invest and claim to see your chart</p>
                             </div>
                             <Link href="/invest">
                                 <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-black text-xs">

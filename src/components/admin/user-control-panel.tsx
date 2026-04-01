@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useRealtimeCollection, updateRow, deleteRow, insertRow } from "@/firebase";
+import { updateRow, deleteRow, insertRow } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -32,8 +32,9 @@ import { useToast } from "@/hooks/use-toast";
 import { isAdminRoleValue } from "@/lib/user-role";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-interface User {
+export interface UserControlPanelUser {
     id: string;
     email: string;
     display_name?: string;
@@ -58,9 +59,49 @@ interface User {
     auto_daily_earnings?: boolean;
     auto_level_upgrade?: boolean;
     team_commission_enabled?: boolean;
+    referral_code?: string;
+    referrer_id?: string;
 }
 
-export function UserControlPanel() {
+export interface UserControlPanelProps {
+    /** Live user list — fetched by parent (e.g. Admin dashboard) */
+    users: UserControlPanelUser[] | null;
+    isLoading: boolean;
+    error: Error | null;
+}
+
+type User = UserControlPanelUser;
+
+function compareUserField(a: User, b: User, field: keyof User, order: "asc" | "desc"): number {
+    const numeric = new Set<string>([
+        "balance",
+        "referral_balance",
+        "total_invested",
+        "total_earned",
+        "daily_claim_amount",
+        "current_level",
+        "income_percent",
+    ]);
+    const dates = new Set<string>(["created_at", "last_login"]);
+    const key = String(field);
+    let cmp = 0;
+    if (numeric.has(key)) {
+        const an = Number(a[field]) || 0;
+        const bn = Number(b[field]) || 0;
+        cmp = an - bn;
+    } else if (dates.has(key)) {
+        const at = new Date(String(a[field] ?? "")).getTime() || 0;
+        const bt = new Date(String(b[field] ?? "")).getTime() || 0;
+        cmp = at - bt;
+    } else {
+        const as = String(a[field] ?? "").toLowerCase();
+        const bs = String(b[field] ?? "").toLowerCase();
+        cmp = as.localeCompare(bs);
+    }
+    return order === "asc" ? cmp : -cmp;
+}
+
+export function UserControlPanel({ users, isLoading, error: usersError }: UserControlPanelProps) {
     const { toast } = useToast();
     const searchParams = useSearchParams();
     const qFromUrl = searchParams.get("q") ?? "";
@@ -100,14 +141,6 @@ export function UserControlPanel() {
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // Fetch users
-    const usersOptions = useMemo(() => ({
-        table: 'users',
-        enabled: true,
-    }), []);
-
-    const { data: users, isLoading } = useRealtimeCollection<User>(usersOptions);
-
     // Filter and sort users
     const filteredUsers = useMemo(() => {
         if (!users) return [];
@@ -119,7 +152,10 @@ export function UserControlPanel() {
                 user.display_name?.toLowerCase().includes(searchLower) ||
                 user.username?.toLowerCase().includes(searchLower) ||
                 user.support_id?.toString().includes(searchTerm) ||
-                user.wallet_address?.toLowerCase().includes(searchLower);
+                user.wallet_address?.toLowerCase().includes(searchLower) ||
+                user.id?.toLowerCase().includes(searchLower) ||
+                user.referral_code?.toLowerCase().includes(searchLower) ||
+                user.referrer_id?.toLowerCase().includes(searchLower);
 
             const matchesStatus = statusFilter === "all" || user.status === statusFilter;
             const matchesRole =
@@ -129,15 +165,7 @@ export function UserControlPanel() {
             return matchesSearch && matchesStatus && matchesRole;
         });
 
-        // Sort
-        result.sort((a, b) => {
-            const aVal = a[sortBy.field] ?? 0;
-            const bVal = b[sortBy.field] ?? 0;
-            if (sortBy.order === 'asc') {
-                return aVal > bVal ? 1 : -1;
-            }
-            return aVal < bVal ? 1 : -1;
-        });
+        result.sort((a, b) => compareUserField(a, b, sortBy.field, sortBy.order));
 
         return result;
     }, [users, searchTerm, statusFilter, roleFilter, sortBy]);
@@ -265,6 +293,12 @@ export function UserControlPanel() {
 
     return (
         <div className="space-y-6">
+            {usersError && (
+                <Alert variant="destructive">
+                    <AlertTitle>Could not load users</AlertTitle>
+                    <AlertDescription>{usersError.message}</AlertDescription>
+                </Alert>
+            )}
             {/* Stats Cards */}
             <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
                 <Card>
@@ -328,7 +362,7 @@ export function UserControlPanel() {
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search by name, email, username, support ID or wallet address..."
+                                placeholder="Search name, email, UID, referral code, support ID, wallet..."
                                 className="pl-10"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -755,7 +789,42 @@ export function UserControlPanel() {
                             </div>
 
                             <Separator />
+                            <div className="flex items-center justify-between gap-2 rounded-md border p-3 bg-muted/40">
+                                <div className="min-w-0">
+                                    <span className="text-muted-foreground text-xs block">Firebase UID</span>
+                                    <code className="text-xs font-mono break-all">{selectedUser.id}</code>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="shrink-0"
+                                    onClick={() => copyToClipboard(selectedUser.id, `uid-${selectedUser.id}`)}
+                                >
+                                    {copiedId === `uid-${selectedUser.id}` ? (
+                                        <Check className="h-4 w-4" />
+                                    ) : (
+                                        <Copy className="h-4 w-4" />
+                                    )}
+                                </Button>
+                            </div>
                             <div className="grid grid-cols-2 gap-4 text-sm">
+                                {(selectedUser.referral_code || selectedUser.referrer_id) && (
+                                    <>
+                                        {selectedUser.referral_code && (
+                                            <div>
+                                                <span className="text-muted-foreground">Referral code:</span>
+                                                <p className="font-mono font-semibold">{selectedUser.referral_code}</p>
+                                            </div>
+                                        )}
+                                        {selectedUser.referrer_id && (
+                                            <div className="col-span-2">
+                                                <span className="text-muted-foreground">Referrer UID:</span>
+                                                <p className="font-mono text-xs break-all">{selectedUser.referrer_id}</p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                                 <div>
                                     <span className="text-muted-foreground">Support ID:</span>
                                     <p className="font-mono font-semibold">{selectedUser.support_id ? formatSupportId(selectedUser.support_id) : 'N/A'}</p>

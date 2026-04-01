@@ -2,9 +2,10 @@
 
 import { Suspense, useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRealtimeCollection } from "@/firebase";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminOverview } from "@/components/admin/admin-overview";
-import { UserControlPanel } from "@/components/admin/user-control-panel";
+import { UserControlPanel, type UserControlPanelUser } from "@/components/admin/user-control-panel";
 import { TransactionManager } from "@/components/admin/transaction-manager";
 import { KYCManager } from "@/components/admin/kyc-manager";
 import { SupportManager } from "@/components/admin/support-manager";
@@ -35,6 +36,19 @@ function AdminDashboardInner() {
     const raw = searchParams.get("tab");
     return isValidAdminTab(raw) ? raw : "overview";
   }, [searchParams]);
+
+  const usersOptions = useMemo(
+    () => ({
+      table: "users" as const,
+      enabled: true,
+    }),
+    []
+  );
+  const {
+    data: adminUsers,
+    isLoading: adminUsersLoading,
+    error: adminUsersError,
+  } = useRealtimeCollection<UserControlPanelUser>(usersOptions);
 
   const jump = useCallback(
     (tab: AdminTabId, opts?: { userQuery?: string }) => {
@@ -112,7 +126,11 @@ function AdminDashboardInner() {
         </TabsContent>
 
         <TabsContent value="users">
-          <UserControlPanel />
+          <UserControlPanel
+            users={adminUsers}
+            isLoading={adminUsersLoading}
+            error={adminUsersError}
+          />
         </TabsContent>
 
         <TabsContent value="payments">

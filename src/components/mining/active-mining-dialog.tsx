@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { Bitcoin, Zap, Hash, Cpu, Server, Activity, Play, Pause, Clock, TrendingUp } from "lucide-react";
+import { getEffectiveDailyIncomeUsd } from "@/lib/deposit-income-tiers";
 
 interface UserInvestment {
     id: string;
@@ -74,26 +75,27 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
         setParticles(newParticles);
     }, []);
 
-    // Simulate mining progress when active
+    // Simulate mining progress when active (do not depend on miningProgress — avoids interval reset loop)
     useEffect(() => {
         if (!isMining || !investment) return;
 
+        const dailyUsd = getEffectiveDailyIncomeUsd(investment);
         const interval = setInterval(() => {
-            setMiningProgress(prev => {
-                const newProgress = prev + (100 / (investment.duration_days || 30) / 24 / 60 * 5); // ~5 minutes for 1 day
-                return Math.min(100, newProgress);
+            setMiningProgress((prev) => {
+                const step = 100 / (investment.duration_days || 30) / 24 / 60 * 5;
+                const newProgress = Math.min(100, prev + step);
+                setStats((s) => ({
+                    hashRate: `${(50 + Math.random() * 100).toFixed(1)} TH/s`,
+                    blocks: s.blocks + Math.floor(Math.random() * 3),
+                    earned: `$${(dailyUsd * (newProgress / 100)).toFixed(4)}`,
+                    efficiency: 95 + Math.random() * 5,
+                }));
+                return newProgress;
             });
-
-            setStats(prev => ({
-                hashRate: `${(50 + Math.random() * 100).toFixed(1)} TH/s`,
-                blocks: prev.blocks + Math.floor(Math.random() * 3),
-                earned: `$${((investment.daily_roi || 0) * (miningProgress / 100)).toFixed(4)}`,
-                efficiency: 95 + Math.random() * 5
-            }));
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [isMining, investment, miningProgress]);
+    }, [isMining, investment]);
 
     const handleStartMining = () => {
         setIsMining(true);
@@ -107,7 +109,7 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
 
     const daysRemaining = Math.max(0, Math.ceil((new Date(investment.end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
     const progressPercent = miningProgress;
-    const dailyEarnings = investment.daily_roi || 0;
+    const dailyEarnings = getEffectiveDailyIncomeUsd(investment);
     const totalEarnings = (investment.earned_so_far || 0) + (investment.claimed_so_far || 0);
 
     return (
@@ -313,7 +315,7 @@ export function ActiveMiningDialog({ investment, open, onOpenChange }: ActiveMin
                         </Card>
                         <Card className="bg-slate-900/50 border-orange-500/20">
                             <CardContent className="p-3 text-center">
-                                <p className="text-xs text-slate-400 mb-1">Daily ROI</p>
+                                <p className="text-xs text-slate-400 mb-1">Per day</p>
                                 <p className="text-lg font-bold text-green-400">+${dailyEarnings.toFixed(2)}</p>
                             </CardContent>
                         </Card>

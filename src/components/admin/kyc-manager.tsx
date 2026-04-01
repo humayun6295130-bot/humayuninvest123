@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRealtimeCollection, updateRow } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,13 +31,22 @@ export function KYCManager() {
     const [selectedDoc, setSelectedDoc] = useState<KYCDocument | null>(null);
     const [rejectionReason, setRejectionReason] = useState("");
 
-    const kycOptions = {
-        table: 'kyc_documents',
-        orderByColumn: { column: 'submitted_at', direction: 'desc' as const },
-        enabled: true,
-    };
+    const kycOptions = useMemo(
+        () => ({
+            table: 'kyc_documents' as const,
+            enabled: true,
+        }),
+        []
+    );
 
-    const { data: documents, isLoading } = useRealtimeCollection<KYCDocument>(kycOptions);
+    const { data: documentsRaw, isLoading } = useRealtimeCollection<KYCDocument>(kycOptions);
+
+    const documents = useMemo(() => {
+        if (!documentsRaw?.length) return documentsRaw;
+        return [...documentsRaw].sort(
+            (a, b) => new Date(b.submitted_at || 0).getTime() - new Date(a.submitted_at || 0).getTime()
+        );
+    }, [documentsRaw]);
 
     const pendingDocs = documents?.filter(d => d.status === 'pending' || d.status === 'under_review') || [];
     const approvedDocs = documents?.filter(d => d.status === 'approved') || [];
@@ -48,6 +57,7 @@ export function KYCManager() {
             await updateRow('kyc_documents', docId, {
                 status: 'approved',
                 reviewed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
             });
             await updateRow('users', userId, { kyc_status: 'verified' });
             toast({ title: "KYC approved successfully" });
@@ -68,6 +78,7 @@ export function KYCManager() {
                 status: 'rejected',
                 rejection_reason: rejectionReason,
                 reviewed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
             });
             await updateRow('users', userId, { kyc_status: 'rejected' });
             toast({ title: "KYC rejected" });
@@ -218,7 +229,7 @@ export function KYCManager() {
                             <p className="text-sm"><strong>Document Number:</strong> {selectedDoc?.document_number}</p>
                             <p className="text-sm"><strong>Submitted:</strong> {selectedDoc?.submitted_at && format(new Date(selectedDoc.submitted_at), 'MMM dd, yyyy HH:mm')}</p>
                         </div>
-                        {selectedDoc?.status === 'pending' && (
+                        {selectedDoc && (selectedDoc.status === 'pending' || selectedDoc.status === 'under_review') && (
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Rejection Reason (if rejecting)</label>
                                 <textarea
@@ -233,7 +244,7 @@ export function KYCManager() {
                     </div>
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setSelectedDoc(null)}>Close</Button>
-                        {selectedDoc?.status === 'pending' && (
+                        {selectedDoc && (selectedDoc.status === 'pending' || selectedDoc.status === 'under_review') && (
                             <>
                                 <Button variant="destructive" onClick={() => handleReject(selectedDoc.id, selectedDoc.user_id)}>
                                     <XCircle className="mr-2 h-4 w-4" />

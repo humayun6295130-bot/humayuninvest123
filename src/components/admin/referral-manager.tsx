@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useRealtimeCollection, insertRow, updateRow } from "@/firebase";
+import { useState, useMemo, useEffect } from "react";
+import { useRealtimeCollection, insertRow, updateRow, useUser } from "@/firebase";
+import { db } from "@/firebase/config";
+import { doc, updateDoc, increment, setDoc } from "firebase/firestore";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +19,6 @@ import {
     Users,
     DollarSign,
     Gift,
-    Wallet,
     Search,
     Send,
     History,
@@ -24,10 +26,8 @@ import {
     Clock,
     XCircle,
     TrendingUp,
-    UserPlus,
     Percent,
     Settings,
-    ArrowRight,
     Loader2,
     Award
 } from "lucide-react";
@@ -51,7 +51,7 @@ interface ReferralBonus {
     from_user_id?: string;
     from_user_email?: string;
     amount: number;
-    type: 'commission' | 'manual' | 'bonus';
+    type: 'commission' | 'manual' | 'bonus' | 'investment';
     level?: number;
     description: string;
     status: 'pending' | 'approved' | 'rejected';
@@ -68,6 +68,7 @@ interface ReferralWithdrawal {
     requested_at: string;
     processed_at?: string;
     processed_by?: string;
+    linked_transaction_id?: string;
 }
 
 interface ReferralSettings {
@@ -79,7 +80,14 @@ interface ReferralSettings {
     enabled: boolean;
 }
 
+function formatAdminDate(iso?: string) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("en-US");
+}
+
 export function ReferralManager() {
+    const { user } = useUser();
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -96,18 +104,15 @@ export function ReferralManager() {
         enabled: true,
     }), []);
 
-    // Fetch bonuses
     const bonusesOptions = useMemo(() => ({
         table: 'referral_bonuses',
-        orderByColumn: { column: 'created_at', direction: 'desc' as const },
-        limitCount: 100,
+        limitCount: 400,
         enabled: true,
     }), []);
 
-    // Fetch withdrawals
     const withdrawalsOptions = useMemo(() => ({
         table: 'referral_withdrawals',
-        orderByColumn: { column: 'requested_at', direction: 'desc' as const },
+        limitCount: 300,
         enabled: true,
     }), []);
 
@@ -117,35 +122,81 @@ export function ReferralManager() {
         enabled: true,
     }), []);
 
-    const { data: users, isLoading: usersLoading } = useRealtimeCollection<User>(usersOptions);
-    const { data: bonuses, isLoading: bonusesLoading } = useRealtimeCollection<ReferralBonus>(bonusesOptions);
-    const { data: withdrawals, isLoading: withdrawalsLoading } = useRealtimeCollection<ReferralWithdrawal>(withdrawalsOptions);
-    const { data: settings } = useRealtimeCollection<ReferralSettings>(settingsOptions);
+    const { data: users, isLoading: usersLoading, error: usersError } = useRealtimeCollection<User>(usersOptions);
+    const { data: bonuses, isLoading: bonusesLoading, error: bonusesError } = useRealtimeCollection<ReferralBonus>(bonusesOptions);
+    const { data: withdrawals, isLoading: withdrawalsLoading, error: withdrawalsError } = useRealtimeCollection<ReferralWithdrawal>(withdrawalsOptions);
+    const { data: settings, error: settingsError } = useRealtimeCollection<ReferralSettings>(settingsOptions);
 
-    const referralSettings = settings?.[0] || {
+    const referralSettings = useMemo(() => {
+        const list = settings || [];
+        const docRow = list.find((s) => s.id === "default") || list[0];
+        return (
+            docRow || {
+                id: "",
+                level1_percent: 5,
+                level2_percent: 3,
+                level3_percent: 2,
+                min_withdrawal: 10,
+                enabled: true,
+            }
+        );
+    }, [settings]);
+
+    const sortedBonuses = useMemo(() => {
+        if (!bonuses?.length) return [];
+        return [...bonuses]
+            .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+            .slice(0, 120);
+    }, [bonuses]);
+
+    const sortedWithdrawals = useMemo(() => {
+        if (!withdrawals?.length) return [];
+        return [...withdrawals].sort(
+            (a, b) => new Date(b.requested_at || 0).getTime() - new Date(a.requested_at || 0).getTime()
+        );
+    }, [withdrawals]);
+
+    const [settingsDraft, setSettingsDraft] = useState({
         level1_percent: 5,
-        level2_percent: 2,
-        level3_percent: 1,
+        level2_percent: 3,
+        level3_percent: 2,
         min_withdrawal: 10,
-        enabled: true,
-    };
+    });
+
+    useEffect(() => {
+        if (!showSettingsDialog) return;
+        setSettingsDraft({
+            level1_percent: referralSettings.level1_percent,
+            level2_percent: referralSettings.level2_percent,
+            level3_percent: referralSettings.level3_percent,
+            min_withdrawal: referralSettings.min_withdrawal,
+        });
+    }, [showSettingsDialog, referralSettings]);
+
+    const loadError = usersError || bonusesError || withdrawalsError || settingsError;
 
     // Filter users
     const filteredUsers = useMemo(() => {
         if (!users) return [];
         if (!searchQuery) return users.slice(0, 20);
-        return users.filter(u =>
-            u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.display_name?.toLowerCase().includes(searchQuery.toLowerCase())
-        ).slice(0, 20);
+        const q = searchQuery.toLowerCase();
+        return users
+            .filter(
+                (u) =>
+                    u.email?.toLowerCase().includes(q) ||
+                    u.username?.toLowerCase().includes(q) ||
+                    u.display_name?.toLowerCase().includes(q) ||
+                    u.id?.toLowerCase().includes(q) ||
+                    u.referral_code?.toLowerCase().includes(q)
+            )
+            .slice(0, 20);
     }, [users, searchQuery]);
 
     // Statistics
     const totalBonuses = bonuses?.filter(b => b.status === 'approved').reduce((sum, b) => sum + b.amount, 0) || 0;
     const pendingBonuses = bonuses?.filter(b => b.status === 'pending').reduce((sum, b) => sum + b.amount, 0) || 0;
     const totalWithdrawals = withdrawals?.filter(w => w.status === 'approved').reduce((sum, w) => sum + w.amount, 0) || 0;
-    const pendingWithdrawals = withdrawals?.filter(w => w.status === 'pending') || [];
+    const pendingWithdrawals = sortedWithdrawals.filter((w) => w.status === "pending");
 
     const handleSendBonus = async () => {
         if (!selectedUser) return;
@@ -190,29 +241,41 @@ export function ReferralManager() {
         }
     };
 
-    const handleProcessWithdrawal = async (withdrawal: ReferralWithdrawal, action: 'approve' | 'reject') => {
+    const handleProcessWithdrawal = async (withdrawal: ReferralWithdrawal, action: "approve" | "reject") => {
         setIsProcessing(withdrawal.id);
+        const now = new Date().toISOString();
+        const processor = user?.uid || "admin";
         try {
-            const status = action === 'approve' ? 'approved' : 'rejected';
+            const status = action === "approve" ? "approved" : "rejected";
 
-            await updateRow('referral_withdrawals', withdrawal.id, {
+            await updateRow("referral_withdrawals", withdrawal.id, {
                 status,
-                processed_at: new Date().toISOString(),
+                processed_at: now,
+                processed_by: processor,
             });
 
-            if (action === 'approve') {
-                // Deduct from user's referral balance
-                const user = users?.find(u => u.id === withdrawal.user_id);
-                if (user) {
-                    await updateRow('users', user.id, {
-                        referral_balance: Math.max(0, (user.referral_balance || 0) - withdrawal.amount),
-                    });
-                }
+            // User already had referral_balance reduced when they requested; approve = no extra deduction.
+            if (action === "reject" && db) {
+                await updateDoc(doc(db, "users", withdrawal.user_id), {
+                    referral_balance: increment(withdrawal.amount),
+                    updated_at: now,
+                });
+            }
+
+            if (withdrawal.linked_transaction_id) {
+                await updateRow("transactions", withdrawal.linked_transaction_id, {
+                    status: action === "approve" ? "completed" : "rejected",
+                    processed_at: now,
+                    ...(action === "reject" ? { rejection_reason: "Referral withdrawal rejected by admin" } : {}),
+                });
             }
 
             toast({
-                title: action === 'approve' ? "Withdrawal Approved" : "Withdrawal Rejected",
-                description: `Withdrawal of $${withdrawal.amount.toFixed(2)} has been ${status}.`,
+                title: action === "approve" ? "Withdrawal Approved" : "Withdrawal Rejected",
+                description:
+                    action === "approve"
+                        ? `Payout recorded. Referral balance was already locked at request time.`
+                        : `Funds returned to user's referral balance.`,
             });
         } catch (error: any) {
             toast({ variant: "destructive", title: "Error", description: error.message });
@@ -221,15 +284,28 @@ export function ReferralManager() {
         }
     };
 
-    const handleUpdateSettings = async (newSettings: Partial<ReferralSettings>) => {
+    const handleSaveSettings = async () => {
+        if (!db) {
+            toast({ variant: "destructive", title: "Error", description: "Firebase is not configured." });
+            return;
+        }
         try {
-            if (settings?.[0]?.id) {
-                await updateRow('referral_settings', settings[0].id, {
-                    ...newSettings,
-                    updated_at: new Date().toISOString(),
-                });
+            const payload = {
+                level1_percent: Number(settingsDraft.level1_percent) || 0,
+                level2_percent: Number(settingsDraft.level2_percent) || 0,
+                level3_percent: Number(settingsDraft.level3_percent) || 0,
+                min_withdrawal: Number(settingsDraft.min_withdrawal) || 0,
+                enabled: referralSettings.enabled !== false,
+                updated_at: new Date().toISOString(),
+            };
+            const targetId = settings?.find((s) => s.id === "default")?.id || settings?.[0]?.id;
+            if (targetId) {
+                await updateRow("referral_settings", targetId, payload);
+            } else {
+                await setDoc(doc(db, "referral_settings", "default"), payload, { merge: true });
             }
-            toast({ title: "Settings Updated", description: "Referral settings have been saved." });
+            toast({ title: "Settings saved", description: "Referral settings have been updated." });
+            setShowSettingsDialog(false);
         } catch (error: any) {
             toast({ variant: "destructive", title: "Error", description: error.message });
         }
@@ -237,6 +313,12 @@ export function ReferralManager() {
 
     return (
         <div className="space-y-6">
+            {loadError && (
+                <Alert variant="destructive">
+                    <AlertTitle>Could not load referral data</AlertTitle>
+                    <AlertDescription>{loadError.message}</AlertDescription>
+                </Alert>
+            )}
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
@@ -384,7 +466,7 @@ export function ReferralManager() {
                                 <div className="flex items-center justify-center py-8">
                                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 </div>
-                            ) : !withdrawals || withdrawals.length === 0 ? (
+                            ) : sortedWithdrawals.length === 0 ? (
                                 <div className="text-center py-8">
                                     <DollarSign className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                                     <p className="text-muted-foreground">No withdrawal requests</p>
@@ -392,7 +474,7 @@ export function ReferralManager() {
                             ) : (
                                 <ScrollArea className="h-[400px]">
                                     <div className="space-y-2">
-                                        {withdrawals.map((withdrawal) => (
+                                        {sortedWithdrawals.map((withdrawal) => (
                                             <div key={withdrawal.id} className="p-4 rounded-lg border">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <div className="flex items-center gap-2">
@@ -408,7 +490,7 @@ export function ReferralManager() {
                                                         <span className="font-semibold">${withdrawal.amount.toFixed(2)}</span>
                                                     </div>
                                                     <span className="text-sm text-muted-foreground">
-                                                        {new Date(withdrawal.requested_at).toLocaleString('en-US')}
+                                                        {formatAdminDate(withdrawal.requested_at)}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center justify-between">
@@ -459,7 +541,7 @@ export function ReferralManager() {
                                 <div className="flex items-center justify-center py-8">
                                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 </div>
-                            ) : !bonuses || bonuses.length === 0 ? (
+                            ) : sortedBonuses.length === 0 ? (
                                 <div className="text-center py-8">
                                     <History className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                                     <p className="text-muted-foreground">No bonus history</p>
@@ -467,17 +549,19 @@ export function ReferralManager() {
                             ) : (
                                 <ScrollArea className="h-[400px]">
                                     <div className="space-y-2">
-                                        {bonuses.map((bonus) => (
+                                        {sortedBonuses.map((bonus) => (
                                             <div key={bonus.id} className="p-4 rounded-lg border hover:bg-muted/50">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <div className="flex items-center gap-2">
                                                         <div className={cn(
                                                             "w-8 h-8 rounded-full flex items-center justify-center",
                                                             bonus.type === 'manual' ? "bg-purple-500/10" :
-                                                                bonus.type === 'bonus' ? "bg-blue-500/10" : "bg-green-500/10"
+                                                                bonus.type === 'bonus' ? "bg-blue-500/10" :
+                                                                    bonus.type === 'investment' ? "bg-amber-500/10" : "bg-green-500/10"
                                                         )}>
                                                             {bonus.type === 'manual' ? <Gift className="w-4 h-4 text-purple-500" /> :
                                                                 bonus.type === 'bonus' ? <Award className="w-4 h-4 text-blue-500" /> :
+                                                                    bonus.type === 'investment' ? <TrendingUp className="w-4 h-4 text-amber-600" /> :
                                                                     <TrendingUp className="w-4 h-4 text-green-500" />}
                                                         </div>
                                                         <div>
@@ -492,7 +576,7 @@ export function ReferralManager() {
                                                 <div className="flex items-center justify-between text-sm">
                                                     <p className="text-muted-foreground">{bonus.description}</p>
                                                     <span className="text-muted-foreground">
-                                                        {new Date(bonus.created_at).toLocaleString('en-US')}
+                                                        {formatAdminDate(bonus.created_at)}
                                                     </span>
                                                 </div>
                                             </div>
@@ -568,8 +652,10 @@ export function ReferralManager() {
                             <Label>Level 1 Commission (%)</Label>
                             <Input
                                 type="number"
-                                defaultValue={referralSettings.level1_percent}
-                                onChange={(e) => handleUpdateSettings({ level1_percent: parseFloat(e.target.value) })}
+                                value={settingsDraft.level1_percent}
+                                onChange={(e) =>
+                                    setSettingsDraft((d) => ({ ...d, level1_percent: parseFloat(e.target.value) || 0 }))
+                                }
                             />
                             <p className="text-xs text-muted-foreground">Direct referrals</p>
                         </div>
@@ -577,8 +663,10 @@ export function ReferralManager() {
                             <Label>Level 2 Commission (%)</Label>
                             <Input
                                 type="number"
-                                defaultValue={referralSettings.level2_percent}
-                                onChange={(e) => handleUpdateSettings({ level2_percent: parseFloat(e.target.value) })}
+                                value={settingsDraft.level2_percent}
+                                onChange={(e) =>
+                                    setSettingsDraft((d) => ({ ...d, level2_percent: parseFloat(e.target.value) || 0 }))
+                                }
                             />
                             <p className="text-xs text-muted-foreground">Referrals' referrals</p>
                         </div>
@@ -586,8 +674,10 @@ export function ReferralManager() {
                             <Label>Level 3 Commission (%)</Label>
                             <Input
                                 type="number"
-                                defaultValue={referralSettings.level3_percent}
-                                onChange={(e) => handleUpdateSettings({ level3_percent: parseFloat(e.target.value) })}
+                                value={settingsDraft.level3_percent}
+                                onChange={(e) =>
+                                    setSettingsDraft((d) => ({ ...d, level3_percent: parseFloat(e.target.value) || 0 }))
+                                }
                             />
                             <p className="text-xs text-muted-foreground">Extended network</p>
                         </div>
@@ -595,13 +685,18 @@ export function ReferralManager() {
                             <Label>Minimum Withdrawal ($)</Label>
                             <Input
                                 type="number"
-                                defaultValue={referralSettings.min_withdrawal}
-                                onChange={(e) => handleUpdateSettings({ min_withdrawal: parseFloat(e.target.value) })}
+                                value={settingsDraft.min_withdrawal}
+                                onChange={(e) =>
+                                    setSettingsDraft((d) => ({ ...d, min_withdrawal: parseFloat(e.target.value) || 0 }))
+                                }
                             />
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button onClick={() => setShowSettingsDialog(false)}>Close</Button>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setShowSettingsDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSaveSettings}>Save settings</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

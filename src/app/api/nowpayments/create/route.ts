@@ -5,6 +5,7 @@ import {
     orderIdForUser,
     resolveIpnCallbackUrlForCreate,
 } from '@/lib/nowpayments-internal';
+import { isInvestmentOrderIdForUser } from '@/lib/investment-order-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +37,12 @@ export async function POST(request: NextRequest) {
         }
 
         const { payCurrency } = getNowpaymentsEnv();
-        const order_id = orderIdForUser(userId, planId);
+        const clientSuggested = String(body.order_id ?? body.orderId ?? '').trim();
+        const generated = orderIdForUser(userId, planId);
+        const order_id =
+            clientSuggested && isInvestmentOrderIdForUser(clientSuggested, userId)
+                ? clientSuggested
+                : generated;
         const ipn_callback_url = resolveIpnCallbackUrlForCreate();
 
         const created = await npCreatePayment({

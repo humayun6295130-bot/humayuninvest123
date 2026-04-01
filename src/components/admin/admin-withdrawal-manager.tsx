@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface WithdrawalRequest {
     id: string;
@@ -51,14 +52,40 @@ interface WithdrawalRequest {
     user_display_name?: string;
     amount: number;
     currency: string;
-    wallet_address: string;
+    wallet_address?: string;
+    recipient_address?: string;
+    requested_at?: string;
+    created_at?: string;
+    total_deduction?: number;
+    balance_deducted_on_request?: boolean;
+    metadata?: { recipient_address?: string; [key: string]: unknown };
     status: 'pending' | 'approved' | 'rejected' | 'completed' | 'failed';
-    requested_at: string;
     processed_at?: string;
     processed_by?: string;
     rejection_reason?: string;
     transaction_hash?: string;
     notes?: string;
+}
+
+function getWithdrawalWallet(w: WithdrawalRequest): string {
+    const meta = w.metadata;
+    return (
+        w.wallet_address ||
+        w.recipient_address ||
+        (typeof meta?.recipient_address === "string" ? meta.recipient_address : "") ||
+        ""
+    );
+}
+
+function getWithdrawalRequestedAt(w: WithdrawalRequest): string {
+    return w.requested_at || w.created_at || "";
+}
+
+function formatWithdrawalWhen(iso: string) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    return format(d, "MMM d, yyyy HH:mm");
 }
 
 export function AdminWithdrawalManager() {
@@ -78,7 +105,7 @@ export function AdminWithdrawalManager() {
         enabled: true,
     }), []);
 
-    const { data: withdrawalsRaw, isLoading } = useRealtimeCollection<WithdrawalRequest>(withdrawalsOptions);
+    const { data: withdrawalsRaw, isLoading, error: withdrawalsError } = useRealtimeCollection<WithdrawalRequest>(withdrawalsOptions);
 
     const withdrawals = useMemo(() => {
         if (!withdrawalsRaw?.length) return withdrawalsRaw;
@@ -103,12 +130,16 @@ export function AdminWithdrawalManager() {
         // Search filter
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
-            filtered = filtered.filter(w =>
-                w.user_email?.toLowerCase().includes(query) ||
-                w.user_display_name?.toLowerCase().includes(query) ||
-                w.wallet_address?.toLowerCase().includes(query) ||
-                w.id?.toLowerCase().includes(query)
-            );
+            filtered = filtered.filter((w) => {
+                const wallet = getWithdrawalWallet(w).toLowerCase();
+                return (
+                    w.user_email?.toLowerCase().includes(query) ||
+                    w.user_display_name?.toLowerCase().includes(query) ||
+                    wallet.includes(query) ||
+                    w.id?.toLowerCase().includes(query) ||
+                    w.user_id?.toLowerCase().includes(query)
+                );
+            });
         }
 
         return filtered;
@@ -190,15 +221,24 @@ export function AdminWithdrawalManager() {
                 rejection_reason: rejectionReason
             });
 
-            // Restore user balance (balance was deducted when withdrawal was submitted)
-            if (db && selectedWithdrawal.user_id) {
-                const totalDeduction = (selectedWithdrawal as any).total_deduction || selectedWithdrawal.amount;
-                const userRef = doc(db, 'users', selectedWithdrawal.user_id);
+            const w = selectedWithdrawal;
+            const hasFeeDeduct =
+                typeof w.total_deduction === "number" && w.total_deduction > 0;
+            const shouldRestore =
+                hasFeeDeduct || w.balance_deducted_on_request === true;
+            const amountToRestore = hasFeeDeduct
+                ? w.total_deduction!
+                : w.balance_deducted_on_request
+                  ? w.amount
+                  : 0;
+
+            if (shouldRestore && amountToRestore > 0 && db && selectedWithdrawal.user_id) {
+                const userRef = doc(db, "users", selectedWithdrawal.user_id);
                 await runTransaction(db, async (tx) => {
                     const userSnap = await tx.get(userRef);
                     if (userSnap.exists()) {
                         const currentBalance = userSnap.data().balance || 0;
-                        tx.update(userRef, { balance: currentBalance + totalDeduction });
+                        tx.update(userRef, { balance: currentBalance + amountToRestore });
                     }
                 });
             }
@@ -274,6 +314,12 @@ export function AdminWithdrawalManager() {
 
     return (
         <div className="space-y-6">
+            {withdrawalsError && (
+                <Alert variant="destructive">
+                    <AlertTitle>Could not load withdrawals</AlertTitle>
+                    <AlertDescription>{withdrawalsError.message}</AlertDescription>
+                </Alert>
+            )}
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
@@ -392,15 +438,20 @@ export function AdminWithdrawalManager() {
                                                 <p className="font-medium">{withdrawal.user_display_name || "Unknown User"}</p>
                                                 <p className="text-sm text-muted-foreground">{withdrawal.user_email}</p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {format(new Date(withdrawal.requested_at), 'MMM d, yyyy HH:mm')}
+                                                    {formatWithdrawalWhen(getWithdrawalRequestedAt(withdrawal))}
                                                 </p>
                                             </div>
                                         </div>
 
                                         <div className="text-right">
                                             <p className="font-bold text-lg">${withdrawal.amount.toLocaleString('en-US')}</p>
-                                            <p className="text-xs text-muted-foreground font-mono">
-                                                {withdrawal.wallet_address?.slice(0, 8)}...{withdrawal.wallet_address?.slice(-8)}
+                                            <p className="text-xs text-muted-foreground font-mono break-all max-w-[140px] ml-auto">
+                                                {(() => {
+                                                    const addr = getWithdrawalWallet(withdrawal);
+                                                    return addr.length > 16
+                                                        ? `${addr.slice(0, 8)}...${addr.slice(-8)}`
+                                                        : addr || "—";
+                                                })()}
                                             </p>
                                             <div className="mt-1">{getStatusBadge(withdrawal.status)}</div>
                                         </div>
@@ -482,9 +533,11 @@ export function AdminWithdrawalManager() {
                                     <span className="text-muted-foreground">Amount</span>
                                     <span className="font-bold text-lg">${selectedWithdrawal.amount}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Wallet Address</span>
-                                    <code className="text-xs font-mono">{selectedWithdrawal.wallet_address}</code>
+                                <div className="flex justify-between gap-2 items-start">
+                                    <span className="text-muted-foreground shrink-0">Wallet Address</span>
+                                    <code className="text-xs font-mono break-all text-right">
+                                        {getWithdrawalWallet(selectedWithdrawal) || "—"}
+                                    </code>
                                 </div>
                             </div>
 
@@ -528,7 +581,7 @@ export function AdminWithdrawalManager() {
                     <DialogHeader>
                         <DialogTitle>Reject Withdrawal</DialogTitle>
                         <DialogDescription>
-                            Reject this withdrawal request. The amount will be returned to user's balance.
+                            Reject this withdrawal request. Balance is only refunded if the user submitted through the flow that locks funds (fee-based withdrawal with total deduction recorded).
                         </DialogDescription>
                     </DialogHeader>
 

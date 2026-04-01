@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
             wallet_address: payAddress,
             payment_method: paymentMethod as ActivateQrInvestmentParams['payment_method'],
             notes: 'Auto-verified (NOWPayments, server)',
+            order_id: orderId,
         };
 
         await activateInvestmentWithAdminDb(adminDb, params);

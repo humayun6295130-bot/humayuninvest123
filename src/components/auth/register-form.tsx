@@ -23,7 +23,7 @@ import { useState, useEffect } from "react";
 import { generateSupportId } from "@/lib/support-id";
 import { query, collection, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
-import { validateReferralCode, processNewReferral } from "@/lib/referral-system";
+import { validateReferralCode, processNewReferral, DEFAULT_REFERRAL_SETTINGS } from "@/lib/referral-system";
 import { generateUniqueReferralCode } from "@/lib/referral-code";
 import { Users, Gift, TrendingUp } from "lucide-react";
 
@@ -363,15 +363,15 @@ export function RegisterForm() {
               <div className="space-y-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-3 w-3 text-green-400" />
-                  <span>Earn 5% commission on direct referrals</span>
+                  <span>Earn {DEFAULT_REFERRAL_SETTINGS.level1_percent}% on direct referral deposits</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-3 w-3 text-green-400" />
-                  <span>Earn 4% on level 2 referrals</span>
+                  <span>Earn {DEFAULT_REFERRAL_SETTINGS.level2_percent}% on level 2 (next upline)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-3 w-3 text-green-400" />
-                  <span>Earn 3% on level 3 referrals</span>
+                  <span>Earn {DEFAULT_REFERRAL_SETTINGS.level3_percent}% on level 3</span>
                 </div>
               </div>
             </div>

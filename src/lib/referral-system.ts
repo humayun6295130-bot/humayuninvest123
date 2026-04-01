@@ -102,8 +102,6 @@ export const DEFAULT_REFERRAL_SETTINGS: ReferralSettings = {
     level1_percent: 5,
     level2_percent: 3,
     level3_percent: 2,
-    level4_percent: 1,
-    level5_percent: 1,
     min_withdrawal: 10,
     enabled: true,
 };
@@ -296,67 +294,6 @@ export async function processNewReferral(
                 });
             }
 
-            // Check for level 4 referrer
-            const level3UserDoc = await getDoc(doc(firestore, 'users', level2UserDoc.data().referrer_id));
-            if (level3UserDoc.exists() && level3UserDoc.data().referrer_id) {
-                const level4Config = levels.find(l => l.level === 4) || levels[3];
-                const level4Ref = doc(collection(firestore, 'referrals'));
-                batch.set(level4Ref, {
-                    referrer_id: level3UserDoc.data().referrer_id,
-                    referred_user_id: level2UserDoc.data().referrer_id,
-                    referred_email: level3UserDoc.data().email,
-                    referred_username: level3UserDoc.data().username,
-                    level: 4,
-                    commission_percent: level4Config.commissionPercent,
-                    total_commission: 0,
-                    status: 'active',
-                    investment_amount: level3UserDoc.data().total_investment || 0,
-                    created_at: timestamp,
-                });
-
-                // Update level 4 referrer's team
-                const level4TeamRef = doc(firestore, 'user_teams', level3UserDoc.data().referrer_id);
-                const level4TeamDoc = await getDoc(level4TeamRef);
-                if (level4TeamDoc.exists()) {
-                    const teamData = level4TeamDoc.data();
-                    batch.update(level4TeamRef, {
-                        level4_count: (teamData.level4_count || 0) + 1,
-                        total_members: (teamData.total_members || 0) + 1,
-                        updated_at: timestamp,
-                    });
-                }
-
-                // Check for level 5 referrer
-                const level4UserDoc = await getDoc(doc(firestore, 'users', level3UserDoc.data().referrer_id));
-                if (level4UserDoc.exists() && level4UserDoc.data().referrer_id) {
-                    const level5Config = levels.find(l => l.level === 5) || levels[4];
-                    const level5Ref = doc(collection(firestore, 'referrals'));
-                    batch.set(level5Ref, {
-                        referrer_id: level4UserDoc.data().referrer_id,
-                        referred_user_id: level3UserDoc.data().referrer_id,
-                        referred_email: level4UserDoc.data().email,
-                        referred_username: level4UserDoc.data().username,
-                        level: 5,
-                        commission_percent: level5Config.commissionPercent,
-                        total_commission: 0,
-                        status: 'active',
-                        investment_amount: level4UserDoc.data().total_investment || 0,
-                        created_at: timestamp,
-                    });
-
-                    // Update level 5 referrer's team
-                    const level5TeamRef = doc(firestore, 'user_teams', level4UserDoc.data().referrer_id);
-                    const level5TeamDoc = await getDoc(level5TeamRef);
-                    if (level5TeamDoc.exists()) {
-                        const teamData = level5TeamDoc.data();
-                        batch.update(level5TeamRef, {
-                            level5_count: (teamData.level5_count || 0) + 1,
-                            total_members: (teamData.total_members || 0) + 1,
-                            updated_at: timestamp,
-                        });
-                    }
-                }
-            }
         }
     }
 

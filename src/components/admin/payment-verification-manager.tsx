@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRealtimeCollection, updateRow, insertRow } from "@/firebase";
+import { useRealtimeCollection, updateRow, deleteRow, incrementBalance } from "@/firebase";
+import { db } from "@/firebase/config";
+import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
+import { activateInvestmentAfterVerifiedPayment } from "@/lib/activate-qr-investment";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +43,7 @@ interface PaymentVerification {
     amount: number;
     currency: string;
     purpose: string;
+    plan_id?: string | null;
     plan_name?: string;
     payment_method: string;
     wallet_address_used: string;
@@ -132,8 +136,106 @@ export function PaymentVerificationManager() {
         setIsProcessing(true);
         try {
             const newStatus = approve ? 'verified' : 'rejected';
+            const uid = selectedPayment.user_id;
+            const purpose = String(selectedPayment.purpose || '').toLowerCase();
+            const txHash = (selectedPayment.transaction_hash || '').trim();
 
-            // Update payment verification
+            if (approve) {
+                if (purpose === 'deposit') {
+                    await incrementBalance(uid, selectedPayment.amount);
+                    if (db && txHash) {
+                        const snap = await getDocs(
+                            query(
+                                collection(db, 'transactions'),
+                                where('transaction_hash', '==', txHash),
+                                limit(25)
+                            )
+                        );
+                        const now = new Date().toISOString();
+                        for (const d of snap.docs) {
+                            const row = d.data();
+                            if (row.user_id !== uid) continue;
+                            await updateRow('transactions', d.id, {
+                                status: 'completed',
+                                description: 'Deposit — admin verified',
+                                updated_at: now,
+                            });
+                        }
+                    }
+                } else if (purpose === 'investment' || purpose === 'plan_activation') {
+                    if (!db || !selectedPayment.plan_id) {
+                        toast({
+                            variant: 'destructive',
+                            title: 'Cannot activate plan',
+                            description:
+                                'This row has no plan_id. Use Investment Approval for QR/pending flows, or ensure the user submitted with a plan.',
+                        });
+                        setIsProcessing(false);
+                        return;
+                    }
+                    if (!txHash) {
+                        toast({ variant: 'destructive', title: 'Missing hash', description: 'Transaction hash is required to activate.' });
+                        setIsProcessing(false);
+                        return;
+                    }
+                    const dupSnap = await getDocs(
+                        query(
+                            collection(db, 'pending_investments'),
+                            where('transaction_id', '==', txHash),
+                            where('user_id', '==', uid)
+                        )
+                    );
+                    const alreadyApproved = dupSnap.docs.some((d) => d.data().status === 'approved');
+                    if (alreadyApproved) {
+                        toast({
+                            title: 'Already activated',
+                            description: 'This transaction hash was already used for an approved investment.',
+                        });
+                    } else {
+                        const planSnap = await getDoc(doc(db, 'investment_plans', selectedPayment.plan_id));
+                        const p = planSnap.exists() ? planSnap.data() : null;
+                        const retPct = Number(p?.return_percent) || 0;
+                        const duration = Number(p?.duration_days) || 30;
+                        const amt = selectedPayment.amount;
+                        const expectedReturn =
+                            Number(p?.expected_return) && Number.isFinite(Number(p?.expected_return))
+                                ? Number(p.expected_return)
+                                : amt * (1 + retPct / 100);
+
+                        const txSnap = await getDocs(
+                            query(collection(db, 'transactions'), where('transaction_hash', '==', txHash), limit(25))
+                        );
+                        for (const d of txSnap.docs) {
+                            const row = d.data();
+                            if (row.user_id === uid && row.status === 'pending') {
+                                await deleteRow('transactions', d.id);
+                            }
+                        }
+
+                        await activateInvestmentAfterVerifiedPayment({
+                            user_id: uid,
+                            user_email: selectedPayment.user_email,
+                            plan_id: selectedPayment.plan_id,
+                            plan_name: selectedPayment.plan_name || String(p?.name || 'Investment plan'),
+                            daily_roi_percent: Number(p?.daily_roi_percent) || 0,
+                            return_percent: retPct,
+                            amount: amt,
+                            expected_return: expectedReturn,
+                            duration_days: duration,
+                            transaction_id: txHash,
+                            proof_image_url: selectedPayment.screenshot_url || null,
+                            wallet_address: selectedPayment.wallet_address_used || '',
+                            payment_method: 'usdt_bep20_admin',
+                            notes: adminNotes?.trim() || 'Admin verified (payment_verifications)',
+                        });
+                        toast({
+                            title: 'Plan activated',
+                            description: `${selectedPayment.plan_name || 'Investment'} is active for ${selectedPayment.user_email}.`,
+                        });
+                    }
+                }
+            }
+
             await updateRow('payment_verifications', selectedPayment.id, {
                 status: newStatus,
                 verified_at: new Date().toISOString(),
@@ -142,38 +244,21 @@ export function PaymentVerificationManager() {
                 admin_notes: adminNotes,
             });
 
-            // If approved, update user balance and transaction
             if (approve) {
-                // Get current user data
-                const userOptions = {
-                    table: 'users',
-                    filters: [{ column: 'id', operator: '==' as const, value: selectedPayment.user_id }],
-                    enabled: true,
-                };
-
-                // Update user balance
-                await updateRow('users', selectedPayment.user_id, {
-                    balance: selectedPayment.purpose === 'deposit' ? selectedPayment.amount : 0,
-                    // Add investment logic here if needed
-                });
-
-                // Update transaction status
-                // Find and update the related transaction
-                const transactionOptions = {
-                    table: 'transactions',
-                    filters: [
-                        { column: 'transaction_hash', operator: '==' as const, value: selectedPayment.transaction_hash }
-                    ],
-                    enabled: true,
-                };
-
-                toast({
-                    title: "Payment Verified! ✅",
-                    description: `$${selectedPayment.amount} has been credited to ${selectedPayment.user_email}`,
-                });
+                if (purpose === 'deposit') {
+                    toast({
+                        title: 'Payment Verified! ✅',
+                        description: `$${selectedPayment.amount} credited to wallet for ${selectedPayment.user_email}`,
+                    });
+                } else if (purpose !== 'investment' && purpose !== 'plan_activation') {
+                    toast({
+                        title: 'Payment Verified! ✅',
+                        description: `Marked verified for ${selectedPayment.user_email}`,
+                    });
+                }
             } else {
                 toast({
-                    title: "Payment Rejected",
+                    title: 'Payment Rejected',
                     description: `Payment from ${selectedPayment.user_email} has been rejected.`,
                 });
             }

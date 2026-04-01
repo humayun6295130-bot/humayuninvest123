@@ -2,6 +2,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import { DEFAULT_REFERRAL_SETTINGS, type ReferralSettings } from '@/lib/referral-system';
 import type { ActivateQrInvestmentParams } from '@/lib/activate-qr-investment';
+import { REFERRAL_COMMISSION_MAX_DEPTH, resolveDailyIncomeForDeposit } from '@/lib/deposit-income-tiers';
 
 async function getReferralSettingsAdmin(adminDb: Firestore): Promise<ReferralSettings> {
     const snap = await adminDb.collection('referral_settings').doc('default').get();
@@ -74,8 +75,6 @@ async function runReferralChainAdmin(
         settings.level1_percent,
         settings.level2_percent,
         settings.level3_percent,
-        settings.level4_percent ?? 0,
-        settings.level5_percent ?? 0,
     ];
     const userDoc = await adminDb.collection('users').doc(investorUserId).get();
     if (!userDoc.exists) return;
@@ -83,7 +82,7 @@ async function runReferralChainAdmin(
     let level = 0;
     const fromName = userDoc.data()?.username || investorEmail || '';
 
-    while (currentReferrerId && level < 5) {
+    while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
         const percent = commissionPercents[level] ?? 0;
         const referrerDoc = await adminDb.collection('users').doc(currentReferrerId).get();
         if (!referrerDoc.exists) break;
@@ -122,14 +121,11 @@ export async function activateInvestmentWithAdminDb(
     endDate.setDate(endDate.getDate() + (params.duration_days > 0 ? params.duration_days : 30));
 
     const dur = params.duration_days > 0 ? params.duration_days : 30;
-    let daily_roi_percent = Number(params.daily_roi_percent ?? 0) || 0;
-    if (daily_roi_percent <= 0) {
-        const ret = Number(params.return_percent ?? 0);
-        if (Number.isFinite(ret) && ret > 0 && dur > 0) {
-            daily_roi_percent = ret / dur;
-        }
-    }
-    const daily_roi = daily_roi_percent > 0 ? (params.amount * daily_roi_percent) / 100 : 0;
+    const tiered = resolveDailyIncomeForDeposit(params.amount);
+    const daily_roi_percent = tiered.incomePercent;
+    const daily_roi = tiered.dailyUsd;
+    const total_profit = daily_roi * dur;
+    const total_return = params.amount + total_profit;
 
     await adminDb.collection('user_investments').add({
         user_id: params.user_id,
@@ -138,8 +134,10 @@ export async function activateInvestmentWithAdminDb(
         amount: params.amount,
         daily_roi,
         daily_roi_percent,
-        total_return: params.expected_return,
-        total_profit: params.expected_return - params.amount,
+        deposit_tier_level: tiered.tierLevel,
+        income_percent: tiered.incomePercent,
+        total_return,
+        total_profit,
         earned_so_far: 0,
         claimed_so_far: 0,
         days_claimed: 0,
@@ -151,6 +149,7 @@ export async function activateInvestmentWithAdminDb(
         payout_schedule: 'end_of_term',
         created_at: timestamp,
         updated_at: timestamp,
+        ...(params.order_id ? { order_id: params.order_id } : {}),
     });
 
     await adminDb.collection('pending_investments').add({
@@ -169,6 +168,7 @@ export async function activateInvestmentWithAdminDb(
         notes: params.notes ?? 'Auto-verified',
         created_at: timestamp,
         updated_at: timestamp,
+        ...(params.order_id ? { order_id: params.order_id } : {}),
     });
 
     await adminDb.collection('transactions').add({

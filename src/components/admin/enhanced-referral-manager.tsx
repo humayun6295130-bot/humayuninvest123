@@ -151,8 +151,8 @@ export function EnhancedReferralManager() {
     const { data: settingsData } = useRealtimeCollection<ReferralSettings>(settingsOptions);
 
     const settings = settingsData?.[0] || {
-        level1_percent: 10,
-        level2_percent: 5,
+        level1_percent: 5,
+        level2_percent: 3,
         level3_percent: 2,
         min_withdrawal: 10,
         signup_bonus: 0,

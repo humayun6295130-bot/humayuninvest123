@@ -186,6 +186,7 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                 tx.update(userRef, { balance: currentBalance - totalDeduct });
             });
 
+            const requestedAt = new Date().toISOString();
             await insertRow("transactions", {
                 user_id: user?.uid,
                 user_display_name: userProfile.display_name,
@@ -195,7 +196,10 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                 currency: "USDT",
                 status: "pending",
                 description: `Withdrawal to ${withdrawalData.walletAddress}`,
+                wallet_address: withdrawalData.walletAddress,
                 recipient_address: withdrawalData.walletAddress,
+                requested_at: requestedAt,
+                balance_deducted_on_request: true,
                 network_fee_estimate: fee?.estimatedTrxFee || 0,
                 withdrawal_fee: feeAmount,
                 withdrawal_fee_percentage: WITHDRAWAL_FEE_PERCENTAGE,

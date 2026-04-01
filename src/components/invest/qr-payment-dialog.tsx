@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
     Dialog,
     DialogContent,
@@ -32,10 +32,12 @@ import {
 import Image from "next/image";
 import { generateGenericQRCode, getWalletInfo } from "@/lib/wallet-config";
 import { isPaymentStatusComplete } from "@/lib/nowpayments-shared";
+import { resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
+import { buildInvestmentOrderId } from "@/lib/investment-order-id";
 
 const POLL_MS = 10_000;
 
-interface InvestmentPlan {
+export interface InvestmentPlan {
     id: string;
     name: string;
     fixed_amount?: number;
@@ -44,7 +46,32 @@ interface InvestmentPlan {
     duration_days: number;
     return_percent: number;
     daily_roi_percent: number;
+    /** If set and large enough, treated as total USD payout (principal + profit) for this payment */
     total_return?: number;
+    /** Default true: expected payout includes principal back */
+    capital_return?: boolean;
+}
+
+/** Total USD user should see credited at term (for Firestore), independent of marketing label */
+export function computeExpectedReturnUsd(plan: InvestmentPlan | null, amount: number): number {
+    if (!plan || !Number.isFinite(amount) || amount <= 0) return 0;
+    const tr = plan.total_return;
+    if (typeof tr === "number" && Number.isFinite(tr) && tr >= amount * 0.5) {
+        return tr;
+    }
+    const dur = Number(plan.duration_days) || 30;
+    const capital = plan.capital_return !== false;
+    const tiered = resolveDailyIncomeForDeposit(amount);
+    if (tiered.dailyUsd > 0 && dur > 0) {
+        const profit = tiered.dailyUsd * dur;
+        return profit + (capital ? amount : 0);
+    }
+    const retPct = Number(plan.return_percent) || 0;
+    if (retPct > 0) {
+        const profit = amount * (retPct / 100);
+        return profit + (capital ? amount : 0);
+    }
+    return amount * 2;
 }
 
 interface QrPaymentDialogProps {
@@ -83,13 +110,17 @@ export function QrPaymentDialog({
     const [payCurrency, setPayCurrency] = useState<string>("");
     const [pollStatus, setPollStatus] = useState<string>("");
     const [terminal, setTerminal] = useState<NpTerminal>(null);
+    const [orderCopied, setOrderCopied] = useState(false);
 
     const activatedRef = useRef(false);
     const finalizeRef = useRef<() => Promise<void>>(async () => {});
     const walletInfo = getWalletInfo();
 
     const investmentAmount = customAmount || plan?.fixed_amount || plan?.min_amount || 0;
-    const expectedReturn = plan?.total_return || investmentAmount * 2;
+    const expectedReturn = useMemo(
+        () => computeExpectedReturnUsd(plan, investmentAmount),
+        [plan, investmentAmount]
+    );
 
     const copyWalletAddress = () => {
         if (!payAddress) {
@@ -100,6 +131,17 @@ export function QrPaymentDialog({
         setCopied(true);
         toast({ title: "Copied!", description: "Deposit address copied" });
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const copyOrderId = () => {
+        if (!orderId) {
+            toast({ title: "Error", description: "Order ID not ready yet", variant: "destructive" });
+            return;
+        }
+        navigator.clipboard.writeText(orderId);
+        setOrderCopied(true);
+        toast({ title: "Copied", description: "Order ID copied" });
+        setTimeout(() => setOrderCopied(false), 2000);
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,7 +204,6 @@ export function QrPaymentDialog({
         setTerminal(null);
         setCreateError(null);
         setNpPaymentId(null);
-        setOrderId("");
         setPayAddress("");
         setPayAmount(null);
         setPayCurrency("");
@@ -171,8 +212,12 @@ export function QrPaymentDialog({
         const amt = Number(investmentAmount);
         if (!Number.isFinite(amt) || amt <= 0) {
             setCreateError("Invalid investment amount.");
+            setOrderId("");
             return;
         }
+
+        const prebuiltOrderId = buildInvestmentOrderId(userId, plan!.id);
+        setOrderId(prebuiltOrderId);
 
         async function create() {
             setIsCreating(true);
@@ -185,6 +230,7 @@ export function QrPaymentDialog({
                         planId: plan!.id,
                         planName: plan!.name,
                         userId,
+                        order_id: prebuiltOrderId,
                     }),
                 });
                 const j = (await res.json().catch(() => ({}))) as {
@@ -205,7 +251,7 @@ export function QrPaymentDialog({
                     return;
                 }
                 setNpPaymentId(parsedPaymentId);
-                setOrderId(String(j.order_id ?? ""));
+                setOrderId(String(j.order_id ?? prebuiltOrderId));
                 setPayAddress(String(j.pay_address ?? ""));
                 setPayAmount(
                     j.pay_amount == null
@@ -365,6 +411,7 @@ export function QrPaymentDialog({
                 return_percent: plan.return_percent,
                 amount: amt,
                 expected_return: expectedReturn,
+                order_id: orderId,
                 duration_days: plan.duration_days > 0 ? plan.duration_days : 30,
                 transaction_id: txLower,
                 proof_image_url: screenshotUrl,
@@ -498,8 +545,8 @@ export function QrPaymentDialog({
                                 <span className="font-bold text-lg text-orange-400">${investmentAmount}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-slate-400">You Will Receive</span>
-                                <span className="font-bold text-green-400 text-lg">${expectedReturn}</span>
+                                <span className="text-slate-400">Potential upside</span>
+                                <span className="font-bold text-green-400 text-lg">Up to 60X</span>
                             </div>
                         </CardContent>
                     </Card>
@@ -520,11 +567,28 @@ export function QrPaymentDialog({
                                 Payment ID: <span className="font-mono">{npPaymentId}</span>
                             </p>
                         )}
-                        {orderId && (
-                            <p className="text-[11px] text-slate-500 mt-1 break-all">
-                                Order ID: <span className="font-mono">{orderId}</span>
+                        <div className="text-[11px] text-slate-500 mt-2 text-left space-y-1">
+                            <p className="text-slate-400 font-medium">Order ID (your reference)</p>
+                            <div className="flex items-start gap-2 flex-wrap">
+                                <span className="font-mono text-slate-300 break-all flex-1 min-w-0">
+                                    {orderId || (isCreating ? "…" : "—")}
+                                </span>
+                                {orderId && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 shrink-0 text-xs border-slate-600"
+                                        onClick={copyOrderId}
+                                    >
+                                        {orderCopied ? <CheckCircle className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                                    </Button>
+                                )}
+                            </div>
+                            <p className="text-[10px] text-slate-600">
+                                Generated when you open this window; same value is sent to NOWPayments when the invoice is created.
                             </p>
-                        )}
+                        </div>
                         {pollStatus && (
                             <Badge
                                 variant="outline"

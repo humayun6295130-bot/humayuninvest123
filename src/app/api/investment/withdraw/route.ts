@@ -6,6 +6,7 @@ import {
     getUserBalance,
     WITHDRAWAL_CONFIG
 } from '@/lib/investment-withdrawal';
+import { INVESTMENT_LEVELS } from '@/lib/level-config';
 
 // ============================================================================
 // PROFIT WITHDRAWAL - User creates withdrawal request
@@ -137,14 +138,12 @@ export async function GET(request: NextRequest) {
         // Get user balance
         const balance = await getUserBalance(userId);
 
-        // Get deposit levels for reference
-        const levels = [
-            { level: 1, name: 'Starter', range: '$30-$250', daily: '1.5%' },
-            { level: 2, name: 'Silver', range: '$251-$500', daily: '2.0%' },
-            { level: 3, name: 'Gold', range: '$501-$1000', daily: '2.5%' },
-            { level: 4, name: 'Platinum', range: '$1001-$2500', daily: '3.1%' },
-            { level: 5, name: 'Diamond', range: '$5000-$10000', daily: '4.0%' },
-        ];
+        const levels = INVESTMENT_LEVELS.map((l) => ({
+            level: l.level,
+            name: l.name,
+            range: `$${l.minInvestment}-$${l.maxInvestment.toLocaleString('en-US')}`,
+            daily: `${l.dailyIncomePercent}%`,
+        }));
 
         return NextResponse.json({
             success: true,

@@ -14,8 +14,9 @@
 import { useState, useEffect } from "react";
 import { useUser, insertRow, updateRow } from "@/firebase";
 import { db } from "@/firebase/config";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, increment } from "firebase/firestore";
 import { awardCommission, getReferralSettings } from "@/lib/referral-system";
+import { REFERRAL_COMMISSION_MAX_DEPTH, resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -238,19 +239,23 @@ export function AutoVerifyPayment({
                 endDate.setDate(endDate.getDate() + 30); // 30 days duration
 
                 const investmentAmount = verifiedTxData ? parseInt(verifiedTxData.quant) / 1e6 : amount;
-                const totalReturn = investmentAmount * 2; // Double return
-                const dailyRoi = 0; // No daily ROI, all at end
+                const tiered = resolveDailyIncomeForDeposit(investmentAmount);
+                const dailyRoi = tiered.dailyUsd;
+                const dur = 30;
+                const totalProfit = dailyRoi * dur;
+                const totalReturn = investmentAmount + totalProfit;
 
-                // Create user investment record
                 await insertRow('user_investments', {
                     user_id: user?.uid,
                     plan_id: planId,
                     plan_name: planName,
                     amount: investmentAmount,
                     daily_roi: dailyRoi,
-                    daily_roi_percent: 0,
+                    daily_roi_percent: tiered.incomePercent,
+                    deposit_tier_level: tiered.tierLevel,
+                    income_percent: tiered.incomePercent,
                     total_return: totalReturn,
-                    total_profit: investmentAmount,
+                    total_profit: totalProfit,
                     earned_so_far: 0,
                     claimed_so_far: 0,
                     days_claimed: 0,
@@ -272,14 +277,12 @@ export function AutoVerifyPayment({
                             settings.level1_percent,
                             settings.level2_percent,
                             settings.level3_percent,
-                            settings.level4_percent ?? 0,
-                            settings.level5_percent ?? 0,
                         ];
                         const investorDoc = await getDoc(doc(db, 'users', user.uid));
                         if (investorDoc.exists()) {
                             let currentReferrerId = investorDoc.data().referrer_id;
                             let level = 0;
-                            while (currentReferrerId && level < 5) {
+                            while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
                                 const percent = commissionPercents[level] ?? 0;
                                 const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
                                 if (!referrerDoc.exists()) break;
@@ -305,9 +308,20 @@ export function AutoVerifyPayment({
                     }
                 }
 
+                if (db && user?.uid) {
+                    try {
+                        await updateDoc(doc(db, 'users', user.uid), {
+                            total_invested: increment(investmentAmount),
+                            updated_at: new Date().toISOString(),
+                        });
+                    } catch (e) {
+                        console.error('total_invested increment (non-fatal):', e);
+                    }
+                }
+
                 toast({
-                    title: "🎉 Plan Activated!",
-                    description: `${planName} has been automatically activated. You will receive $${totalReturn} after 30 days.`,
+                    title: "Plan activated",
+                    description: `${planName} is active. Daily income follows your deposit tier (${tiered.incomePercent}%/day on $${investmentAmount.toFixed(2)}).`,
                 });
             } else {
                 toast({

@@ -30,6 +30,7 @@ import {
 import { format } from 'date-fns';
 import { useState, useMemo } from 'react';
 import { LEVEL_CONFIG, getLevelInfo, getNextLevel, calculateDailyEarnings, calculateWeeklyEarnings, calculateMonthlyEarnings } from '@/lib/level-config';
+import { DEFAULT_REFERRAL_SETTINGS } from '@/lib/referral-system';
 import { useToast } from '@/hooks/use-toast';
 import { formatSupportId } from '@/lib/support-id';
 import { isAdminProfile } from '@/lib/user-role';
@@ -433,9 +434,11 @@ export default function ProfilePage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Award className="w-5 h-5 text-primary" />
-                        Level Structure
+                        Deposit tiers (daily income)
                     </CardTitle>
-                    <CardDescription>Understanding the investment levels and their benefits</CardDescription>
+                    <CardDescription>
+                        How much you invest sets your daily % — not referral depth. Referral rewards use 3 upline levels only (see Referrals page).
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="grid gap-3 md:grid-cols-5">
@@ -691,15 +694,15 @@ export default function ProfilePage() {
                         <div className="grid gap-2 md:grid-cols-3 text-sm">
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Level 1:</span>
-                                <span className="font-semibold text-blue-600">10%</span>
+                                <span className="font-semibold text-blue-600">{DEFAULT_REFERRAL_SETTINGS.level1_percent}%</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Level 2:</span>
-                                <span className="font-semibold text-green-600">5%</span>
+                                <span className="font-semibold text-green-600">{DEFAULT_REFERRAL_SETTINGS.level2_percent}%</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Level 3:</span>
-                                <span className="font-semibold text-purple-600">2%</span>
+                                <span className="font-semibold text-purple-600">{DEFAULT_REFERRAL_SETTINGS.level3_percent}%</span>
                             </div>
                         </div>
                     </div>

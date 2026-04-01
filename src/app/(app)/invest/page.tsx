@@ -18,6 +18,7 @@ import { PremiumHeader, StatsCard } from "@/components/invest/premium-header";
 import { ChipNavigation, TabSwitcher, SortDropdown, SortOption } from "@/components/ui/premium-navigation";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { getEffectiveDailyIncomeUsd, resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
 import {
     TrendingUp,
     Wallet,
@@ -205,7 +206,7 @@ export default function InvestPage() {
     const totalInvested = activeInvestments.reduce((sum, inv) => sum + inv.amount, 0);
     const totalEarned = activeInvestments.reduce((sum, inv) => sum + (inv.claimed_so_far || 0), 0);
     const totalPending = activeInvestments.reduce((sum, inv) => sum + (inv.earned_so_far - (inv.claimed_so_far || 0)), 0);
-    const dailyEarning = activeInvestments.reduce((sum, inv) => sum + inv.daily_roi, 0);
+    const dailyEarning = activeInvestments.reduce((sum, inv) => sum + getEffectiveDailyIncomeUsd(inv), 0);
 
     // Filter and sort plans
     const filteredPlans = useMemo(() => {
@@ -247,6 +248,15 @@ export default function InvestPage() {
             });
             return;
         }
+        const tierCk = resolveDailyIncomeForDeposit(amount);
+        if (tierCk.tierLevel <= 0) {
+            toast({
+                variant: "destructive",
+                title: "Invalid amount",
+                description: "Use at least $30 within an allowed deposit tier (see plan range).",
+            });
+            return;
+        }
 
         setPlanForPayment(selectedPlan);
         setShowQrPayment(true);
@@ -270,10 +280,10 @@ export default function InvestPage() {
                 return;
             }
 
-            const claimAmount = selectedInvestment.daily_roi;
+            const claimAmount = getEffectiveDailyIncomeUsd(selectedInvestment);
             const newClaimedAmount = (selectedInvestment.claimed_so_far || 0) + claimAmount;
             const newDaysClaimed = (selectedInvestment.days_claimed || 0) + 1;
-            const newEarnedSoFar = selectedInvestment.daily_roi * newDaysClaimed;
+            const newEarnedSoFar = claimAmount * newDaysClaimed;
 
             await updateRow('user_investments', selectedInvestment.id, {
                 claimed_so_far: newClaimedAmount,
@@ -324,10 +334,11 @@ export default function InvestPage() {
 
     // Helper functions
     const calculateReturns = (plan: InvestmentPlan, amount: number) => {
-        const dailyRoi = (amount * plan.daily_roi_percent) / 100;
+        const tiered = resolveDailyIncomeForDeposit(amount);
+        const dailyRoi = tiered.dailyUsd;
         const totalProfit = dailyRoi * plan.duration_days;
         const totalReturn = totalProfit + (plan.capital_return ? amount : 0);
-        return { dailyRoi, totalProfit, totalReturn };
+        return { dailyRoi, totalProfit, totalReturn, tierPercent: tiered.incomePercent, tierLevel: tiered.tierLevel };
     };
 
     const getDaysRemaining = (endDate: string) => {
@@ -543,6 +554,7 @@ export default function InvestPage() {
                                 const progressPercent = getProgressPercent(investment);
                                 const canClaim = canClaimToday(investment);
                                 const unclaimedAmount = investment.earned_so_far - (investment.claimed_so_far || 0);
+                                const dailyPay = getEffectiveDailyIncomeUsd(investment);
 
                                 return (
                                     <div
@@ -567,8 +579,8 @@ export default function InvestPage() {
 
                                             <div className="flex items-center gap-6">
                                                 <div className="text-right">
-                                                    <p className="text-xs text-muted-foreground">Daily ROI</p>
-                                                    <p className="font-semibold text-green-400">+${investment.daily_roi.toFixed(2)}</p>
+                                                    <p className="text-xs text-muted-foreground">Per day</p>
+                                                    <p className="font-semibold text-green-400">+${dailyPay.toFixed(2)}</p>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-xs text-muted-foreground">Earned</p>
@@ -761,21 +773,27 @@ export default function InvestPage() {
                                 Available Balance: <span className="font-medium text-foreground">${userProfile?.balance?.toFixed(2) || '0.00'}</span>
                             </p>
                         </div>
-                        {investAmount && selectedPlan && (
+                        {investAmount && selectedPlan && (() => {
+                            const amt = parseFloat(investAmount);
+                            const t = resolveDailyIncomeForDeposit(Number.isFinite(amt) ? amt : 0);
+                            return (
                             <div className="rounded-lg border border-border-subtle p-4 space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Investment Amount</span>
-                                    <span className="font-semibold text-foreground">${parseFloat(investAmount).toFixed(2)}</span>
+                                    <span className="font-semibold text-foreground">${Number.isFinite(amt) ? amt.toFixed(2) : "0.00"}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Daily ROI ({selectedPlan.daily_roi_percent}%)</span>
+                                    <span className="text-muted-foreground">
+                                        {t.tierLevel > 0 ? `Tier ${t.tierLevel} (${t.incomePercent}%/day)` : "Amount out of tier range"}
+                                    </span>
                                     <span className="font-semibold text-green-400">
-                                        +${((parseFloat(investAmount) * selectedPlan.daily_roi_percent) / 100).toFixed(2)}
+                                        +${t.dailyUsd.toFixed(2)}
                                     </span>
                                 </div>
                                 <Separator />
                             </div>
-                        )}
+                            );
+                        })()}
                     </div>
                     <DialogFooter>
                         <Button variant="ghost" className="btn-text" onClick={() => setSelectedPlan(null)}>Cancel</Button>
@@ -806,7 +824,7 @@ export default function InvestPage() {
                         <div className="border border-border-subtle rounded-xl p-6 text-center">
                             <p className="text-sm text-muted-foreground mb-2">Today's Earnings</p>
                             <p className="font-headline text-4xl font-bold text-foreground">
-                                +${selectedInvestment?.daily_roi.toFixed(2)}
+                                +${selectedInvestment ? getEffectiveDailyIncomeUsd(selectedInvestment).toFixed(2) : "0.00"}
                             </p>
                         </div>
                         <div className="mt-4 space-y-2 text-sm">

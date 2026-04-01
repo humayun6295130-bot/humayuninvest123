@@ -56,6 +56,7 @@ const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
     }
 
     try {
+      const requestedAt = new Date().toISOString();
       await insertRow("transactions", {
         user_id: user.uid,
         user_display_name: userProfile.display_name,
@@ -65,6 +66,10 @@ const WithdrawDialog = ({ userProfile }: { userProfile: any }) => {
         currency: "USD",
         status: "pending",
         description: `Withdrawal to ${values.walletAddress}`,
+        wallet_address: values.walletAddress,
+        recipient_address: values.walletAddress,
+        requested_at: requestedAt,
+        balance_deducted_on_request: false,
       });
 
       toast({

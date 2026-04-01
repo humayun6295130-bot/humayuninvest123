@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useUser, useRealtimeCollection } from "@/firebase";
-import { useRouter } from "next/navigation";
+import { QrPaymentDialog, type InvestmentPlan as QrPaymentPlan } from "@/components/invest/qr-payment-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { getEffectiveDailyIncomeUsd } from "@/lib/deposit-income-tiers";
 import {
     Pickaxe,
     Bitcoin,
@@ -132,17 +133,31 @@ const STUCK_RESERVE_RATES = [
     { days: 365, rate: 20, label: "Ultimate Lock" }
 ];
 
+function miningPackageToQrPlan(pkg: MiningPackage): QrPaymentPlan {
+    return {
+        id: `mining_${pkg.id}`,
+        name: pkg.name,
+        min_amount: pkg.minInvestment,
+        max_amount: pkg.maxInvestment,
+        duration_days: pkg.duration,
+        daily_roi_percent: pkg.dailyRoi,
+        return_percent: pkg.dailyRoi * pkg.duration,
+        capital_return: true,
+    };
+}
+
 export default function MiningPage() {
     const { user, userProfile } = useUser();
     const { toast } = useToast();
-    const router = useRouter();
 
     // State
     const [activeTab, setActiveTab] = useState("dashboard");
     const [selectedPackage, setSelectedPackage] = useState<MiningPackage | null>(null);
     const [investAmount, setInvestAmount] = useState("");
-    const [isInvesting, setIsInvesting] = useState(false);
     const [showInvestDialog, setShowInvestDialog] = useState(false);
+    const [showQrPayment, setShowQrPayment] = useState(false);
+    const [qrPlan, setQrPlan] = useState<QrPaymentPlan | null>(null);
+    const [qrCustomAmount, setQrCustomAmount] = useState<number | undefined>(undefined);
     const [showStuckReserveDialog, setShowStuckReserveDialog] = useState(false);
 
     // Stuck Reserve State
@@ -191,10 +206,7 @@ export default function MiningPage() {
                 id: inv.id,
                 planName: inv.plan_name,
                 amount: inv.amount,
-                dailyEarnings:
-                    typeof inv.daily_roi === 'number' && inv.daily_roi > 0
-                        ? inv.daily_roi
-                        : (inv.amount * (Number(inv.daily_roi_percent) || 0)) / 100,
+                dailyEarnings: getEffectiveDailyIncomeUsd(inv),
                 totalEarnings: inv.total_return || 0,
                 startDate: inv.start_date?.slice(0, 10) || '',
                 endDate: inv.end_date?.slice(0, 10) || '',
@@ -244,10 +256,25 @@ export default function MiningPage() {
         return stuckAmount * 0.10;
     }, [stuckAmount]);
 
-    // Handle investment — redirect to invest page
-    const handleInvest = async () => {
+    const handleMiningNowPayments = () => {
+        if (!user?.uid || !selectedPackage) return;
+        const amount = parseFloat(investAmount);
+        if (
+            !Number.isFinite(amount) ||
+            amount < selectedPackage.minInvestment ||
+            amount > selectedPackage.maxInvestment
+        ) {
+            toast({
+                variant: "destructive",
+                title: "Invalid amount",
+                description: `Enter an amount between $${selectedPackage.minInvestment.toLocaleString("en-US")} and $${selectedPackage.maxInvestment.toLocaleString("en-US")}.`,
+            });
+            return;
+        }
+        setQrPlan(miningPackageToQrPlan(selectedPackage));
+        setQrCustomAmount(amount);
         setShowInvestDialog(false);
-        router.push('/invest');
+        setShowQrPayment(true);
     };
 
     // Handle stuck reserve
@@ -879,8 +906,7 @@ export default function MiningPage() {
                             Invest in {selectedPackage?.name}
                         </DialogTitle>
                         <DialogDescription className="text-slate-400">
-                            Mining packages use the same payment flow as the main Invest page (NOWPayments QR / crypto).
-                            Confirm below to open Invest, choose your plan, and complete payment there — your active plans will appear in this dashboard.
+                            Pay with USDT (BEP20) via NOWPayments — same secure flow as the Invest page. After confirmation, your mining investment appears under History and in your portfolio.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -906,7 +932,7 @@ export default function MiningPage() {
                             <Card className="bg-[#0a0a0a]/50 border-slate-800">
                                 <CardContent className="p-3 space-y-2">
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-slate-400">Daily ROI</span>
+                                        <span className="text-slate-400">Per day</span>
                                         <span className="text-[#FFD700]">${((parseFloat(investAmount) || 0) * selectedPackage.dailyRoi / 100).toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between text-sm border-t border-slate-800 pt-2">
@@ -928,11 +954,11 @@ export default function MiningPage() {
                             Cancel
                         </Button>
                         <Button
-                            onClick={handleInvest}
-                            disabled={isInvesting || !investAmount}
+                            onClick={handleMiningNowPayments}
+                            disabled={!investAmount}
                             className="bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-black font-semibold"
                         >
-                            {isInvesting ? "Opening…" : "Go to Invest & pay"}
+                            Pay with NOWPayments
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -996,6 +1022,22 @@ export default function MiningPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <QrPaymentDialog
+                open={showQrPayment}
+                onOpenChange={(open) => {
+                    setShowQrPayment(open);
+                    if (!open) {
+                        setQrPlan(null);
+                        setQrCustomAmount(undefined);
+                        setInvestAmount("");
+                    }
+                }}
+                plan={qrPlan}
+                userId={user?.uid || ""}
+                userEmail={userProfile?.email || user?.email || undefined}
+                customAmount={qrCustomAmount}
+            />
 
             <style jsx>{`
         @keyframes float {

@@ -11,6 +11,7 @@ import { TrendingUp, Wallet, DollarSign, Clock, CheckCircle2, AlertCircle, Zap, 
 import { useToast } from "@/hooks/use-toast";
 import { format, isToday, differenceInHours, differenceInMinutes } from "date-fns";
 import Link from "next/link";
+import { getEffectiveDailyIncomeUsd } from "@/lib/deposit-income-tiers";
 
 interface DailyEarning {
     id: string;
@@ -59,10 +60,10 @@ export default function EarningsPage() {
     const { data: investments, isLoading: investmentsLoading } = useRealtimeCollection<UserInvestment>(investmentsOptions);
 
     const activeInvestments = investments?.filter(inv => inv.status === 'active') || [];
-    const totalDailyEarnings = activeInvestments.reduce((sum, inv) => {
-        const roi = inv.daily_roi || (inv.amount * (inv.income_percent || 0) / 100);
-        return sum + roi;
-    }, 0);
+    const totalDailyEarnings = activeInvestments.reduce(
+        (sum, inv) => sum + getEffectiveDailyIncomeUsd(inv),
+        0
+    );
     const totalEarned = earnings?.filter(e => e.status === 'credited').reduce((sum, e) => sum + e.amount, 0) || 0;
 
     const lastClaimRaw = userProfile?.last_daily_claim;
@@ -91,7 +92,7 @@ export default function EarningsPage() {
             toast({
                 variant: "destructive",
                 title: "No Active Investments",
-                description: "You need an active investment to claim daily ROI.",
+                description: "You need an active investment to claim daily income.",
             });
             return;
         }
@@ -126,11 +127,11 @@ export default function EarningsPage() {
                 amount: totalDailyEarnings,
                 currency: 'USD',
                 status: 'completed',
-                description: `Daily ROI Claim — ${activeInvestments.length} investment(s)`,
+                description: `Daily claim — ${activeInvestments.length} investment(s)`,
             });
 
             toast({
-                title: "ROI Claimed!",
+                title: "Claimed",
                 description: `$${totalDailyEarnings.toFixed(2)} added to your wallet balance.`,
             });
         } catch (error: any) {
@@ -161,7 +162,7 @@ export default function EarningsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-bold text-white">My Earnings</h1>
-                    <p className="text-slate-400 text-sm mt-1">Claim your daily ROI and track returns</p>
+                    <p className="text-slate-400 text-sm mt-1">Claim daily income and track returns</p>
                 </div>
                 <Button
                     onClick={handleClaimROI}
@@ -173,7 +174,7 @@ export default function EarningsPage() {
                     ) : alreadyClaimedToday ? (
                         <><Clock className="mr-2 h-4 w-4" />Claimed Today</>
                     ) : (
-                        <><Zap className="mr-2 h-4 w-4" />Claim Daily ROI</>
+                        <><Zap className="mr-2 h-4 w-4" />Claim today</>
                     )}
                 </Button>
             </div>
@@ -191,14 +192,14 @@ export default function EarningsPage() {
                     <div className="flex-1">
                         {alreadyClaimedToday ? (
                             <>
-                                <p className="font-semibold text-green-400">Today's ROI already claimed</p>
+                                <p className="font-semibold text-green-400">Today&apos;s income already claimed</p>
                                 <p className="text-sm text-slate-400">
                                     Next claim available in {hoursUntilNextClaim}h {minutesUntilNextClaim}m
                                 </p>
                             </>
                         ) : (
                             <>
-                                <p className="font-semibold text-orange-400">Daily ROI ready to claim!</p>
+                                <p className="font-semibold text-orange-400">Ready to claim</p>
                                 <p className="text-sm text-slate-400">
                                     ${totalDailyEarnings.toFixed(2)} available from {activeInvestments.length} active investment{activeInvestments.length !== 1 ? 's' : ''}
                                 </p>
@@ -280,7 +281,7 @@ export default function EarningsPage() {
                                 <TrendingUp className="h-7 w-7 text-slate-600" />
                             </div>
                             <p className="text-slate-400 font-medium">No active investments</p>
-                            <p className="text-slate-500 text-sm mt-1">Start investing to earn daily ROI</p>
+                            <p className="text-slate-500 text-sm mt-1">Start investing to earn daily income</p>
                             <Button className="mt-4 bg-orange-500 hover:bg-orange-600 text-white" asChild>
                                 <Link href="/invest">Browse Plans</Link>
                             </Button>
@@ -288,7 +289,7 @@ export default function EarningsPage() {
                     ) : (
                         <div className="space-y-3">
                             {activeInvestments.map((investment) => {
-                                const dailyAmount = investment.daily_roi || (investment.amount * (investment.income_percent || 0) / 100);
+                                const dailyAmount = getEffectiveDailyIncomeUsd(investment);
                                 return (
                                     <div key={investment.id} className="flex items-center justify-between p-4 bg-[#0a0a0a] rounded-xl border border-slate-800">
                                         <div className="flex items-center gap-3">
@@ -318,13 +319,13 @@ export default function EarningsPage() {
             <Card className="bg-[#111] border-slate-800">
                 <CardHeader className="pb-3">
                     <CardTitle className="text-white text-lg">Claim History</CardTitle>
-                    <CardDescription className="text-slate-400">Your ROI claim records</CardDescription>
+                    <CardDescription className="text-slate-400">Your claim records</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {!earnings || earnings.length === 0 ? (
                         <div className="text-center py-8">
                             <p className="text-slate-400">No claims yet</p>
-                            <p className="text-slate-500 text-sm">Claim your first daily ROI to get started</p>
+                            <p className="text-slate-500 text-sm">Claim your first daily payout to get started</p>
                         </div>
                     ) : (
                         <div className="space-y-2">
@@ -339,7 +340,7 @@ export default function EarningsPage() {
                                             )}
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-white">Daily ROI Claim</p>
+                                            <p className="text-sm font-medium text-white">Daily claim</p>
                                             <p className="text-xs text-slate-400">{format(new Date(earning.date), 'MMM dd, yyyy')}</p>
                                         </div>
                                     </div>

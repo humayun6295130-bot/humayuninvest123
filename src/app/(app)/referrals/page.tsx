@@ -359,8 +359,7 @@ export default function ReferralsPage() {
                 });
             }
 
-            // Create withdrawal request record
-            await insertRow('referral_withdrawals', {
+            const wd = await insertRow('referral_withdrawals', {
                 user_id: user.uid,
                 user_email: userProfile?.email,
                 amount: amount,
@@ -368,8 +367,7 @@ export default function ReferralsPage() {
                 requested_at: timestampNow,
             });
 
-            // Create transaction record
-            await insertRow('transactions', {
+            const tx = await insertRow('transactions', {
                 user_id: user.uid,
                 user_email: userProfile?.email,
                 type: 'referral_withdrawal',
@@ -377,7 +375,11 @@ export default function ReferralsPage() {
                 currency: 'USD',
                 status: 'pending',
                 description: `Referral earnings withdrawal request`,
-                created_at: timestampNow,
+                metadata: { referral_withdrawal_id: wd.id },
+            });
+
+            await updateRow('referral_withdrawals', wd.id, {
+                linked_transaction_id: tx.id,
             });
 
             toast({
@@ -395,15 +397,11 @@ export default function ReferralsPage() {
         }
     };
 
-    const getCommissionRates = () => {
-        return {
-            level1: globalReferralSettings.level1_percent,
-            level2: globalReferralSettings.level2_percent,
-            level3: globalReferralSettings.level3_percent,
-            level4: globalReferralSettings.level4_percent ?? 1,
-            level5: globalReferralSettings.level5_percent ?? 1,
-        };
-    };
+    const getCommissionRates = () => ({
+        level1: globalReferralSettings.level1_percent,
+        level2: globalReferralSettings.level2_percent,
+        level3: globalReferralSettings.level3_percent,
+    });
 
     const rates = getCommissionRates();
 
@@ -769,7 +767,9 @@ export default function ReferralsPage() {
                                 </div>
                                 <div>
                                     <p className="font-medium text-sm">Earn Commission</p>
-                                    <p className="text-xs text-muted-foreground">Earn {rates.level1 ?? 5}% (L1) + {rates.level2 ?? 3}% (L2) + {rates.level3 ?? 2}% (L3) of qualifying team investments</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Earn {rates.level1 ?? 5}% on direct referrals, {rates.level2 ?? 3}% on the next upline, {rates.level3 ?? 2}% on the third — three levels only, on qualifying deposits (same as the landing page and app rules).
+                                    </p>
                                 </div>
                             </div>
                         </CardContent>

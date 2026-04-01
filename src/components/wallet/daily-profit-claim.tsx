@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInDays, startOfDay, format } from "date-fns";
+import { getEffectiveDailyIncomeUsd, resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
 import {
     Coins,
     Clock,
@@ -86,23 +87,15 @@ export function DailyProfitClaim() {
         );
     }, [claimsRaw]);
 
-    /** Matches invest page / activate-qr: prefer stored daily $ ROI, else % of principal. */
-    const calculateDailyProfit = (investment: UserInvestment): number => {
-        const amt = Number(investment.amount) || 0;
-        const perDay = Number(investment.daily_roi);
-        if (Number.isFinite(perDay) && perDay > 0) return perDay;
-        const pct = Number(investment.daily_roi_percent);
-        if (Number.isFinite(pct) && pct > 0) return (amt * pct) / 100;
-        return 0;
-    };
+    const calculateDailyProfit = (investment: UserInvestment): number =>
+        getEffectiveDailyIncomeUsd(investment);
 
     const formatRoiLabel = (investment: UserInvestment): string => {
-        const perDay = calculateDailyProfit(investment);
         const amt = Number(investment.amount) || 0;
-        const pct = Number(investment.daily_roi_percent);
-        if (Number.isFinite(pct) && pct > 0) return `${pct}%/day (${perDay.toFixed(2)}/day)`;
-        if (amt > 0 && perDay > 0) return `${((perDay / amt) * 100).toFixed(2)}%/day`;
-        return perDay > 0 ? `$${perDay.toFixed(2)}/day` : '—';
+        const perDay = calculateDailyProfit(investment);
+        const tier = resolveDailyIncomeForDeposit(amt);
+        if (tier.tierLevel > 0) return `${tier.incomePercent}%/day · $${perDay.toFixed(2)}`;
+        return perDay > 0 ? `$${perDay.toFixed(2)}/day` : "—";
     };
 
     // Check if can claim today for an investment
@@ -390,7 +383,7 @@ export function DailyProfitClaim() {
                     </p>
                     <p className="flex items-center gap-1 mt-1">
                         <CheckCircle className="w-3 h-3" />
-                        Amount per day follows each plan&apos;s daily ROI stored on your investment (deposit level × %).
+                        Per-day amount uses the published deposit tiers (same as invest and claims).
                     </p>
                 </div>
             </CardContent>

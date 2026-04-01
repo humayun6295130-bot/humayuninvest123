@@ -2,6 +2,7 @@ import { insertRow } from '@/firebase/database';
 import { db } from '@/firebase/config';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { awardCommission, getReferralSettings } from '@/lib/referral-system';
+import { REFERRAL_COMMISSION_MAX_DEPTH, resolveDailyIncomeForDeposit } from '@/lib/deposit-income-tiers';
 
 export interface ActivateQrInvestmentParams {
     user_id: string;
@@ -22,6 +23,8 @@ export interface ActivateQrInvestmentParams {
     payment_method?: string;
     /** Audit line for pending_investments */
     notes?: string;
+    /** Invoice reference (NOWPayments order_id / user panel) */
+    order_id?: string | null;
 }
 
 /**
@@ -36,14 +39,11 @@ export async function activateInvestmentAfterVerifiedPayment(
     endDate.setDate(endDate.getDate() + (params.duration_days > 0 ? params.duration_days : 30));
 
     const dur = params.duration_days > 0 ? params.duration_days : 30;
-    let daily_roi_percent = Number(params.daily_roi_percent ?? 0) || 0;
-    if (daily_roi_percent <= 0) {
-        const ret = Number(params.return_percent ?? 0);
-        if (Number.isFinite(ret) && ret > 0 && dur > 0) {
-            daily_roi_percent = ret / dur;
-        }
-    }
-    const daily_roi = daily_roi_percent > 0 ? (params.amount * daily_roi_percent) / 100 : 0;
+    const tiered = resolveDailyIncomeForDeposit(params.amount);
+    const daily_roi_percent = tiered.incomePercent;
+    const daily_roi = tiered.dailyUsd;
+    const total_profit = daily_roi * dur;
+    const total_return = params.amount + total_profit;
 
     await insertRow('user_investments', {
         user_id: params.user_id,
@@ -52,8 +52,10 @@ export async function activateInvestmentAfterVerifiedPayment(
         amount: params.amount,
         daily_roi,
         daily_roi_percent,
-        total_return: params.expected_return,
-        total_profit: params.expected_return - params.amount,
+        deposit_tier_level: tiered.tierLevel,
+        income_percent: tiered.incomePercent,
+        total_return,
+        total_profit,
         earned_so_far: 0,
         claimed_so_far: 0,
         days_claimed: 0,
@@ -63,6 +65,7 @@ export async function activateInvestmentAfterVerifiedPayment(
         auto_compound: false,
         capital_return: true,
         payout_schedule: 'end_of_term',
+        ...(params.order_id ? { order_id: params.order_id } : {}),
     });
 
     await insertRow('pending_investments', {
@@ -79,6 +82,7 @@ export async function activateInvestmentAfterVerifiedPayment(
         proof_image_url: params.proof_image_url ?? null,
         processed_at: timestamp,
         notes: params.notes ?? 'Auto-verified',
+        ...(params.order_id ? { order_id: params.order_id } : {}),
     });
 
     await insertRow('transactions', {
@@ -108,14 +112,12 @@ export async function activateInvestmentAfterVerifiedPayment(
                 settings.level1_percent,
                 settings.level2_percent,
                 settings.level3_percent,
-                settings.level4_percent ?? 0,
-                settings.level5_percent ?? 0,
             ];
             const userDoc = await getDoc(doc(db, 'users', params.user_id));
             if (userDoc.exists()) {
                 let currentReferrerId = userDoc.data().referrer_id;
                 let level = 0;
-                while (currentReferrerId && level < 5) {
+                while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
                     const percent = commissionPercents[level] ?? 0;
                     const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
                     if (!referrerDoc.exists()) break;

@@ -16,6 +16,7 @@ import { Gift, Clock, TrendingUp, Coins, Loader2, CheckCircle } from 'lucide-rea
 import { useFirebase, useRealtimeCollection, insertRow } from '@/firebase';
 import { db } from '@/firebase/config';
 import { doc, increment, writeBatch } from 'firebase/firestore';
+import { getEffectiveDailyIncomeUsd } from '@/lib/deposit-income-tiers';
 
 interface ActiveInvestment {
     id: string;
@@ -60,11 +61,7 @@ export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) 
         if (!investments || investments.length === 0) return 0;
         return investments.reduce((sum, inv) => {
             if (inv.status === 'active') {
-                // Use daily_roi if stored, otherwise calculate from daily_roi_percent
-                const dailyAmt = inv.daily_roi > 0
-                    ? inv.daily_roi
-                    : (inv.daily_roi_percent ? (inv.amount * inv.daily_roi_percent) / 100 : 0);
-                return sum + dailyAmt;
+                return sum + getEffectiveDailyIncomeUsd(inv);
             }
             return sum;
         }, 0);
@@ -187,7 +184,7 @@ export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) 
                         Daily Profit Claim
                     </DialogTitle>
                     <DialogDescription>
-                        Claim your daily ROI from all active investments. One claim per day.
+                        One claim per day; amount follows your deposit tier (principal × tier %).
                     </DialogDescription>
                 </DialogHeader>
 
@@ -208,9 +205,7 @@ export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) 
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-foreground">Breakdown</p>
                             {investments.map((inv) => {
-                                const dailyAmt = inv.daily_roi > 0
-                                    ? inv.daily_roi
-                                    : (inv.daily_roi_percent ? (inv.amount * inv.daily_roi_percent) / 100 : 0);
+                                const dailyAmt = getEffectiveDailyIncomeUsd(inv);
                                 return (
                                     <div key={inv.id} className="flex items-center justify-between text-sm bg-muted/40 rounded-lg px-3 py-2">
                                         <span className="text-muted-foreground">{inv.plan_name}</span>

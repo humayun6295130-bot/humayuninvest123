@@ -59,7 +59,7 @@ async function simplifyPlans() {
             features: [
                 '100% Return Guaranteed',
                 'Minimum $30 Deposit',
-                '30 Days Duration',
+                'Up to 60X',
                 'Capital Protection',
                 'Simple & Easy'
             ],

@@ -3,6 +3,8 @@
  * https://api.nowpayments.io/v1
  */
 
+import { buildInvestmentOrderId, isInvestmentOrderIdForUser } from './investment-order-id';
+
 export const NOWPAYMENTS_API_BASE = 'https://api.nowpayments.io/v1';
 
 /**
@@ -211,9 +213,9 @@ export async function npGetPayment(
 export { usdAmountsMatch, isPaymentStatusComplete } from './nowpayments-shared';
 
 export function orderIdForUser(userId: string, planId: string): string {
-    return `inv_${userId}_${planId}_${Date.now()}`;
+    return buildInvestmentOrderId(userId, planId);
 }
 
 export function isOrderIdOwnedByUser(orderId: string, userId: string): boolean {
-    return orderId.startsWith(`inv_${userId}_`);
+    return isInvestmentOrderIdForUser(orderId, userId);
 }

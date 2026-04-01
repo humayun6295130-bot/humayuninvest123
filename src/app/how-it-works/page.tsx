@@ -20,6 +20,7 @@ import {
     Globe
 } from "lucide-react";
 import Link from "next/link";
+import { DEFAULT_REFERRAL_SETTINGS } from "@/lib/referral-system";
 
 const steps = [
     {
@@ -60,7 +61,7 @@ const steps = [
     {
         number: 6,
         title: "Refer & Earn More",
-        description: "Invite friends and earn additional commissions up to 5% on their investments.",
+        description: `Invite friends: ${DEFAULT_REFERRAL_SETTINGS.level1_percent}% on direct referral deposits, ${DEFAULT_REFERRAL_SETTINGS.level2_percent}% and ${DEFAULT_REFERRAL_SETTINGS.level3_percent}% on the next two uplines (three levels).`,
         icon: Users,
         color: "from-pink-500 to-pink-600"
     }
@@ -223,7 +224,7 @@ export default function HowItWorksPage() {
                                             <CheckCircle className="h-4 w-4 text-green-400" /> 1% Daily Returns
                                         </li>
                                         <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> 30 Days Duration
+                                            <CheckCircle className="h-4 w-4 text-green-400" /> Up to 60X
                                         </li>
                                     </ul>
                                     <Button asChild className="w-full bg-orange-500 hover:bg-orange-600">
@@ -249,7 +250,7 @@ export default function HowItWorksPage() {
                                             <CheckCircle className="h-4 w-4 text-green-400" /> 1.5% Daily Returns
                                         </li>
                                         <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> 60 Days Duration
+                                            <CheckCircle className="h-4 w-4 text-green-400" /> Up to 60X
                                         </li>
                                     </ul>
                                     <Button asChild className="w-full bg-orange-500 hover:bg-orange-600">
@@ -269,10 +270,10 @@ export default function HowItWorksPage() {
                                             <CheckCircle className="h-4 w-4 text-green-400" /> 1 PH/s Hash Rate
                                         </li>
                                         <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> 2% Daily Returns
+                                            <CheckCircle className="h-4 w-4 text-green-400" /> 4% /day at $10,000 (top tier)
                                         </li>
                                         <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> 90 Days Duration
+                                            <CheckCircle className="h-4 w-4 text-green-400" /> Up to 60X
                                         </li>
                                     </ul>
                                     <Button asChild className="w-full bg-orange-500 hover:bg-orange-600">

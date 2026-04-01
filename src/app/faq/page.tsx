@@ -5,6 +5,13 @@ import { PublicHeader } from "@/components/layout/public-header";
 import { PublicFooter } from "@/components/layout/public-footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronDown, ChevronUp, Search, Bitcoin, Wallet, Shield, Users, Zap, Clock, TrendingUp } from "lucide-react";
+import { DEPOSIT_INCOME_TIERS } from "@/lib/deposit-income-tiers";
+import { DEFAULT_REFERRAL_SETTINGS } from "@/lib/referral-system";
+
+const LAST_DEPOSIT_TIER = DEPOSIT_INCOME_TIERS[DEPOSIT_INCOME_TIERS.length - 1];
+const FAQ_DAILY_TIERS_TEXT = DEPOSIT_INCOME_TIERS.map(
+    (t) => `$${t.min.toLocaleString("en-US")}–$${t.max.toLocaleString("en-US")}: ${t.incomePercent}%/day`
+).join("; ");
 
 const faqCategories = [
     {
@@ -21,7 +28,7 @@ const faqCategories = [
             },
             {
                 q: "What is the minimum investment amount?",
-                a: "The minimum investment starts at $100 USDT for our Starter plan. We offer various plans ranging from $100 to $10,000+ to accommodate different investment levels."
+                a: `The minimum deposit for the published daily-income tiers is $${DEPOSIT_INCOME_TIERS[0].min} USDT; upper published band is up to $${LAST_DEPOSIT_TIER.max.toLocaleString("en-US")} (same ranges as the app and landing).`
             }
         ]
     },
@@ -57,7 +64,7 @@ const faqCategories = [
             },
             {
                 q: "What is the daily return rate?",
-                a: "Return rates vary by investment level: Starter ($30-$250): 1.5% daily, Silver ($251-$500): 2% daily, Gold ($501-$1000): 2.5% daily, Platinum ($1001-$2500): 3.1% daily, Diamond ($5000+): 4% daily. Returns are accumulated daily and can be withdrawn as profit."
+                a: `Daily income is a percentage of your deposit principal: ${FAQ_DAILY_TIERS_TEXT}. Deposits above $${LAST_DEPOSIT_TIER.max.toLocaleString("en-US")} use the top tier rate (${LAST_DEPOSIT_TIER.incomePercent}%/day). You claim once per day; figures match the app and landing.`
             },
             {
                 q: "How does the mining pool work?",
@@ -97,7 +104,7 @@ const faqCategories = [
         questions: [
             {
                 q: "How does the referral program work?",
-                a: "Share your unique referral link with friends and earn commissions on their investments. You earn 5% on level 1 referrals, 4% on level 2, and 3% on level 3. The more you refer, the more you earn!"
+                a: `Share your unique referral link. On each referral deposit you earn ${DEFAULT_REFERRAL_SETTINGS.level1_percent}% as direct referrer, ${DEFAULT_REFERRAL_SETTINGS.level2_percent}% on the next upline, and ${DEFAULT_REFERRAL_SETTINGS.level3_percent}% on the third — three levels total (default rates; admin can change live settings).`
             },
             {
                 q: "When do I receive referral commissions?",
@@ -105,7 +112,7 @@ const faqCategories = [
             },
             {
                 q: "Is there a limit on referrals?",
-                a: "There's no limit on how many people you can refer. The more active referrals you have, the higher your potential earnings. Plus, reach certain milestones to unlock higher commission tiers!"
+                a: "There's no limit on how many people you can refer. Commission is paid on up to three upline levels per deposit (rates from settings). More active referrals means more deposits that can generate those three-level payouts."
             }
         ]
     },

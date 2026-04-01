@@ -1,15 +1,10 @@
 /**
  * Advanced Multi-Tier Referral Engine
- * 
- * Three-Tier Commission Structure:
- * - Level 1 (direct referrer): 10%
- * - Level 2 (upline of Level 1): 5%
- * - Level 3 (upline of Level 2): 2%
- * 
- * @version 2.0.0
+ * Percents match `DEFAULT_REFERRAL_SETTINGS` in `referral-system.ts` (single source).
  */
 
 import { db } from '@/firebase/config';
+import { DEFAULT_REFERRAL_SETTINGS } from '@/lib/referral-system';
 import {
     collection,
     doc,
@@ -58,14 +53,10 @@ export interface ReferralSettings {
     enabled: boolean;
 }
 
-// ============================================================================
-// COMMISSION RATES (Three-Tier)
-// ============================================================================
-
 export const TIER_REFERRAL_COMMISSION = {
-    level1: 10,  // 10% for direct referrer
-    level2: 5,   // 5% for Level 2 upline
-    level3: 2,   // 2% for Level 3 upline
+    level1: DEFAULT_REFERRAL_SETTINGS.level1_percent,
+    level2: DEFAULT_REFERRAL_SETTINGS.level2_percent,
+    level3: DEFAULT_REFERRAL_SETTINGS.level3_percent,
 } as const;
 
 export const DEFAULT_TIER_REFERRAL_SETTINGS: ReferralSettings = {
@@ -94,7 +85,6 @@ export function calculateTierCommissions(depositAmount: number): {
 }[] {
     const commissions = [];
 
-    // Level 1: 10%
     const level1Amount = depositAmount * (TIER_REFERRAL_COMMISSION.level1 / 100);
     commissions.push({
         level: 1 as 1,
@@ -110,7 +100,6 @@ export function calculateTierCommissions(depositAmount: number): {
         amount: parseFloat(level2Amount.toFixed(2))
     });
 
-    // Level 3: 2%
     const level3Amount = depositAmount * (TIER_REFERRAL_COMMISSION.level3 / 100);
     commissions.push({
         level: 3 as 3,

@@ -1,15 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-
-function displayDailyRoiPercent(plan: InvestmentPlan): number {
-    const d = Number(plan.daily_roi_percent);
-    if (Number.isFinite(d) && d > 0) return d;
-    const dur = Number(plan.duration_days) || 1;
-    const ret = Number(plan.return_percent);
-    if (Number.isFinite(ret) && ret > 0 && dur > 0) return ret / dur;
-    return 0;
-}
 import { cn } from "@/lib/utils";
 import { TrendingUp, Shield, CheckCircle } from "lucide-react";
 
@@ -31,6 +22,23 @@ interface InvestmentPlan {
     profit_amount?: number;
     payout_schedule?: 'daily' | 'end_of_term';
     is_verified?: boolean;
+}
+
+function displayDailyRoiPercent(plan: InvestmentPlan): number {
+    const d = Number(plan.daily_roi_percent);
+    if (Number.isFinite(d) && d > 0) return d;
+    const dur = Number(plan.duration_days) || 1;
+    const ret = Number(plan.return_percent);
+    if (Number.isFinite(ret) && ret > 0 && dur > 0) return ret / dur;
+    return 0;
+}
+
+/** Align plan chip text with landing / payment dialog (no fixed "30 days = $X" implication). */
+function normalizePlanFeatureLabel(raw: string): string {
+    const s = raw.trim();
+    if (/^\d+\s*days?\s*duration$/i.test(s)) return "Up to 60X";
+    if (/\bduration\b/i.test(s) && /\b\d+\s*days?\b/i.test(s)) return "Up to 60X";
+    return s;
 }
 
 interface PremiumInvestmentCardProps {
@@ -175,8 +183,8 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
             <div className="metric-grid">
                 <div className="metric-item">
                     <div className="flex items-center gap-1">
-                        <span className="metric-label">Daily ROI</span>
-                        <InfoTooltip content="Daily return on investment, claimed once per day" />
+                        <span className="metric-label">Plan rate</span>
+                        <InfoTooltip content="Plan default %; your payout uses deposit tier at activation" />
                     </div>
                     <span className="metric-value text-indigo-600">
                         {roiPct.toFixed(2)}%/day
@@ -219,7 +227,7 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
                                 key={idx}
                                 className="text-xs text-muted-foreground bg-gray-50 px-2 py-1 rounded-md"
                             >
-                                {feature}
+                                {normalizePlanFeatureLabel(feature)}
                             </span>
                         ))}
                         {plan.features.length > 3 && (

@@ -2,6 +2,7 @@
 
 import { PublicHeader } from "@/components/layout/public-header";
 import { PublicFooter } from "@/components/layout/public-footer";
+import { DEFAULT_REFERRAL_SETTINGS } from "@/lib/referral-system";
 
 export default function TermsOfService() {
     return (
@@ -70,9 +71,9 @@ export default function TermsOfService() {
                             </ul>
                             <p className="text-slate-400 mt-4">Commission Structure:</p>
                             <ul className="list-disc pl-6 space-y-2 text-slate-400">
-                                <li>Level 1 (Direct Referrer): 10% of deposit amount</li>
-                                <li>Level 2 (Upline of Level 1): 5% of deposit amount</li>
-                                <li>Level 3 (Upline of Level 2): 2% of deposit amount</li>
+                                <li>Level 1 (direct referrer): {DEFAULT_REFERRAL_SETTINGS.level1_percent}% of referred deposit (default; configurable in platform settings)</li>
+                                <li>Level 2 (next upline): {DEFAULT_REFERRAL_SETTINGS.level2_percent}% of referred deposit</li>
+                                <li>Level 3 (third upline): {DEFAULT_REFERRAL_SETTINGS.level3_percent}% of referred deposit</li>
                             </ul>
                         </section>
 

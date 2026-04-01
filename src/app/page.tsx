@@ -6,6 +6,8 @@ import { Bitcoin, ShieldCheck, Zap, ArrowRight, TrendingUp, Users, Globe, Hash, 
 import { PublicHeader } from '@/components/layout/public-header';
 import { PublicFooter } from '@/components/layout/public-footer';
 import { MiningVisualization } from '@/components/mining/mining-visualization';
+import { DEPOSIT_INCOME_TIERS } from '@/lib/deposit-income-tiers';
+import { DEFAULT_REFERRAL_SETTINGS } from '@/lib/referral-system';
 
 const STATS = [
     { icon: Hash, value: "245.6 PH/s", label: "Network Hash Rate", color: "text-orange-400" },
@@ -44,8 +46,8 @@ const FEATURES = [
     },
     {
         icon: DollarSign,
-        title: "Up to 60X Daily ROI",
-        desc: "Earn exceptional daily ROI with our premium mining packages and automatic daily payouts.",
+        title: "Tiered daily income",
+        desc: "Income rate depends on deposit size; claim once per day from active positions.",
         gradient: "from-yellow-500/20 to-orange-500/20",
         border: "border-yellow-500/30",
         iconBg: "bg-yellow-500/10",
@@ -71,24 +73,26 @@ const FEATURES = [
     },
 ];
 
-const PLANS = [
-    { name: "Starter", min: "$30", max: "$250", roi: "1.5%", color: "from-blue-600 to-cyan-600", glow: "shadow-blue-500/20" },
-    { name: "Gold", min: "$501", max: "$1,000", roi: "2.5%", color: "from-orange-500 to-yellow-500", glow: "shadow-orange-500/30", popular: true },
-    { name: "Diamond", min: "$5,000", max: "$10,000", roi: "4.0%", color: "from-purple-600 to-pink-600", glow: "shadow-purple-500/20" },
+/** Visual only; numbers come from `DEPOSIT_INCOME_TIERS` (same as claims + activation). */
+const LANDING_TIER_STYLES: { color: string; glow: string; popular?: boolean }[] = [
+    { color: "from-blue-600 to-cyan-600", glow: "shadow-blue-500/20" },
+    { color: "from-sky-600 to-blue-600", glow: "shadow-sky-500/20" },
+    { color: "from-orange-500 to-yellow-500", glow: "shadow-orange-500/30", popular: true },
+    { color: "from-amber-600 to-orange-600", glow: "shadow-amber-500/20" },
+    { color: "from-purple-600 to-pink-600", glow: "shadow-purple-500/20" },
 ];
 
-/** Public site shows 3 upline levels; bonuses use referral_settings (default 5% / 3% / 2%). */
 const COMMISSION_LEVELS = [
-    { level: 1, label: "Level 1 (Direct)", percent: "5%", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/30" },
-    { level: 2, label: "Level 2", percent: "3%", color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/30" },
-    { level: 3, label: "Level 3", percent: "2%", color: "text-green-400", bg: "bg-green-500/10 border-green-500/30" },
+    { level: 1, label: "Level 1 (direct)", percent: `${DEFAULT_REFERRAL_SETTINGS.level1_percent}%`, color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/30" },
+    { level: 2, label: "Level 2", percent: `${DEFAULT_REFERRAL_SETTINGS.level2_percent}%`, color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/30" },
+    { level: 3, label: "Level 3", percent: `${DEFAULT_REFERRAL_SETTINGS.level3_percent}%`, color: "text-green-400", bg: "bg-green-500/10 border-green-500/30" },
 ];
 
 const PERKS = [
     "No hidden fees or commissions",
     "24/7 live mining monitoring",
     "Instant referral rewards",
-    "Multi-level commission system",
+    "3-level referral on deposits",
     "Secure USDT withdrawals",
     "Dedicated account manager",
 ];
@@ -129,7 +133,7 @@ export default function LandingPage() {
                             </h1>
 
                             <p className="max-w-2xl text-base sm:text-lg text-slate-400 leading-relaxed">
-                                Get up to <span className="text-orange-400 font-semibold">60X daily ROI</span> on your investments. Join the most advanced BTC mining investment platform with real-time monitoring, instant payouts, and world-class security.
+                                Tiered daily income on your deposit, one claim per day, plus monitoring and secure withdrawals.
                             </p>
 
                             {/* CTAs */}
@@ -215,10 +219,15 @@ export default function LandingPage() {
                             </p>
                         </div>
 
-                        <div className="grid gap-6 sm:grid-cols-3 max-w-5xl mx-auto">
-                            {PLANS.map((plan) => (
+                        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+                            {DEPOSIT_INCOME_TIERS.map((tier, i) => {
+                                const plan = LANDING_TIER_STYLES[i] ?? LANDING_TIER_STYLES[0];
+                                const minStr = tier.min >= 1000 ? tier.min.toLocaleString("en-US") : String(tier.min);
+                                const maxStr = tier.max.toLocaleString("en-US");
+                                const roiStr = `${tier.incomePercent}%`;
+                                return (
                                 <div
-                                    key={plan.name}
+                                    key={tier.level}
                                     className={`relative flex flex-col p-6 rounded-2xl bg-slate-900 border ${plan.popular ? 'border-orange-500/60 shadow-2xl ' + plan.glow : 'border-slate-800'} hover:border-slate-600 transition-all duration-300`}
                                 >
                                     {plan.popular && (
@@ -229,13 +238,13 @@ export default function LandingPage() {
                                     <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center mb-4 shadow-lg`}>
                                         <Bitcoin className="h-6 w-6 text-white" />
                                     </div>
-                                    <h3 className="text-xl font-bold text-white mb-1">{plan.name}</h3>
+                                    <h3 className="text-xl font-bold text-white mb-1">Tier {tier.level}</h3>
                                     <div className="text-3xl font-black text-white my-2">
-                                        {plan.roi}
+                                        {roiStr}
                                         <span className="text-sm text-slate-400 font-normal"> / day</span>
                                     </div>
                                     <div className="space-y-2 text-sm text-slate-400 mb-6 flex-1">
-                                        <div className="flex justify-between"><span>Investment Range</span><span className="text-white font-medium">{plan.min} – {plan.max}</span></div>
+                                        <div className="flex justify-between"><span>Investment Range</span><span className="text-white font-medium">${minStr} – ${maxStr}</span></div>
                                         <div className="flex justify-between"><span>Duration</span><span className="text-green-400 font-medium">Open-ended</span></div>
                                         <div className="flex justify-between"><span>Payout</span><span className="text-white font-medium">Daily Claim</span></div>
                                     </div>
@@ -243,8 +252,12 @@ export default function LandingPage() {
                                         <Link href="/register">Get Started</Link>
                                     </Button>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
+                        <p className="text-center text-xs text-slate-500 mt-6 max-w-xl mx-auto">
+                            Deposits above ${DEPOSIT_INCOME_TIERS[DEPOSIT_INCOME_TIERS.length - 1].max.toLocaleString("en-US")} use the same daily rate as Tier {DEPOSIT_INCOME_TIERS.length} ({DEPOSIT_INCOME_TIERS[DEPOSIT_INCOME_TIERS.length - 1].incomePercent}% of principal per day).
+                        </p>
                     </div>
                 </section>
 
@@ -274,8 +287,8 @@ export default function LandingPage() {
                                     <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-yellow-500/10 rounded-3xl blur-3xl" />
                                     <div className="relative flex flex-col items-center justify-center h-full bg-slate-900 rounded-3xl border border-orange-500/30 p-8 text-center shadow-2xl">
                                         <div className="text-6xl font-black bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">60X</div>
-                                        <div className="text-lg font-semibold text-white mt-2">Daily ROI</div>
-                                        <div className="text-sm text-slate-400 mt-1">on your investment</div>
+                                        <div className="text-lg font-semibold text-white mt-2">Potential multiplier</div>
+                                        <div className="text-sm text-slate-400 mt-1">Varies by plan &amp; term</div>
                                         <div className="mt-4 flex items-center gap-1 text-green-400 text-sm">
                                             <TrendingUp className="h-4 w-4" />
                                             Proven track record
@@ -293,17 +306,17 @@ export default function LandingPage() {
                         <div className="text-center mb-10">
                             <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/40 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400 mb-4">
                                 <Users className="h-3.5 w-3.5" />
-                                5-Level Referral Commission
+                                3-level referral rewards
                             </div>
                             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
                                 Earn While Others{" "}
                                 <span className="bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">Mine</span>
                             </h2>
                             <p className="text-slate-400 max-w-lg mx-auto">
-                                Invite friends and earn commission from their investments — up to 5 levels deep. The more you refer, the more you earn.
+                                Earn on referral deposits up to three uplines (rates below). Same rules as in the app.
                             </p>
                         </div>
-                        <div className="grid grid-cols-5 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl mx-auto">
                             {COMMISSION_LEVELS.map((lvl) => (
                                 <div key={lvl.level} className={`flex flex-col items-center p-4 rounded-2xl border ${lvl.bg}`}>
                                     <div className={`text-2xl sm:text-3xl font-black ${lvl.color} mb-1`}>{lvl.percent}</div>

@@ -155,7 +155,7 @@ export function PlanManager() {
                                 <span>${plan.min_amount} - ${plan.max_amount}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Daily ROI</span>
+                                <span className="text-muted-foreground">Daily %</span>
                                 <span className="text-green-600 font-medium">{plan.daily_roi_percent}%</span>
                             </div>
                             <div className="flex justify-between text-sm">
@@ -236,7 +236,7 @@ export function PlanManager() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Daily ROI (%)</Label>
+                                <Label>Daily percent (%)</Label>
                                 <Input
                                     type="number"
                                     step="0.01"
