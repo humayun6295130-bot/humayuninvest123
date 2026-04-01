@@ -77,12 +77,11 @@ const PLANS = [
     { name: "Diamond", min: "$5,000", max: "$10,000", roi: "4.0%", color: "from-purple-600 to-pink-600", glow: "shadow-purple-500/20" },
 ];
 
+/** Public site shows 3 upline levels; bonuses use referral_settings (default 5% / 3% / 2%). */
 const COMMISSION_LEVELS = [
     { level: 1, label: "Level 1 (Direct)", percent: "5%", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/30" },
     { level: 2, label: "Level 2", percent: "3%", color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/30" },
     { level: 3, label: "Level 3", percent: "2%", color: "text-green-400", bg: "bg-green-500/10 border-green-500/30" },
-    { level: 4, label: "Level 4", percent: "1%", color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/30" },
-    { level: 5, label: "Level 5", percent: "1%", color: "text-purple-400", bg: "bg-purple-500/10 border-purple-500/30" },
 ];
 
 const PERKS = [

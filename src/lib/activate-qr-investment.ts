@@ -128,7 +128,8 @@ export async function activateInvestmentAfterVerifiedPayment(
                             userDoc.data().username || params.user_email || '',
                             commission,
                             'investment',
-                            params.amount
+                            params.amount,
+                            { uplineDepth: level + 1, percentApplied: percent }
                         );
                     }
                     currentReferrerId = referrerDoc.data().referrer_id;

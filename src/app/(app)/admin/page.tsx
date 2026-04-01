@@ -12,10 +12,9 @@ export default function AdminPage() {
 
     useEffect(() => {
         if (!isUserLoading && !user) {
-            router.push('/login');
-        } else if (!isProfileLoading && userProfile && userProfile.role !== 'admin') {
-            // Role-Based Access Control: Redirect non-admins trying to access this page
-            router.push('/dashboard');
+            router.push("/login");
+        } else if (!isProfileLoading && userProfile && userProfile.role !== "admin") {
+            router.push("/dashboard");
         }
     }, [user, isUserLoading, userProfile, isProfileLoading, router]);
 
@@ -30,9 +29,8 @@ export default function AdminPage() {
         );
     }
 
-    // Double check RBAC before rendering
-    if (userProfile.role !== 'admin') {
-        return null; // Will redirect in useEffect
+    if (userProfile.role !== "admin") {
+        return null;
     }
 
     return <AdminDashboard />;

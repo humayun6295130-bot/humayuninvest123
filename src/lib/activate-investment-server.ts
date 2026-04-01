@@ -1,10 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
-import {
-    DEFAULT_REFERRAL_LEVELS,
-    DEFAULT_REFERRAL_SETTINGS,
-    type ReferralSettings,
-} from '@/lib/referral-system';
+import { DEFAULT_REFERRAL_SETTINGS, type ReferralSettings } from '@/lib/referral-system';
 import type { ActivateQrInvestmentParams } from '@/lib/activate-qr-investment';
 
 async function getReferralSettingsAdmin(adminDb: Firestore): Promise<ReferralSettings> {
@@ -19,16 +15,15 @@ async function awardOneCommissionAdmin(
     fromUserId: string,
     fromUsername: string,
     amount: number,
-    type: 'investment'
+    type: 'investment',
+    uplineDepth: number,
+    percentApplied: number
 ): Promise<void> {
     const userDoc = await adminDb.collection('users').doc(referrerId).get();
     if (!userDoc.exists) return;
     const userData = userDoc.data()!;
     if (userData.team_commission_enabled === false) return;
 
-    const userLevel = userData.referral_level || 1;
-    const levelConfig =
-        DEFAULT_REFERRAL_LEVELS.find((l) => l.level === userLevel) || DEFAULT_REFERRAL_LEVELS[0];
     const timestamp = new Date().toISOString();
 
     const batch = adminDb.batch();
@@ -40,22 +35,24 @@ async function awardOneCommissionAdmin(
         from_username: fromUsername,
         amount,
         type,
-        level: userLevel,
-        level_percent: levelConfig.commissionPercent,
-        description: `Investment commission from ${fromUsername} (Level ${userLevel})`,
+        level: uplineDepth,
+        level_percent: percentApplied,
+        description: `Investment bonus — upline level ${uplineDepth} (${percentApplied}% of deposit) from ${fromUsername}`,
         status: 'approved',
         created_at: timestamp,
         paid_at: timestamp,
     });
 
     const teamRef = adminDb.collection('user_teams').doc(referrerId);
-    const teamSnap = await teamRef.get();
-    if (teamSnap.exists) {
-        batch.update(teamRef, {
+    batch.set(
+        teamRef,
+        {
+            user_id: referrerId,
             total_commission_earned: FieldValue.increment(amount),
             updated_at: timestamp,
-        });
-    }
+        },
+        { merge: true }
+    );
 
     batch.update(adminDb.collection('users').doc(referrerId), {
         referral_earnings: FieldValue.increment(amount),
@@ -99,7 +96,9 @@ async function runReferralChainAdmin(
                     investorUserId,
                     fromName,
                     commission,
-                    'investment'
+                    'investment',
+                    level + 1,
+                    percent
                 );
             } catch (e) {
                 console.error('Referral commission (admin) non-fatal:', e);

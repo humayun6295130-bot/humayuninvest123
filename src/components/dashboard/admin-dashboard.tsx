@@ -91,7 +91,7 @@ export function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="investments">
-          <UserControlPanel />
+          <InvestmentApproval />
         </TabsContent>
 
         <TabsContent value="referrals">

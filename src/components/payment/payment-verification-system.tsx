@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useUser, insertRow, useRealtimeCollection, fetchRows, updateRow, incrementBalance } from "@/firebase";
+import { useUser, insertRow, updateRow, incrementBalance, deleteRow, useRealtimeCollection } from "@/firebase";
+import { db } from "@/firebase/config";
+import { collection, query, where, getDocs, getDoc, doc, limit } from "firebase/firestore";
+import { activateInvestmentAfterVerifiedPayment } from "@/lib/activate-qr-investment";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -169,25 +172,78 @@ export function PaymentVerificationSystem({
                 );
 
                 if (chainCheck.valid && chainCheck.confirmed && !chainCheck.alreadyProcessed) {
-                    // Mark payment verification as approved / blockchain_verified
+                    // Must match admin PaymentVerificationManager: pending = pending_verification, done = verified
                     await updateRow('payment_verifications', verification.id, {
-                        status: 'approved',
+                        status: 'verified',
                         blockchain_verified: true,
                         confirmations: chainCheck.confirmations,
                         verified_at: new Date().toISOString(),
-                        verification_status: 'approved',
+                        verification_status: 'verified',
                     });
 
-                    // Mark transaction as completed if still pending
-                    await updateRow('transactions', tx.id, {
-                        status: 'completed',
-                        blockchain_verified: true,
-                        confirmations: chainCheck.confirmations,
-                    });
-
-                    // For pure deposits, credit wallet balance immediately
                     if (purpose === 'deposit') {
+                        await updateRow('transactions', tx.id, {
+                            status: 'completed',
+                            blockchain_verified: true,
+                            confirmations: chainCheck.confirmations,
+                            description: 'Deposit — blockchain verified',
+                        });
                         await incrementBalance(user.uid, amount);
+                    } else if (
+                        (purpose === 'investment' || purpose === 'plan_activation') &&
+                        planId &&
+                        db
+                    ) {
+                        const dup = await getDocs(
+                            query(
+                                collection(db, 'pending_investments'),
+                                where('transaction_id', '==', transactionHash.trim()),
+                                where('user_id', '==', user.uid),
+                                limit(1)
+                            )
+                        );
+                        if (dup.empty) {
+                            const planSnap = await getDoc(doc(db, 'investment_plans', planId));
+                            const p = planSnap.exists() ? planSnap.data() : null;
+                            const retPct = Number(p?.return_percent) || 0;
+                            const duration = Number(p?.duration_days) || 30;
+                            const expectedReturn =
+                                Number(p?.expected_return) && Number.isFinite(Number(p?.expected_return))
+                                    ? Number(p.expected_return)
+                                    : amount * (1 + retPct / 100);
+
+                            await deleteRow('transactions', tx.id);
+
+                            await activateInvestmentAfterVerifiedPayment({
+                                user_id: user.uid,
+                                user_email: userProfile?.email || user.email || '',
+                                plan_id: planId,
+                                plan_name: planName || String(p?.name || 'Investment plan'),
+                                daily_roi_percent: Number(p?.daily_roi_percent) || 0,
+                                return_percent: retPct,
+                                amount,
+                                expected_return: expectedReturn,
+                                duration_days: duration,
+                                transaction_id: transactionHash.trim(),
+                                proof_image_url: screenshotUrl || null,
+                                wallet_address: toAddress || ADMIN_WALLET_ADDRESS || '',
+                                payment_method: 'usdt_bep20_onchain',
+                                notes: 'Auto-verified on-chain (manual proof)',
+                            });
+                        } else {
+                            await updateRow('transactions', tx.id, {
+                                status: 'completed',
+                                blockchain_verified: true,
+                                confirmations: chainCheck.confirmations,
+                                description: 'Investment — already activated for this TX',
+                            });
+                        }
+                    } else {
+                        await updateRow('transactions', tx.id, {
+                            status: 'completed',
+                            blockchain_verified: true,
+                            confirmations: chainCheck.confirmations,
+                        });
                     }
                 }
             } catch (chainErr) {

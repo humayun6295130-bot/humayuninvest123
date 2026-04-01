@@ -879,7 +879,8 @@ export default function MiningPage() {
                             Invest in {selectedPackage?.name}
                         </DialogTitle>
                         <DialogDescription className="text-slate-400">
-                            Enter the amount you want to invest
+                            Mining packages use the same payment flow as the main Invest page (NOWPayments QR / crypto).
+                            Confirm below to open Invest, choose your plan, and complete payment there — your active plans will appear in this dashboard.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -931,7 +932,7 @@ export default function MiningPage() {
                             disabled={isInvesting || !investAmount}
                             className="bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-black font-semibold"
                         >
-                            {isInvesting ? "Processing..." : "Confirm Investment"}
+                            {isInvesting ? "Opening…" : "Go to Invest & pay"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

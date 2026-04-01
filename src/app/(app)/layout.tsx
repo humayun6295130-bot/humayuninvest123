@@ -49,6 +49,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   const isAdmin = userProfile?.role === 'admin';
+  const isAdminRoute = pathname === '/admin';
   const displayName = userProfile?.display_name || user?.displayName || "User";
   const userEmail = userProfile?.email || user?.email || "";
   const userAvatar = `https://picsum.photos/seed/${user.uid}/100/100`;
@@ -71,11 +72,40 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <h1 className="text-xl font-bold bg-gradient-to-r from-sidebar-foreground to-sidebar-foreground/80 bg-clip-text text-transparent">
                 BTCMine
               </h1>
-              <p className="text-[10px] text-sidebar-foreground/50 font-medium uppercase tracking-wider">Investment Platform</p>
+              <p className="text-[10px] text-sidebar-foreground/50 font-medium uppercase tracking-wider">
+                {isAdminRoute ? 'Administration' : 'Investment Platform'}
+              </p>
             </div>
           </Link>
         </SidebarHeader>
         <SidebarContent>
+          {isAdminRoute ? (
+            <SidebarGroup>
+              <SidebarGroupLabel>Admin navigation</SidebarGroupLabel>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Return to user app">
+                    <Link href="/dashboard">
+                      <LayoutDashboard />
+                      <span>User dashboard</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive tooltip="Admin Panel">
+                    <Link href="/admin">
+                      <ShieldCheck />
+                      <span>Control center</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+              <p className="px-2 py-3 text-xs text-muted-foreground leading-relaxed">
+                User menus are hidden here. Use the tabs on this page for users, verifications, transactions, and investments.
+              </p>
+            </SidebarGroup>
+          ) : (
+            <>
           <SidebarGroup>
             <SidebarGroupLabel>Menu</SidebarGroupLabel>
             <SidebarMenu>
@@ -199,6 +229,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </SidebarMenu>
             </SidebarGroup>
           )}
+            </>
+          )}
         </SidebarContent>
         <SidebarFooter className="border-t border-sidebar-border/50 p-4">
           {/* User Profile Card */}
@@ -261,6 +293,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]">
+        {isAdminRoute && (
+          <div className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-center text-sm font-medium text-amber-950 dark:text-amber-100">
+            Administrator mode — platform management.{' '}
+            <Link href="/dashboard" className="underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-50">
+              Exit to user dashboard
+            </Link>
+          </div>
+        )}
         <AppHeader />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {children}

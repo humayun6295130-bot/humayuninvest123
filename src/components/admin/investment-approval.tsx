@@ -148,7 +148,8 @@ export function InvestmentApproval() {
                                     userDoc.data().username || investment.user_email || '',
                                     commission,
                                     'investment',
-                                    investment.amount
+                                    investment.amount,
+                                    { uplineDepth: level + 1, percentApplied: percent }
                                 );
                             }
                             currentReferrerId = referrerDoc.data().referrer_id;

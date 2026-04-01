@@ -26,11 +26,19 @@ export function TransactionManager() {
         filters: filterStatus !== "all"
             ? [{ column: 'status', operator: '==' as const, value: filterStatus }]
             : [],
-        orderByColumn: { column: 'created_at', direction: 'desc' as const },
         enabled: true,
     }), [filterStatus]);
 
-    const { data: transactions, isLoading } = useRealtimeCollection(transactionsOptions);
+    const { data: transactionsRaw, isLoading } = useRealtimeCollection(transactionsOptions);
+
+    const transactions = useMemo(() => {
+        if (!transactionsRaw?.length) return transactionsRaw;
+        return [...transactionsRaw].sort((a: any, b: any) => {
+            const ta = new Date(a.created_at || 0).getTime();
+            const tb = new Date(b.created_at || 0).getTime();
+            return tb - ta;
+        });
+    }, [transactionsRaw]);
 
     const determinePlan = (amount: number): string => {
         if (amount >= 5000) return "Diamond";

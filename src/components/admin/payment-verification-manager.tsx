@@ -65,24 +65,33 @@ export function PaymentVerificationManager() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
-    // Fetch pending verifications
     const pendingOptions = useMemo(() => ({
         table: 'payment_verifications',
         filters: [{ column: 'status', operator: '==' as const, value: 'pending_verification' }],
-        orderByColumn: { column: 'submitted_at', direction: 'desc' as const },
         enabled: true,
     }), []);
 
-    // Fetch all verifications for history
     const historyOptions = useMemo(() => ({
         table: 'payment_verifications',
-        orderByColumn: { column: 'submitted_at', direction: 'desc' as const },
-        limitCount: 100,
+        limitCount: 200,
         enabled: true,
     }), []);
 
-    const { data: pendingPayments, isLoading: pendingLoading } = useRealtimeCollection<PaymentVerification>(pendingOptions);
-    const { data: allPayments, isLoading: historyLoading } = useRealtimeCollection<PaymentVerification>(historyOptions);
+    const { data: pendingPaymentsRaw, isLoading: pendingLoading } = useRealtimeCollection<PaymentVerification>(pendingOptions);
+    const { data: allPaymentsRaw, isLoading: historyLoading } = useRealtimeCollection<PaymentVerification>(historyOptions);
+
+    const sortBySubmitted = (a: PaymentVerification, b: PaymentVerification) =>
+        new Date(b.submitted_at || 0).getTime() - new Date(a.submitted_at || 0).getTime();
+
+    const pendingPayments = useMemo(() => {
+        if (!pendingPaymentsRaw?.length) return pendingPaymentsRaw;
+        return [...pendingPaymentsRaw].sort(sortBySubmitted);
+    }, [pendingPaymentsRaw]);
+
+    const allPayments = useMemo(() => {
+        if (!allPaymentsRaw?.length) return allPaymentsRaw;
+        return [...allPaymentsRaw].sort(sortBySubmitted);
+    }, [allPaymentsRaw]);
 
     const filteredPending = useMemo(() => {
         if (!pendingPayments) return [];
@@ -95,14 +104,17 @@ export function PaymentVerificationManager() {
         );
     }, [pendingPayments, searchTerm]);
 
+    const isVerifiedStatus = (s: string) => s === 'verified' || s === 'approved';
+    const isRejectedStatus = (s: string) => s === 'rejected';
+
     const stats = useMemo(() => {
         if (!allPayments) return { pending: 0, verified: 0, rejected: 0, totalAmount: 0 };
         return {
             pending: allPayments.filter(p => p.status === 'pending_verification').length,
-            verified: allPayments.filter(p => p.status === 'verified').length,
-            rejected: allPayments.filter(p => p.status === 'rejected').length,
+            verified: allPayments.filter(p => isVerifiedStatus(p.status)).length,
+            rejected: allPayments.filter(p => isRejectedStatus(p.status)).length,
             totalAmount: allPayments
-                .filter(p => p.status === 'verified')
+                .filter(p => isVerifiedStatus(p.status))
                 .reduce((sum, p) => sum + p.amount, 0),
         };
     }, [allPayments]);
@@ -193,6 +205,7 @@ export function PaymentVerificationManager() {
             case 'pending_verification':
                 return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800"><Clock className="w-3 h-3 mr-1" /> Pending</Badge>;
             case 'verified':
+            case 'approved':
                 return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle2 className="w-3 h-3 mr-1" /> Verified</Badge>;
             case 'rejected':
                 return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Rejected</Badge>;
@@ -339,7 +352,7 @@ export function PaymentVerificationManager() {
                                         {allPayments.map((payment) => (
                                             <div
                                                 key={payment.id}
-                                                className={`p-4 rounded-lg border ${payment.status === 'verified' ? 'bg-green-50/30' :
+                                                className={`p-4 rounded-lg border ${isVerifiedStatus(payment.status) ? 'bg-green-50/30' :
                                                         payment.status === 'rejected' ? 'bg-red-50/30' : 'bg-yellow-50/30'
                                                     }`}
                                             >

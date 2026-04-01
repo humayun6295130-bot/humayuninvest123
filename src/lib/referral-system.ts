@@ -394,7 +394,8 @@ export async function awardCommission(
     fromUsername: string,
     amount: number,
     type: 'investment' | 'daily' | 'withdrawal' | 'bonus',
-    investmentAmount: number = 0
+    investmentAmount: number = 0,
+    mlmMeta?: { uplineDepth: number; percentApplied: number }
 ): Promise<void> {
     const batch = writeBatch(firestore);
     const timestamp = new Date().toISOString();
@@ -415,6 +416,12 @@ export async function awardCommission(
     const userLevel = userData.referral_level || 1;
     const levelConfig = DEFAULT_REFERRAL_LEVELS.find(l => l.level === userLevel) || DEFAULT_REFERRAL_LEVELS[0];
 
+    const bonusLevel = mlmMeta?.uplineDepth ?? userLevel;
+    const bonusPercent = mlmMeta?.percentApplied ?? levelConfig.commissionPercent;
+    const description = mlmMeta
+        ? `Investment bonus — upline level ${mlmMeta.uplineDepth} (${mlmMeta.percentApplied}% of deposit) from ${fromUsername}`
+        : `${type === 'investment' ? 'Investment' : type === 'daily' ? 'Daily' : type === 'withdrawal' ? 'Withdrawal' : 'Bonus'} commission from ${fromUsername} (referral tier ${userLevel})`;
+
     // 1. Create bonus record
     const bonusRef = doc(collection(firestore, 'referral_bonuses'));
     batch.set(bonusRef, {
@@ -424,20 +431,25 @@ export async function awardCommission(
         from_username: fromUsername,
         amount: amount,
         type: type,
-        level: userLevel,
-        level_percent: levelConfig.commissionPercent,
-        description: `${type === 'investment' ? 'Investment' : type === 'daily' ? 'Daily' : type === 'withdrawal' ? 'Withdrawal' : 'Bonus'} commission from ${fromUsername} (Level ${userLevel})`,
+        level: bonusLevel,
+        level_percent: bonusPercent,
+        description,
         status: 'approved',
         created_at: timestamp,
         paid_at: timestamp,
     });
 
-    // 2. Update referrer's total commission
+    // 2. Referrer team stats — use set+merge so missing user_teams docs do not fail the whole batch
     const teamRef = doc(firestore, 'user_teams', userId);
-    batch.update(teamRef, {
-        total_commission_earned: increment(amount),
-        updated_at: timestamp,
-    });
+    batch.set(
+        teamRef,
+        {
+            user_id: userId,
+            total_commission_earned: increment(amount),
+            updated_at: timestamp,
+        },
+        { merge: true }
+    );
 
     // 3. Add to user's referral_balance (available to withdraw) and referral_earnings (all-time total)
     const userRef = doc(firestore, 'users', userId);

@@ -281,24 +281,22 @@ export function AutoVerifyPayment({
                             let level = 0;
                             while (currentReferrerId && level < 5) {
                                 const percent = commissionPercents[level] ?? 0;
+                                const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
+                                if (!referrerDoc.exists()) break;
                                 if (percent > 0) {
                                     const commission = investmentAmount * (percent / 100);
-                                    const referrerDoc = await getDoc(doc(db, 'users', currentReferrerId));
-                                    if (referrerDoc.exists()) {
-                                        await awardCommission(
-                                            db,
-                                            currentReferrerId,
-                                            user.uid,
-                                            investorDoc.data().username || user.email || '',
-                                            commission,
-                                            'investment',
-                                            investmentAmount
-                                        );
-                                        currentReferrerId = referrerDoc.data().referrer_id;
-                                    } else {
-                                        break;
-                                    }
+                                    await awardCommission(
+                                        db,
+                                        currentReferrerId,
+                                        user.uid,
+                                        investorDoc.data().username || user.email || '',
+                                        commission,
+                                        'investment',
+                                        investmentAmount,
+                                        { uplineDepth: level + 1, percentApplied: percent }
+                                    );
                                 }
+                                currentReferrerId = referrerDoc.data().referrer_id;
                                 level++;
                             }
                         }
