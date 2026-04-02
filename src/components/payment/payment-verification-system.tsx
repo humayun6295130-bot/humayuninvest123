@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useUser, insertRow, updateRow, incrementBalance, deleteRow, useRealtimeCollection } from "@/firebase";
+import { useUser, insertRow, updateRow, incrementBalance, deleteRow, useRealtimeCollection, uploadFile } from "@/firebase";
 import { db } from "@/firebase/config";
 import { collection, query, where, getDocs, getDoc, doc, limit } from "firebase/firestore";
 import { activateInvestmentAfterVerifiedPayment } from "@/lib/activate-qr-investment";
@@ -114,13 +114,25 @@ export function PaymentVerificationSystem({
         setIsSubmitting(true);
 
         try {
-            // Upload screenshot if provided
+            // Persist proof to Firebase Storage (blob: URLs only work locally and break admin review)
             let screenshotUrl = '';
             if (screenshot) {
-                const formData = new FormData();
-                formData.append('file', screenshot);
-                // Note: In production, implement proper file upload
-                screenshotUrl = URL.createObjectURL(screenshot);
+                try {
+                    const uploadPromise = uploadFile(screenshot, user.uid, "payment_proofs");
+                    const timeout = new Promise<string>((_, reject) =>
+                        setTimeout(() => reject(new Error("Upload timeout")), 120_000)
+                    );
+                    screenshotUrl = await Promise.race([uploadPromise, timeout]);
+                } catch (uploadErr: unknown) {
+                    const msg = uploadErr instanceof Error ? uploadErr.message : "Upload failed";
+                    toast({
+                        variant: "destructive",
+                        title: "Screenshot upload failed",
+                        description: msg + ". Check Storage config or try a smaller image.",
+                    });
+                    setIsSubmitting(false);
+                    return;
+                }
             }
 
             // Create payment verification record
