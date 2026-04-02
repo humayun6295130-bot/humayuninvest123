@@ -197,7 +197,8 @@ export function RegisterForm() {
       });
 
       if (isAdmin) {
-        await insertRow("roles_admin", {
+        await upsertRow("roles_admin", {
+          id: user.uid,
           user_id: user.uid,
           email: values.email,
           display_name: values.name,

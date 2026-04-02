@@ -200,12 +200,16 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
 
             // Atomically deduct balance and create withdrawal record
             const userRef = doc(db, 'users', user.uid);
+            let deductedFromMain = 0;
+            let deductedFromReferral = 0;
             await runTransaction(db, async (tx) => {
                 const userSnap = await tx.get(userRef);
                 if (!userSnap.exists()) throw new Error("User not found");
                 const mainUsd = getMainBalanceUsd(userSnap.data());
                 const refUsd = getReferralBalanceUsd(userSnap.data());
                 const { fromMain, fromRef } = splitWithdrawDeduction(totalDeduct, mainUsd, refUsd);
+                deductedFromMain = fromMain;
+                deductedFromReferral = fromRef;
                 const nowIso = new Date().toISOString();
                 tx.update(userRef, {
                     balance: roundMoney2(mainUsd - fromMain),
@@ -232,6 +236,8 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                 withdrawal_fee: feeAmount,
                 withdrawal_fee_percentage: WITHDRAWAL_FEE_PERCENTAGE,
                 total_deduction: totalDeduct,
+                deducted_from_main_usd: roundMoney2(deductedFromMain),
+                deducted_from_referral_usd: roundMoney2(deductedFromReferral),
                 metadata: {
                     network: "BEP20",
                     fee_data: fee,

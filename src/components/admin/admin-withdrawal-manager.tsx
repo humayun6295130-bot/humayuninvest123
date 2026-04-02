@@ -14,7 +14,8 @@
 import { useState, useMemo } from "react";
 import { useRealtimeCollection, updateRow, insertRow } from "@/firebase";
 import { db } from "@/firebase/config";
-import { doc, runTransaction } from "firebase/firestore";
+import { doc, writeBatch, increment } from "firebase/firestore";
+import { roundMoney2 } from "@/lib/wallet-totals";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,9 @@ interface WithdrawalRequest {
     requested_at?: string;
     created_at?: string;
     total_deduction?: number;
+    /** Split used when locking funds (referral first, then main). */
+    deducted_from_main_usd?: number;
+    deducted_from_referral_usd?: number;
     balance_deducted_on_request?: boolean;
     metadata?: { recipient_address?: string; [key: string]: unknown };
     status: 'pending' | 'approved' | 'rejected' | 'completed' | 'failed';
@@ -210,18 +214,27 @@ export function AdminWithdrawalManager() {
         }
     };
 
+    /** Uses stored split from withdrawal creation; legacy rows credit main balance only. */
+    function resolveRefundSplit(w: WithdrawalRequest, amountToRestore: number): { main: number; referral: number } {
+        const target = roundMoney2(amountToRestore);
+        if (target <= 0) return { main: 0, referral: 0 };
+        const dm = Number(w.deducted_from_main_usd);
+        const dr = Number(w.deducted_from_referral_usd);
+        if (Number.isFinite(dm) && Number.isFinite(dr) && dm >= 0 && dr >= 0) {
+            const sum = roundMoney2(dm + dr);
+            if (sum > 0 && Math.abs(sum - target) <= 0.02) {
+                return { main: roundMoney2(dm), referral: roundMoney2(dr) };
+            }
+        }
+        return { main: target, referral: 0 };
+    }
+
     // Reject withdrawal
     const handleReject = async () => {
-        if (!selectedWithdrawal) return;
+        if (!selectedWithdrawal || !db) return;
 
         setProcessingId(selectedWithdrawal.id);
         try {
-            await updateRow('transactions', selectedWithdrawal.id, {
-                status: 'rejected',
-                processed_at: new Date().toISOString(),
-                rejection_reason: rejectionReason
-            });
-
             const w = selectedWithdrawal;
             const hasFeeDeduct =
                 typeof w.total_deduction === "number" && w.total_deduction > 0;
@@ -233,16 +246,28 @@ export function AdminWithdrawalManager() {
                   ? w.amount
                   : 0;
 
-            if (shouldRestore && amountToRestore > 0 && db && selectedWithdrawal.user_id) {
-                const userRef = doc(db, "users", selectedWithdrawal.user_id);
-                await runTransaction(db, async (tx) => {
-                    const userSnap = await tx.get(userRef);
-                    if (userSnap.exists()) {
-                        const currentBalance = userSnap.data().balance || 0;
-                        tx.update(userRef, { balance: currentBalance + amountToRestore });
-                    }
-                });
+            const { main: refundMain, referral: refundReferral } =
+                shouldRestore && amountToRestore > 0 && w.user_id
+                    ? resolveRefundSplit(w, amountToRestore)
+                    : { main: 0, referral: 0 };
+
+            const batch = writeBatch(db);
+            const txRef = doc(db, "transactions", w.id);
+            batch.update(txRef, {
+                status: "rejected",
+                processed_at: new Date().toISOString(),
+                rejection_reason: rejectionReason,
+            });
+            if (shouldRestore && amountToRestore > 0 && w.user_id && (refundMain > 0 || refundReferral > 0)) {
+                const userRef = doc(db, "users", w.user_id);
+                const upd: { updated_at: string; balance?: ReturnType<typeof increment>; referral_balance?: ReturnType<typeof increment> } = {
+                    updated_at: new Date().toISOString(),
+                };
+                if (refundMain > 0) upd.balance = increment(refundMain);
+                if (refundReferral > 0) upd.referral_balance = increment(refundReferral);
+                batch.update(userRef, upd);
             }
+            await batch.commit();
 
             // Create notification for user
             await insertRow('notifications', {

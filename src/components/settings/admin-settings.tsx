@@ -78,7 +78,7 @@ export function AdminSettings() {
                         </Link>
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                        If that page redirects you home, your Firestore <code className="rounded bg-muted px-1">users/&lt;your-uid&gt;.role</code> must be <code className="rounded bg-muted px-1">admin</code>, <code className="rounded bg-muted px-1">super_admin</code>, or <code className="rounded bg-muted px-1">administrator</code>.
+                        If that page redirects you home, your Firestore <code className="rounded bg-muted px-1">users/&lt;your-uid&gt;.role</code> must be <code className="rounded bg-muted px-1">admin</code>, <code className="rounded bg-muted px-1">super_admin</code>, or <code className="rounded bg-muted px-1">administrator</code> (any common casing). Alternatively set boolean <code className="rounded bg-muted px-1">is_admin: true</code> on that user document so rules allow deposit/withdrawal updates.
                     </p>
                 </CardContent>
             </Card>

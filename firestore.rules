@@ -19,14 +19,20 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Admin panel + privileged writes: align with src/lib/user-role.ts (normalizeRoleString).
+    // Optional boolean set in Console / user-manager: users.{is_admin} == true
+    // Do NOT treat roles_admin doc existence as admin proof (users could self-create that path).
     function isAdmin() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Administrator'
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin'
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.is_admin == true
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
+            'admin', 'Admin', 'ADMIN',
+            'super_admin', 'Super_Admin', 'SUPER_ADMIN', 'super admin', 'Super Admin',
+            'administrator', 'Administrator', 'ADMINISTRATOR',
+            'superadmin', 'Superadmin', 'SUPERADMIN'
+          ]
         );
     }
 
