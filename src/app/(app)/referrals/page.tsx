@@ -171,7 +171,7 @@ export default function ReferralsPage() {
         if (process.env.NEXT_PUBLIC_BASE_URL) {
             return process.env.NEXT_PUBLIC_BASE_URL.replace(/\/+$/, '');
         }
-        return 'https://btcmine.xyz';
+        return 'https://www.bctmine.com';
     }, []);
 
     // Build referral link with proper fallbacks (code > username)
