@@ -112,6 +112,7 @@ export default function EarningsPage() {
                     last_daily_claim: userProfile.last_daily_claim,
                     email: userProfile.email,
                     display_name: userProfile.display_name,
+                    username: userProfile.username,
                 },
                 investments: (investments || []) as any[],
             });

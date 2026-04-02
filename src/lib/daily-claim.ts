@@ -2,6 +2,7 @@ import type { Firestore } from "firebase/firestore";
 import { doc, increment, writeBatch } from "firebase/firestore";
 import { insertRow } from "@/firebase/database";
 import { getEffectiveDailyIncomeUsd } from "@/lib/deposit-income-tiers";
+import { distributeDailyClaimReferralCommissions } from "@/lib/referral-system";
 
 export const DAILY_CLAIM_ERR = {
     ALREADY_TODAY: "ALREADY_CLAIMED_TODAY",
@@ -36,6 +37,7 @@ export interface UnifiedDailyClaimInput {
         last_daily_claim?: string | null;
         email?: string;
         display_name?: string;
+        username?: string;
     };
     /** Active + inactive ok; only `status === 'active'` rows are used. */
     investments: Array<Record<string, unknown> & { id: string; status?: string }>;
@@ -120,6 +122,15 @@ export async function executeUnifiedDailyClaim(input: UnifiedDailyClaimInput): P
             date: today,
             claimed_at: nowIso,
         });
+    }
+
+    const earnerLabel =
+        String(userProfile?.username || userProfile?.display_name || userProfile?.email || "Member").trim() ||
+        "Member";
+    try {
+        await distributeDailyClaimReferralCommissions(db, userId, total, earnerLabel);
+    } catch (refErr) {
+        console.error("Daily claim referral commissions (non-fatal):", refErr);
     }
 
     return { totalClaimed: total, activeCount: active.length };

@@ -69,11 +69,14 @@ export default function TermsOfService() {
                                 <li>Comply with applicable laws regarding referral marketing</li>
                                 <li>Referral commissions are subject to verification of referred user's deposit</li>
                             </ul>
-                            <p className="text-slate-400 mt-4">Commission Structure:</p>
+                            <p className="text-slate-400 mt-4">
+                                <strong className="text-slate-300">Per-deposit lifetime commission (3 levels):</strong> commissions are calculated on each qualifying investment (plan) activation by the referred user, not on simple wallet top-ups that do not activate a plan. Each new qualifying deposit can generate payouts to up to three uplines again.
+                            </p>
+                            <p className="text-slate-400 mt-4">Default commission structure (percent of that activation amount; configurable in platform settings):</p>
                             <ul className="list-disc pl-6 space-y-2 text-slate-400">
-                                <li>Level 1 (direct referrer): {DEFAULT_REFERRAL_SETTINGS.level1_percent}% of referred deposit (default; configurable in platform settings)</li>
-                                <li>Level 2 (next upline): {DEFAULT_REFERRAL_SETTINGS.level2_percent}% of referred deposit</li>
-                                <li>Level 3 (third upline): {DEFAULT_REFERRAL_SETTINGS.level3_percent}% of referred deposit</li>
+                                <li>Level 1 (direct referrer): {DEFAULT_REFERRAL_SETTINGS.level1_percent}%</li>
+                                <li>Level 2 (next upline): {DEFAULT_REFERRAL_SETTINGS.level2_percent}%</li>
+                                <li>Level 3 (third upline): {DEFAULT_REFERRAL_SETTINGS.level3_percent}%</li>
                             </ul>
                         </section>
 

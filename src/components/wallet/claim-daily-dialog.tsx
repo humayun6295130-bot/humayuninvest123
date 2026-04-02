@@ -108,6 +108,7 @@ export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) 
                     last_daily_claim: userProfile?.last_daily_claim,
                     email: userProfile?.email,
                     display_name: userProfile?.display_name,
+                    username: userProfile?.username,
                 },
                 investments: (investments || []) as any[],
             });
@@ -165,7 +166,7 @@ export default function ClaimDailyDialog({ userProfile }: { userProfile: any }) 
                         Daily Profit Claim
                     </DialogTitle>
                     <DialogDescription>
-                        One claim per day; amount follows your deposit tier (principal × tier %).
+                        One claim per day; amount follows your deposit tier (principal × tier %). Your uplines may receive a small daily commission on this claim (see Referrals page).
                     </DialogDescription>
                 </DialogHeader>
 

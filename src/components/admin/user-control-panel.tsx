@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Search, Pencil, UserCog, Ban, CheckCircle, Trash2, Wallet, Gift, TrendingUp, Copy, Check, ExternalLink, UserPlus, ArrowUpDown, Scale, Sparkles } from "lucide-react";
 import { formatSupportId } from "@/lib/support-id";
+import { applyAdminReferralBonusLedger } from "@/lib/admin-referral-bonus-ledger";
 import {
     Dialog,
     DialogContent,
@@ -269,29 +270,33 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
             return;
         }
 
+        const memo = bonusForm.description.trim();
+        if (memo.length < 3) {
+            toast({
+                variant: "destructive",
+                title: "Reason required",
+                description: "Write at least 3 characters — this text appears on the member’s Wallet / transaction history.",
+            });
+            return;
+        }
+
         setIsProcessing(true);
         try {
-            // Create bonus record
-            await insertRow('referral_bonuses', {
-                user_id: selectedUser.id,
-                user_email: selectedUser.email,
-                amount: amount,
-                type: bonusForm.type,
-                description: bonusForm.description || `Bonus from ${bonusForm.type}`,
-                wallet_tx_id: bonusForm.wallet_tx_id || null,
-                status: 'approved',
-                created_at: new Date().toISOString(),
-                created_by: 'admin',
-            });
-
-            // Update user referral balance
-            await updateRow('users', selectedUser.id, {
-                referral_balance: (selectedUser.referral_balance || 0) + amount,
+            await applyAdminReferralBonusLedger({
+                userId: selectedUser.id,
+                userDisplayName: selectedUser.display_name || selectedUser.email || "User",
+                userEmail: selectedUser.email || "",
+                amount,
+                memo,
+                extras: {
+                    bonusType: bonusForm.type,
+                    wallet_tx_id: bonusForm.wallet_tx_id || null,
+                },
             });
 
             toast({
-                title: "Bonus Credited! 🎉",
-                description: `$${amount.toFixed(2)} has been added to ${selectedUser.email}'s referral balance from ${bonusForm.type}.`,
+                title: "Bonus credited",
+                description: `$${amount.toFixed(2)} added to referral balance; member sees “Received” with your note in transactions.`,
             });
 
             setBonusForm({ amount: "", type: "manual", description: "", wallet_tx_id: "" });
@@ -373,6 +378,8 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
                 tx.update(userRef, {
                     balance: next,
                     updated_at: now,
+                    last_balance_adjust_at: now,
+                    last_balance_adjust_by: "admin",
                 });
             });
 
@@ -840,7 +847,7 @@ export function UserControlPanel({ users, isLoading, error: usersError }: UserCo
                         <div className="space-y-2">
                             <Label>Description (Optional)</Label>
                             <Input
-                                placeholder="Bonus description"
+                                placeholder="Why they received this (min 3 chars — shown on their Wallet / history)"
                                 value={bonusForm.description}
                                 onChange={(e) => setBonusForm({ ...bonusForm, description: e.target.value })}
                             />

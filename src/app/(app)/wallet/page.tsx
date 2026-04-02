@@ -30,9 +30,21 @@ import DepositDialog from '@/components/wallet/deposit-dialog';
 import ClaimDailyDialog from '@/components/wallet/claim-daily-dialog';
 import { ShieldCheck, ExternalLink } from 'lucide-react';
 import { useMemo } from 'react';
+import {
+  getMainBalanceUsd,
+  getReferralBalanceUsd,
+  getWithdrawableUsd,
+} from '@/lib/wallet-totals';
+import {
+  isUserCreditTransactionType,
+  userTransactionStatusPresentation,
+} from '@/lib/transaction-display';
 
 export default function WalletPage() {
   const { user, userProfile } = useUser();
+  const mainUsd = getMainBalanceUsd(userProfile);
+  const referralUsd = getReferralBalanceUsd(userProfile);
+  const withdrawableUsd = getWithdrawableUsd(userProfile);
 
   const transactionsOptions = useMemo(() => ({
     table: 'transactions',
@@ -57,15 +69,6 @@ export default function WalletPage() {
     }).format(value);
   };
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'completed': return 'outline';
-      case 'pending': return 'secondary';
-      case 'failed': return 'destructive';
-      default: return 'secondary';
-    }
-  };
-
   const getTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       deposit: 'Deposit',
@@ -74,39 +77,58 @@ export default function WalletPage() {
       daily_claim: 'Daily Profit',
       daily_profit: 'Daily Profit',
       earning_claim: 'Earnings',
-      referral_bonus: 'Referral Bonus',
-      referral_withdrawal: 'Referral Withdraw',
+      referral_bonus: 'Referral bonus',
+      referral_withdrawal: 'Referral withdraw',
+      wallet_credit: 'Credit',
+      wallet_debit: 'Debit',
+      admin_credit: 'Credit',
+      admin_debit: 'Debit',
     };
-    return labels[type] || type;
+    return labels[type] || type.replace(/_/g, ' ');
   };
 
   const getTypeColor = (type: string) => {
-    const income = ['deposit', 'daily_claim', 'daily_profit', 'earning_claim', 'referral_bonus'];
-    return income.includes(type) ? 'text-green-500' : 'text-red-400';
+    return isUserCreditTransactionType(type) ? 'text-green-500' : 'text-red-400';
   };
 
   const getAmountSign = (type: string) => {
-    const income = ['deposit', 'daily_claim', 'daily_profit', 'earning_claim', 'referral_bonus'];
-    return income.includes(type) ? '+' : '-';
+    return isUserCreditTransactionType(type) ? '+' : '-';
   };
 
   return (
     <div className="space-y-6">
       {/* Header Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-gradient-to-br from-emerald-500/15 to-emerald-600/5 border-emerald-500/30 md:col-span-2 lg:col-span-1 lg:border-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Withdrawable total
+            </CardTitle>
+            <ArrowDownUp className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-foreground">
+              {userProfile ? formatCurrency(withdrawableUsd) : '$0.00'}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Main + referral — one withdrawal request
+            </p>
+          </CardContent>
+        </Card>
+
         <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Main Balance
+              Main balance
             </CardTitle>
             <WalletIcon className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-foreground">
-              {userProfile ? formatCurrency(userProfile.balance || 0) : '$0.00'}
+              {userProfile ? formatCurrency(mainUsd) : '$0.00'}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Available for withdrawal
+              Included in withdrawable total
             </p>
           </CardContent>
         </Card>
@@ -114,24 +136,24 @@ export default function WalletPage() {
         <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Referral Balance
+              Referral balance
             </CardTitle>
             <Gift className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-foreground">
-              {userProfile ? formatCurrency(userProfile.referral_balance || 0) : '$0.00'}
+              {userProfile ? formatCurrency(referralUsd) : '$0.00'}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Referral earnings
+              Included in withdrawable total
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20 md:col-span-2 lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Invested
+              Total invested
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-blue-500" />
           </CardHeader>
@@ -221,12 +243,17 @@ export default function WalletPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={getStatusBadgeVariant(tx.status) as any}
-                          className="text-xs capitalize"
-                        >
-                          {tx.status}
-                        </Badge>
+                        {(() => {
+                          const st = userTransactionStatusPresentation(tx);
+                          return (
+                            <Badge
+                              variant="outline"
+                              className={`text-xs capitalize border ${st.className}`}
+                            >
+                              {st.label}
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className={`text-right font-semibold ${getTypeColor(tx.type)}`}>
                         {getAmountSign(tx.type)}{formatCurrency(Math.abs(tx.amount))}

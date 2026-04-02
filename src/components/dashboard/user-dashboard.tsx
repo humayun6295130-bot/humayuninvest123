@@ -27,7 +27,7 @@ export function UserDashboard({ userProfile }: { userProfile: any }) {
         table: 'transactions',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
         orderByColumn: { column: 'created_at', direction: 'desc' as const },
-        limit: 30,
+        limitCount: 30,
         enabled: !!user,
     }), [user]);
 

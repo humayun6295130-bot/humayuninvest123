@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRealtimeCollection, insertRow, updateRow, useUser } from "@/firebase";
+import { applyAdminReferralBonusLedger } from "@/lib/admin-referral-bonus-ledger";
 import { db } from "@/firebase/config";
 import { doc, updateDoc, increment, setDoc } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -207,27 +208,30 @@ export function ReferralManager() {
             return;
         }
 
+        const memo = bonusDescription.trim();
+        if (memo.length < 3) {
+            toast({
+                variant: "destructive",
+                title: "Reason required",
+                description: "Write at least 3 characters for the member’s Wallet / history.",
+            });
+            return;
+        }
+
         setIsSending(true);
         try {
-            // Create bonus record
-            await insertRow('referral_bonuses', {
-                user_id: selectedUser.id,
-                user_email: selectedUser.email,
-                amount: amount,
-                type: 'manual',
-                description: bonusDescription || 'Admin bonus',
-                status: 'approved',
-                created_at: new Date().toISOString(),
-            });
-
-            // Update user referral balance
-            await updateRow('users', selectedUser.id, {
-                referral_balance: (selectedUser.referral_balance || 0) + amount,
+            await applyAdminReferralBonusLedger({
+                userId: selectedUser.id,
+                userDisplayName: selectedUser.display_name || selectedUser.email || "User",
+                userEmail: selectedUser.email || "",
+                amount,
+                memo,
+                extras: { bonusType: "manual" },
             });
 
             toast({
-                title: "Bonus Sent! 🎉",
-                description: `$${amount.toFixed(2)} has been added to ${selectedUser.email}'s referral balance.`,
+                title: "Bonus credited",
+                description: `$${amount.toFixed(2)} added; member sees it under transactions as Received with your note.`,
             });
 
             setBonusAmount("");

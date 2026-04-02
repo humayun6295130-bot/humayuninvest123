@@ -61,7 +61,7 @@ const steps = [
     {
         number: 6,
         title: "Refer & Earn More",
-        description: `Invite friends: ${DEFAULT_REFERRAL_SETTINGS.level1_percent}% on direct referral deposits, ${DEFAULT_REFERRAL_SETTINGS.level2_percent}% and ${DEFAULT_REFERRAL_SETTINGS.level3_percent}% on the next two uplines (three levels).`,
+        description: `Per-deposit lifetime commission: ${DEFAULT_REFERRAL_SETTINGS.level1_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level2_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level3_percent}% on three uplines, each time a referral activates an investment — every new plan deposit pays again.`,
         icon: Users,
         color: "from-pink-500 to-pink-600"
     }

@@ -14,7 +14,7 @@ export default function AboutPage() {
           <div className="container px-4 mx-auto text-center">
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">Our Mission</h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              At AscendFolio, we believe that high-quality financial tracking and analysis should be accessible to everyone. Our platform is built to simplify wealth management and empower you to make data-driven investment decisions.
+              We believe transparent investment tools and clear earnings should be accessible to everyone. Our platform is built to help you manage deposits, track performance, and grow with confidence.
             </p>
           </div>
         </section>
@@ -23,13 +23,13 @@ export default function AboutPage() {
           <div className="container px-4 mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-3xl font-bold mb-6">The Story of AscendFolio</h2>
+                <h2 className="text-3xl font-bold mb-6">Our story</h2>
                 <div className="space-y-4 text-muted-foreground leading-relaxed">
                   <p>
-                    Founded in 2023, AscendFolio started as a simple tool for tracking crypto portfolios. We quickly realized that investors needed more—a unified space where they could track stocks, crypto, ETFs, and bonds under one roof.
+                    We started with a simple goal: make crypto and on-chain investing easier to understand and safer to use. Investors told us they wanted one place to see plans, earnings, and withdrawals without confusion.
                   </p>
                   <p>
-                    Today, we serve over 150,000 active users globally, providing them with secure, real-time insights into their financial health. Our team is composed of financial experts, developers, and designers dedicated to creating the world's most intuitive investment dashboard.
+                    Today we focus on secure workflows, clear statements, and support when you need it—so you always know what moved in your account and why.
                   </p>
                 </div>
               </div>

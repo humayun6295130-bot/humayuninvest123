@@ -278,6 +278,7 @@ export default function InvestPage() {
                     last_daily_claim: userProfile.last_daily_claim,
                     email: userProfile.email,
                     display_name: userProfile.display_name,
+                    username: userProfile.username,
                 },
                 investments: (userInvestments || []) as any[],
             });

@@ -1,21 +1,25 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useUser, useRealtimeCollection, insertRow, updateRow } from "@/firebase";
-import { doc, updateDoc, increment } from "firebase/firestore";
+import { useUser, useRealtimeCollection } from "@/firebase";
+import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { generateUniqueReferralCode } from "@/lib/referral-code";
-import { getReferralSettings, DEFAULT_REFERRAL_SETTINGS, type ReferralSettings as GlobalReferralSettings } from "@/lib/referral-system";
+import {
+    getReferralSettings,
+    DEFAULT_REFERRAL_SETTINGS,
+    type ReferralSettings as GlobalReferralSettings,
+    REFERRAL_POLICY_HEADLINE,
+    REFERRAL_POLICY_DETAIL,
+} from "@/lib/referral-system";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Label } from "@/components/ui/label";
 import {
     Users,
     Copy,
@@ -42,6 +46,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { referralMemberPrimaryLabel, referralMemberSecondaryLabel } from "@/lib/display-user";
+import { getWithdrawableUsd } from "@/lib/wallet-totals";
+import Link from "next/link";
 
 interface Referral {
     id: string;
@@ -63,7 +69,7 @@ interface ReferralBonus {
     from_user_id?: string;
     from_user_email?: string;
     amount: number;
-    type: 'commission' | 'manual' | 'bonus';
+    type: 'commission' | 'manual' | 'bonus' | 'investment' | 'daily';
     level?: number;
     description: string;
     status: 'pending' | 'approved' | 'rejected';
@@ -83,9 +89,6 @@ export default function ReferralsPage() {
     const { user, userProfile } = useUser();
     const { toast } = useToast();
     const [copied, setCopied] = useState(false);
-    const [withdrawAmount, setWithdrawAmount] = useState("");
-    const [isWithdrawing, setIsWithdrawing] = useState(false);
-    const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
     const [showShareOptions, setShowShareOptions] = useState(false);
     const [isGeneratingCode, setIsGeneratingCode] = useState(false);
     const [globalReferralSettings, setGlobalReferralSettings] = useState<GlobalReferralSettings>(DEFAULT_REFERRAL_SETTINGS);
@@ -199,6 +202,7 @@ export default function ReferralsPage() {
     const pendingCommission = bonuses?.filter(b => b.status === 'pending').reduce((sum, b) => sum + b.amount, 0) || 0;
 
     const referralWallet = userProfile?.referral_balance || 0;
+    const withdrawableTotal = getWithdrawableUsd(userProfile);
     const totalWithdrawn = withdrawals?.filter(w => w.status === 'approved').reduce((sum, w) => sum + w.amount, 0) || 0;
 
     const copyToClipboard = async () => {
@@ -323,89 +327,18 @@ export default function ReferralsPage() {
         setShowShareOptions(false);
     };
 
-    const handleWithdraw = async () => {
-        if (!user) {
-            toast({ variant: "destructive", title: "Error", description: "Please login to withdraw" });
-            return;
-        }
-
-        const amount = parseFloat(withdrawAmount);
-        if (!amount || amount <= 0) {
-            toast({ variant: "destructive", title: "Invalid Amount", description: "Please enter a valid amount" });
-            return;
-        }
-
-        // Get minimum withdrawal from settings
-        const settings = userProfile?.referral_settings || { min_withdrawal: 10 };
-        const minWithdrawal = settings.min_withdrawal || 10;
-
-        if (amount < minWithdrawal) {
-            toast({ variant: "destructive", title: "Minimum Withdrawal", description: `Minimum withdrawal amount is ${minWithdrawal.toFixed(2)}` });
-            return;
-        }
-
-        if (amount > referralWallet) {
-            toast({ variant: "destructive", title: "Insufficient Balance", description: "You don't have enough referral earnings" });
-            return;
-        }
-
-        setIsWithdrawing(true);
-        try {
-            const timestampNow = new Date().toISOString();
-
-            // Deduct from referral_balance immediately (locked while pending)
-            if (db) {
-                await updateDoc(doc(db, 'users', user.uid), {
-                    referral_balance: increment(-amount),
-                    updated_at: timestampNow,
-                });
-            }
-
-            const wd = await insertRow('referral_withdrawals', {
-                user_id: user.uid,
-                user_email: userProfile?.email,
-                amount: amount,
-                status: 'pending',
-                requested_at: timestampNow,
-            });
-
-            const tx = await insertRow('transactions', {
-                user_id: user.uid,
-                user_email: userProfile?.email,
-                type: 'referral_withdrawal',
-                amount: amount,
-                currency: 'USD',
-                status: 'pending',
-                description: `Referral earnings withdrawal request`,
-                metadata: { referral_withdrawal_id: wd.id },
-            });
-
-            await updateRow('referral_withdrawals', wd.id, {
-                linked_transaction_id: tx.id,
-            });
-
-            toast({
-                title: "Withdrawal Requested!",
-                description: `$${amount.toFixed(2)} withdrawal is pending admin approval. Funds are locked.`,
-            });
-
-            setWithdrawAmount("");
-            setShowWithdrawDialog(false);
-        } catch (error: any) {
-            console.error('Withdrawal error:', error);
-            toast({ variant: "destructive", title: "Error", description: error.message || "Failed to submit withdrawal request" });
-        } finally {
-            setIsWithdrawing(false);
-        }
-    };
-
-    const getCommissionRates = () => ({
-        level1: globalReferralSettings.level1_percent,
-        level2: globalReferralSettings.level2_percent,
-        level3: globalReferralSettings.level3_percent,
-    });
-
-    const rates = getCommissionRates();
+    const rates = useMemo(
+        () => ({
+            level1: globalReferralSettings.level1_percent,
+            level2: globalReferralSettings.level2_percent,
+            level3: globalReferralSettings.level3_percent,
+            daily1: globalReferralSettings.daily_level1_percent ?? DEFAULT_REFERRAL_SETTINGS.daily_level1_percent,
+            daily2: globalReferralSettings.daily_level2_percent ?? DEFAULT_REFERRAL_SETTINGS.daily_level2_percent,
+            daily3: globalReferralSettings.daily_level3_percent ?? DEFAULT_REFERRAL_SETTINGS.daily_level3_percent,
+            dailyEnabled: globalReferralSettings.daily_income_commission_enabled !== false,
+        }),
+        [globalReferralSettings]
+    );
 
     if (isLoading) {
         return (
@@ -474,7 +407,7 @@ export default function ReferralsPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-primary">${referralWallet.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground">Can withdraw</p>
+                        <p className="text-xs text-muted-foreground">Referral pool (withdraw via Wallet)</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -500,7 +433,9 @@ export default function ReferralsPage() {
                                 <UserPlus className="h-5 w-5" />
                                 Your Referral Link
                             </h3>
-                            <p className="text-primary-foreground/80">Share this link and earn up to {rates.level1}% commission</p>
+                            <p className="text-primary-foreground/80">
+                                Per-deposit lifetime commission — up to {rates.level1}% on direct referrals’ plan activations (L2/L3 rates in structure below)
+                            </p>
                         </div>
                         <div className="flex flex-col gap-2 w-full lg:w-auto">
                             <Input
@@ -606,9 +541,12 @@ export default function ReferralsPage() {
                                 <Network className="h-5 w-5" />
                                 Commission Structure
                             </CardTitle>
-                            <CardDescription>Earn from 3 upline levels — auto-credited when your team invests (rates from admin settings)</CardDescription>
+                            <CardDescription>
+                                Two streams: (1) per-deposit on plan activation, (2) per daily claim on your team’s profit claim — both use 3 uplines (L1 direct, L2, L3). Amounts rounded to cents.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent>
+                            <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Plan deposit (% of deposit)</p>
                             <div className="grid gap-4 md:grid-cols-3">
                                 <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-xl p-4 text-center">
                                     <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -638,6 +576,30 @@ export default function ReferralsPage() {
                                     <Badge className="mt-2" variant="secondary">{level3Referrals.length} users</Badge>
                                 </div>
                             </div>
+
+                            <p className="text-xs font-medium text-muted-foreground mt-6 mb-2 uppercase tracking-wide">
+                                Daily income commission (% of member’s claim that day)
+                            </p>
+                            {!rates.dailyEnabled ? (
+                                <p className="text-sm text-amber-600 dark:text-amber-500">
+                                    Daily income commission is turned off in admin settings.
+                                </p>
+                            ) : (
+                                <div className="grid gap-4 md:grid-cols-3">
+                                    <div className="rounded-xl border border-teal-500/25 bg-teal-500/5 p-4 text-center">
+                                        <div className="text-lg font-semibold text-teal-600 dark:text-teal-400">{rates.daily1}%</div>
+                                        <p className="text-xs text-muted-foreground mt-1">Level 1 — direct referrer</p>
+                                    </div>
+                                    <div className="rounded-xl border border-teal-500/25 bg-teal-500/5 p-4 text-center">
+                                        <div className="text-lg font-semibold text-teal-600 dark:text-teal-400">{rates.daily2}%</div>
+                                        <p className="text-xs text-muted-foreground mt-1">Level 2 upline</p>
+                                    </div>
+                                    <div className="rounded-xl border border-teal-500/25 bg-teal-500/5 p-4 text-center">
+                                        <div className="text-lg font-semibold text-teal-600 dark:text-teal-400">{rates.daily3}%</div>
+                                        <p className="text-xs text-muted-foreground mt-1">Level 3 upline</p>
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -651,43 +613,54 @@ export default function ReferralsPage() {
                         </TabsList>
 
                         <TabsContent value="all">
-                            <ReferralsList referrals={referrals || []} level={1} />
+                            <ReferralsList referrals={referrals || []} depositRates={rates} />
                         </TabsContent>
                         <TabsContent value="level1">
-                            <ReferralsList referrals={level1Referrals} level={1} />
+                            <ReferralsList referrals={level1Referrals} depositRates={rates} />
                         </TabsContent>
                         <TabsContent value="level2">
-                            <ReferralsList referrals={level2Referrals} level={2} />
+                            <ReferralsList referrals={level2Referrals} depositRates={rates} />
                         </TabsContent>
                         <TabsContent value="level3">
-                            <ReferralsList referrals={level3Referrals} level={3} />
+                            <ReferralsList referrals={level3Referrals} depositRates={rates} />
                         </TabsContent>
                     </Tabs>
                 </div>
 
                 {/* Sidebar */}
                 <div className="space-y-6">
-                    {/* Quick Withdraw */}
+                    {/* Single withdrawal path: main + referral on Wallet */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <Download className="h-5 w-5" />
-                                Withdraw Earnings
+                                <Wallet className="h-5 w-5" />
+                                Withdraw
                             </CardTitle>
+                            <CardDescription>
+                                Main balance and referral earnings are combined for one withdrawal flow on the Wallet page.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="text-center p-4 bg-muted rounded-lg">
-                                <p className="text-sm text-muted-foreground">Available Balance</p>
-                                <p className="text-3xl font-bold text-primary">${referralWallet.toFixed(2)}</p>
+                            <div className="text-center p-4 bg-muted rounded-lg space-y-1">
+                                <p className="text-sm text-muted-foreground">Total withdrawable</p>
+                                <p className="text-3xl font-bold text-primary">${withdrawableTotal.toFixed(2)}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Includes main ${Number(userProfile?.balance ?? 0).toFixed(2)} + referral ${referralWallet.toFixed(2)}
+                                </p>
                             </div>
-                            <Button
-                                className="w-full"
-                                disabled={referralWallet <= 0}
-                                onClick={() => setShowWithdrawDialog(true)}
-                            >
-                                <Download className="mr-2 h-4 w-4" />
-                                Withdraw Now
-                            </Button>
+                            {withdrawableTotal <= 0 ? (
+                                <Button className="w-full" disabled>
+                                    <ArrowRight className="mr-2 h-4 w-4" />
+                                    Open Wallet to withdraw
+                                </Button>
+                            ) : (
+                                <Button className="w-full" asChild>
+                                    <Link href="/wallet">
+                                        <ArrowRight className="mr-2 h-4 w-4" />
+                                        Open Wallet to withdraw
+                                    </Link>
+                                </Button>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -724,7 +697,11 @@ export default function ReferralsPage() {
                                                     <div>
                                                         <p className="text-sm font-medium">+${bonus.amount.toFixed(2)}</p>
                                                         <p className="text-xs text-muted-foreground">
-                                                            {bonus.type === 'manual' ? 'Bonus from Admin' : `Level ${bonus.level} Commission`}
+                                                            {bonus.type === 'manual'
+                                                            ? 'Bonus from Admin'
+                                                            : bonus.type === 'daily'
+                                                              ? `Level ${bonus.level} daily income commission`
+                                                              : `Level ${bonus.level} commission`}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -770,7 +747,7 @@ export default function ReferralsPage() {
                                 <div>
                                     <p className="font-medium text-sm">Earn Commission</p>
                                     <p className="text-xs text-muted-foreground">
-                                        Earn {rates.level1 ?? 5}% on direct referrals, {rates.level2 ?? 3}% on the next upline, {rates.level3 ?? 2}% on the third — three levels only, on qualifying deposits (same as the landing page and app rules).
+                                        Per-deposit lifetime commission: {rates.level1 ?? 5}% / {rates.level2 ?? 3}% / {rates.level3 ?? 2}% on three uplines, each time your team activates an investment — wallet top-ups without a plan do not count.
                                     </p>
                                 </div>
                             </div>
@@ -779,45 +756,26 @@ export default function ReferralsPage() {
                 </div>
             </div>
 
-            {/* Withdraw Dialog */}
-            <Dialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Withdraw Referral Earnings</DialogTitle>
-                        <DialogDescription>Request a withdrawal of your referral commissions</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="p-4 bg-muted rounded-lg">
-                            <p className="text-sm text-muted-foreground">Available Balance</p>
-                            <p className="text-2xl font-bold text-primary">${referralWallet.toFixed(2)}</p>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Withdrawal Amount ($)</Label>
-                            <Input
-                                type="number"
-                                value={withdrawAmount}
-                                onChange={(e) => setWithdrawAmount(e.target.value)}
-                                placeholder="Enter amount"
-                                max={referralWallet}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setShowWithdrawDialog(false)}>Cancel</Button>
-                        <Button
-                            onClick={handleWithdraw}
-                            disabled={isWithdrawing || !withdrawAmount || parseFloat(withdrawAmount) <= 0}
-                        >
-                            {isWithdrawing ? 'Processing...' : 'Request Withdrawal'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
 
-function ReferralsList({ referrals, level }: { referrals: Referral[]; level: number }) {
+function depositRateForLevel(
+    depositRates: { level1: number; level2: number; level3: number },
+    referralLevel: number
+): number {
+    if (referralLevel === 1) return depositRates.level1;
+    if (referralLevel === 2) return depositRates.level2;
+    return depositRates.level3;
+}
+
+function ReferralsList({
+    referrals,
+    depositRates,
+}: {
+    referrals: Referral[];
+    depositRates: { level1: number; level2: number; level3: number };
+}) {
     if (referrals.length === 0) {
         return (
             <Card>
@@ -836,6 +794,7 @@ function ReferralsList({ referrals, level }: { referrals: Referral[]; level: num
                 <div className="divide-y">
                     {referrals.map((referral) => {
                         const sub = referralMemberSecondaryLabel(referral);
+                        const displayRate = depositRateForLevel(depositRates, referral.level);
                         return (
                         <div key={referral.id} className="p-3 sm:p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors">
                             <div className={cn(
@@ -860,7 +819,7 @@ function ReferralsList({ referrals, level }: { referrals: Referral[]; level: num
                                 )}
                                 <div className="flex items-center gap-1 sm:gap-2 text-xs text-muted-foreground flex-wrap">
                                     <Badge variant="outline" className="text-xs">L{referral.level}</Badge>
-                                    <span>{referral.commission_percent}% rate</span>
+                                    <span>{displayRate}% on deposits (current plan)</span>
                                 </div>
                             </div>
                             <div className="text-right shrink-0">

@@ -134,7 +134,15 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
                 userRef,
                 (docSnap) => {
                     if (docSnap.exists()) {
-                        setUserProfile({ ...docSnap.data(), id: docSnap.id });
+                        const d = docSnap.data();
+                        setUserProfile({
+                            ...d,
+                            id: docSnap.id,
+                            balance: Number(d.balance) || 0,
+                            referral_balance: Number(d.referral_balance) || 0,
+                            referral_earnings: Number(d.referral_earnings) || 0,
+                            total_investment: Number(d.total_investment) || 0,
+                        });
                     } else {
                         setUserProfile(null);
                     }

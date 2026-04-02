@@ -14,6 +14,9 @@
 
 import { useState, useMemo } from "react";
 import { useRealtimeCollection, insertRow, updateRow } from "@/firebase";
+import { applyAdminReferralBonusLedger } from "@/lib/admin-referral-bonus-ledger";
+import { normalizeReferralSettings, type ReferralSettings as CoreReferralSettings } from "@/lib/referral-system";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,15 +100,7 @@ interface ReferralBonus {
     approved_at?: string;
 }
 
-interface ReferralSettings {
-    id: string;
-    level1_percent: number;
-    level2_percent: number;
-    level3_percent: number;
-    min_withdrawal: number;
-    signup_bonus: number;
-    enabled: boolean;
-}
+type ReferralSettings = CoreReferralSettings & { id?: string; signup_bonus?: number };
 
 export function EnhancedReferralManager() {
     const { toast } = useToast();
@@ -152,14 +147,14 @@ export function EnhancedReferralManager() {
     const { data: bonuses, isLoading: bonusesLoading } = useRealtimeCollection<ReferralBonus>(bonusesOptions);
     const { data: settingsData } = useRealtimeCollection<ReferralSettings>(settingsOptions);
 
-    const settings = settingsData?.[0] || {
-        level1_percent: 5,
-        level2_percent: 3,
-        level3_percent: 2,
-        min_withdrawal: 10,
-        signup_bonus: 0,
-        enabled: true
-    };
+    const settings: ReferralSettings = useMemo(() => {
+        const row = settingsData?.[0] as (CoreReferralSettings & { id?: string; signup_bonus?: number }) | undefined;
+        return {
+            ...normalizeReferralSettings(row),
+            id: row?.id,
+            signup_bonus: row?.signup_bonus != null ? Number(row.signup_bonus) : 0,
+        };
+    }, [settingsData]);
 
     // Filter users
     const filteredUsers = useMemo(() => {
@@ -220,24 +215,34 @@ export function EnhancedReferralManager() {
     const handleSendBonus = async () => {
         if (!selectedUser || !bonusAmount || !bonusDescription) return;
 
+        const memo = bonusDescription.trim();
+        if (memo.length < 3) {
+            toast({
+                variant: "destructive",
+                title: "Reason too short",
+                description: "Use at least 3 characters — it shows on the member’s transaction history.",
+            });
+            return;
+        }
+
+        const amt = parseFloat(bonusAmount);
+        if (!amt || amt <= 0) {
+            toast({ variant: "destructive", title: "Invalid amount", description: "Enter a positive number." });
+            return;
+        }
+
         setIsSending(true);
         try {
-            await insertRow('referral_bonuses', {
-                user_id: selectedUser.id,
-                user_email: selectedUser.email,
-                amount: parseFloat(bonusAmount),
-                level: selectedLevel,
-                type: bonusType,
-                description: bonusDescription,
-                status: 'approved', // Auto-approve admin bonuses
-                created_by: 'admin',
-                created_at: new Date().toISOString(),
-                approved_at: new Date().toISOString()
-            });
-
-            // Update user referral balance
-            await updateRow('users', selectedUser.id, {
-                referral_balance: (selectedUser.referral_balance || 0) + parseFloat(bonusAmount)
+            await applyAdminReferralBonusLedger({
+                userId: selectedUser.id,
+                userDisplayName: selectedUser.display_name || selectedUser.email || "User",
+                userEmail: selectedUser.email || "",
+                amount: amt,
+                memo,
+                extras: {
+                    bonusType: bonusType,
+                    level: selectedLevel,
+                },
             });
 
             // Create notification
@@ -273,6 +278,7 @@ export function EnhancedReferralManager() {
     // Update settings
     const handleUpdateSettings = async (newSettings: Partial<ReferralSettings>) => {
         try {
+            const { id: _omit, signup_bonus: _sb, ...settingsPayload } = settings;
             if (settingsData?.[0]?.id) {
                 await updateRow('referral_settings', settingsData[0].id, {
                     ...newSettings,
@@ -280,8 +286,8 @@ export function EnhancedReferralManager() {
                 });
             } else {
                 await insertRow('referral_settings', {
-                    ...settings,
-                    ...newSettings,
+                    ...normalizeReferralSettings({ ...settingsPayload, ...newSettings }),
+                    signup_bonus: newSettings.signup_bonus ?? settings.signup_bonus ?? 0,
                     created_at: new Date().toISOString()
                 });
             }
@@ -635,32 +641,95 @@ export function EnhancedReferralManager() {
                             <CardDescription>Configure commission percentages and bonuses</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                                <strong className="text-foreground">Per-deposit</strong> — % of each plan activation (investment) amount, 3 uplines.
+                            </p>
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="space-y-2">
                                     <Label>Level 1 Commission (%)</Label>
                                     <Input
                                         type="number"
+                                        key={`l1-${settings.level1_percent}`}
                                         defaultValue={settings.level1_percent}
-                                        onChange={(e) => handleUpdateSettings({ level1_percent: parseInt(e.target.value) })}
+                                        onChange={(e) => handleUpdateSettings({ level1_percent: parseFloat(e.target.value) || 0 })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Level 2 Commission (%)</Label>
                                     <Input
                                         type="number"
+                                        key={`l2-${settings.level2_percent}`}
                                         defaultValue={settings.level2_percent}
-                                        onChange={(e) => handleUpdateSettings({ level2_percent: parseInt(e.target.value) })}
+                                        onChange={(e) => handleUpdateSettings({ level2_percent: parseFloat(e.target.value) || 0 })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Level 3 Commission (%)</Label>
                                     <Input
                                         type="number"
+                                        key={`l3-${settings.level3_percent}`}
                                         defaultValue={settings.level3_percent}
-                                        onChange={(e) => handleUpdateSettings({ level3_percent: parseInt(e.target.value) })}
+                                        onChange={(e) => handleUpdateSettings({ level3_percent: parseFloat(e.target.value) || 0 })}
                                     />
                                 </div>
                             </div>
+
+                            <div className="rounded-lg border p-4 space-y-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <Label>Daily income commission</Label>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Small % of the member’s <strong>daily profit claim</strong> (same 3 uplines). Payouts rounded to cents.
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">Enabled</span>
+                                        <Switch
+                                            checked={settings.daily_income_commission_enabled !== false}
+                                            onCheckedChange={(v) => handleUpdateSettings({ daily_income_commission_enabled: v })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>L1 daily (% of claim)</Label>
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            key={`d1-${settings.daily_level1_percent}`}
+                                            defaultValue={settings.daily_level1_percent}
+                                            onChange={(e) =>
+                                                handleUpdateSettings({ daily_level1_percent: parseFloat(e.target.value) || 0 })
+                                            }
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>L2 daily (% of claim)</Label>
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            key={`d2-${settings.daily_level2_percent}`}
+                                            defaultValue={settings.daily_level2_percent}
+                                            onChange={(e) =>
+                                                handleUpdateSettings({ daily_level2_percent: parseFloat(e.target.value) || 0 })
+                                            }
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>L3 daily (% of claim)</Label>
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            key={`d3-${settings.daily_level3_percent}`}
+                                            defaultValue={settings.daily_level3_percent}
+                                            onChange={(e) =>
+                                                handleUpdateSettings({ daily_level3_percent: parseFloat(e.target.value) || 0 })
+                                            }
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Minimum Withdrawal ($)</Label>

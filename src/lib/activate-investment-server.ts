@@ -1,6 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
-import { DEFAULT_REFERRAL_SETTINGS, type ReferralSettings } from '@/lib/referral-system';
+import { normalizeReferralSettings, type ReferralSettings } from '@/lib/referral-system';
 import type { ActivateQrInvestmentParams } from '@/lib/activate-qr-investment';
 import {
     DEPOSIT_INCOME_TIERS,
@@ -9,11 +9,12 @@ import {
     resolveDailyIncomeForDeposit,
     type DepositIncomeTier,
 } from '@/lib/deposit-income-tiers';
+import { roundMoney2 } from '@/lib/wallet-totals';
 
 async function getReferralSettingsAdmin(adminDb: Firestore): Promise<ReferralSettings> {
     const snap = await adminDb.collection('referral_settings').doc('default').get();
-    if (snap.exists) return snap.data() as ReferralSettings;
-    return DEFAULT_REFERRAL_SETTINGS;
+    if (snap.exists) return normalizeReferralSettings(snap.data() as Record<string, unknown>);
+    return normalizeReferralSettings({});
 }
 
 async function awardOneCommissionAdmin(
@@ -44,7 +45,7 @@ async function awardOneCommissionAdmin(
         type,
         level: uplineDepth,
         level_percent: percentApplied,
-        description: `Investment bonus — upline level ${uplineDepth} (${percentApplied}% of deposit) from ${fromUsername}`,
+        description: `Per-deposit lifetime commission — Level ${uplineDepth} (${percentApplied}% of this deposit) from ${fromUsername}`,
         status: 'approved',
         created_at: timestamp,
         paid_at: timestamp,
@@ -96,7 +97,7 @@ async function runReferralChainAdmin(
         const referrerDoc = await adminDb.collection('users').doc(currentReferrerId).get();
         if (!referrerDoc.exists) break;
         if (percent > 0) {
-            const commission = investmentAmount * (percent / 100);
+            const commission = roundMoney2(investmentAmount * (percent / 100));
             if (commission > 0) {
                 try {
                     await awardOneCommissionAdmin(

@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowDownLeft, ArrowUpRight, Search, Download, Filter } from "lucide-react";
 import { format } from "date-fns";
+import { userTransactionStatusPresentation } from "@/lib/transaction-display";
 
 type TransactionType =
     | 'deposit'
@@ -129,17 +130,13 @@ export default function TransactionsPage() {
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'completed':
-                return <Badge className="bg-green-500/20 text-green-400">Completed</Badge>;
-            case 'pending':
-                return <Badge className="bg-yellow-500/20 text-yellow-400">Pending</Badge>;
-            case 'failed':
-                return <Badge className="bg-red-500/20 text-red-400">Failed</Badge>;
-            default:
-                return <Badge>{status}</Badge>;
-        }
+    const getStatusBadge = (t: Transaction) => {
+        const st = userTransactionStatusPresentation(t);
+        return (
+            <Badge variant="outline" className={`capitalize border ${st.className}`}>
+                {st.label}
+            </Badge>
+        );
     };
 
     const exportToCSV = () => {
@@ -196,7 +193,7 @@ export default function TransactionsPage() {
                             >
                                 {isCreditTransactionType(t.type) ? '+' : '-'}${t.amount.toFixed(2)}
                             </TableCell>
-                            <TableCell>{getStatusBadge(t.status)}</TableCell>
+                            <TableCell>{getStatusBadge(t)}</TableCell>
                             <TableCell className="max-w-xs truncate">{t.description}</TableCell>
                         </TableRow>
                     ))

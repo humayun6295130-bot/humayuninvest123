@@ -1,6 +1,7 @@
 
 "use client";
 
+import { getSupportEmail } from "@/lib/site-brand";
 import { PublicHeader } from "@/components/layout/public-header";
 import { PublicFooter } from "@/components/layout/public-footer";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { useState } from "react";
 export default function ContactPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const supportEmail = getSupportEmail();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +53,11 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-sm uppercase tracking-wider">Email Us</p>
-                    <p className="text-muted-foreground">support@ascendfolio.com</p>
+                    <p className="text-muted-foreground">
+                      {supportEmail || (
+                        <span className="text-amber-600 text-sm">Set NEXT_PUBLIC_SUPPORT_EMAIL or NEXT_PUBLIC_BASE_URL in env</span>
+                      )}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">

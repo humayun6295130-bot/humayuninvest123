@@ -381,17 +381,12 @@ export function RegisterForm() {
                 <span className="text-sm font-medium">Referral Benefits</span>
               </div>
               <div className="space-y-2 text-xs text-muted-foreground">
+                <p className="text-slate-300 font-medium leading-snug">
+                  Per-deposit lifetime commission (3 levels) on each referral plan activation.
+                </p>
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-3 w-3 text-green-400" />
-                  <span>Earn {DEFAULT_REFERRAL_SETTINGS.level1_percent}% on direct referral deposits</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-3 w-3 text-green-400" />
-                  <span>Earn {DEFAULT_REFERRAL_SETTINGS.level2_percent}% on level 2 (next upline)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-3 w-3 text-green-400" />
-                  <span>Earn {DEFAULT_REFERRAL_SETTINGS.level3_percent}% on level 3</span>
+                  <TrendingUp className="h-3 w-3 text-green-400 shrink-0" />
+                  <span>L1 {DEFAULT_REFERRAL_SETTINGS.level1_percent}% · L2 {DEFAULT_REFERRAL_SETTINGS.level2_percent}% · L3 {DEFAULT_REFERRAL_SETTINGS.level3_percent}% of each qualifying deposit</span>
                 </div>
               </div>
             </div>

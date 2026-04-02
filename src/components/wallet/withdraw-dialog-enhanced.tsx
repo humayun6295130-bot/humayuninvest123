@@ -10,7 +10,7 @@
  * - Withdrawal preview
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -56,6 +56,14 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useAddressValidator, useFeeCalculator } from "@/hooks/use-bep20";
 import { isValidBEP20Address } from "@/lib/bep20";
+import {
+    getMainBalanceUsd,
+    getReferralBalanceUsd,
+    getWithdrawableUsd,
+    maxWithdrawRequestAmountUsd,
+    roundMoney2,
+    splitWithdrawDeduction,
+} from "@/lib/wallet-totals";
 
 interface WithdrawDialogEnhancedProps {
     userProfile: any;
@@ -114,6 +122,14 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
         }
     }, [open, hasSavedWallet]);
 
+    const withdrawable = useMemo(() => getWithdrawableUsd(userProfile), [userProfile]);
+    const mainBal = useMemo(() => getMainBalanceUsd(userProfile), [userProfile]);
+    const refBal = useMemo(() => getReferralBalanceUsd(userProfile), [userProfile]);
+    const maxRequestUsd = useMemo(
+        () => maxWithdrawRequestAmountUsd(withdrawable, WITHDRAWAL_FEE_PERCENTAGE),
+        [withdrawable]
+    );
+
     // Watch form values for real-time validation
     const watchAddress = form.watch("walletAddress");
     const watchAmount = form.watch("amount");
@@ -152,9 +168,14 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
             return;
         }
 
-        // Check balance
-        if (values.amount > userProfile.balance) {
-            toast({ variant: "destructive", title: "Insufficient Balance", description: "Withdrawal amount exceeds your balance." });
+        const withdrawable = getWithdrawableUsd(userProfile);
+        const maxReq = maxWithdrawRequestAmountUsd(withdrawable, WITHDRAWAL_FEE_PERCENTAGE);
+        if (values.amount > maxReq) {
+            toast({
+                variant: "destructive",
+                title: "Insufficient Balance",
+                description: `Max you can request (after ${WITHDRAWAL_FEE_PERCENTAGE}% fee) is about $${maxReq.toFixed(2)} from your combined wallet.`,
+            });
             return;
         }
 
@@ -182,9 +203,15 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
             await runTransaction(db, async (tx) => {
                 const userSnap = await tx.get(userRef);
                 if (!userSnap.exists()) throw new Error("User not found");
-                const currentBalance = userSnap.data().balance || 0;
-                if (currentBalance < totalDeduct) throw new Error("Insufficient balance");
-                tx.update(userRef, { balance: currentBalance - totalDeduct });
+                const mainUsd = getMainBalanceUsd(userSnap.data());
+                const refUsd = getReferralBalanceUsd(userSnap.data());
+                const { fromMain, fromRef } = splitWithdrawDeduction(totalDeduct, mainUsd, refUsd);
+                const nowIso = new Date().toISOString();
+                tx.update(userRef, {
+                    balance: roundMoney2(mainUsd - fromMain),
+                    referral_balance: roundMoney2(refUsd - fromRef),
+                    updated_at: nowIso,
+                });
             });
 
             const requestedAt = new Date().toISOString();
@@ -286,13 +313,25 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                             {/* Available Balance */}
                             <Card className="bg-muted">
-                                <CardContent className="pt-4">
+                                <CardContent className="pt-4 space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-muted-foreground">Available Balance</span>
+                                        <span className="text-sm font-medium text-foreground">Withdrawable (total)</span>
                                         <span className="font-bold text-lg">
-                                            {userProfile?.balance?.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) || '$0.00'}
+                                            {withdrawable.toLocaleString("en-US", { style: "currency", currency: "USD" })}
                                         </span>
                                     </div>
+                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                        <span>Main wallet</span>
+                                        <span>{mainBal.toLocaleString("en-US", { style: "currency", currency: "USD" })}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                        <span>Referral balance</span>
+                                        <span>{refBal.toLocaleString("en-US", { style: "currency", currency: "USD" })}</span>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/50">
+                                        One withdrawal uses both pools (referral first), incl. {WITHDRAWAL_FEE_PERCENTAGE}% fee. Max request ≈{" "}
+                                        {maxRequestUsd.toLocaleString("en-US", { style: "currency", currency: "USD" })}.
+                                    </p>
                                 </CardContent>
                             </Card>
 
@@ -367,7 +406,8 @@ export function WithdrawDialogEnhanced({ userProfile }: WithdrawDialogEnhancedPr
                                             />
                                         </FormControl>
                                         <FormDescription>
-                                            Min: $50 USD • Max: 10,000 USDT • 8% fee applies
+                                            Min: $50 • Max: $10,000 request • {WITHDRAWAL_FEE_PERCENTAGE}% fee • combined balance limit ≈ $
+                                            {maxRequestUsd.toFixed(2)}
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>

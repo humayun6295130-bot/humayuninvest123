@@ -1,16 +1,29 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { processDailyCommissions } from '@/lib/referral-system';
 
-export async function POST() {
+export const dynamic = 'force-dynamic';
+
+function assertCronAuthorized(request: NextRequest): NextResponse | null {
+    const secret = process.env.CRON_SECRET?.trim();
+    if (!secret) return null;
+    const auth = request.headers.get('authorization') || '';
+    if (auth !== `Bearer ${secret}`) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    return null;
+}
+
+/** Legacy batch job over `referrals.daily_profit` (often unused). Per-claim uplines use client `distributeDailyClaimReferralCommissions`. */
+export async function POST(request: NextRequest) {
+    const denied = assertCronAuthorized(request);
+    if (denied) return denied;
+
     try {
-        console.log('🔄 Starting daily commission processing...');
+        console.log('Starting legacy referral daily_commission batch...');
 
         const results = await processDailyCommissions();
 
-        console.log(`✅ Daily commission processing complete:`);
-        console.log(`   - Processed: ${results.processed} referrals`);
-        console.log(`   - Total Commission: ${results.totalCommission.toFixed(4)} BTC`);
-        console.log(`   - Errors: ${results.errors.length}`);
+        console.log(`Legacy batch done: processed=${results.processed}, total USD≈${results.totalCommission.toFixed(2)}, errors=${results.errors.length}`);
 
         if (results.errors.length > 0) {
             console.error('Errors:', results.errors);
@@ -31,7 +44,6 @@ export async function POST() {
     }
 }
 
-// Also allow GET for manual triggering
-export async function GET() {
-    return POST();
+export async function GET(request: NextRequest) {
+    return POST(request);
 }

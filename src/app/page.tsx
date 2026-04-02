@@ -8,7 +8,7 @@ import { PublicFooter } from '@/components/layout/public-footer';
 import { PublicBannerCarousel } from '@/components/layout/public-banner-carousel';
 import { MiningVisualization } from '@/components/mining/mining-visualization';
 import { useFirebase } from '@/firebase';
-import { DEFAULT_REFERRAL_SETTINGS } from '@/lib/referral-system';
+import { DEFAULT_REFERRAL_SETTINGS, REFERRAL_POLICY_HEADLINE } from '@/lib/referral-system';
 
 const STATS = [
     { icon: Hash, value: "245.6 PH/s", label: "Network Hash Rate", color: "text-orange-400" },
@@ -93,7 +93,7 @@ const PERKS = [
     "No hidden fees or commissions",
     "24/7 live mining monitoring",
     "Instant referral rewards",
-    "3-level referral on deposits",
+    "Per-deposit lifetime commission (3 levels)",
     "Secure USDT withdrawals",
     "Dedicated account manager",
 ];
@@ -317,8 +317,8 @@ export default function LandingPage() {
                                 Earn While Others{" "}
                                 <span className="bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">Mine</span>
                             </h2>
-                            <p className="text-slate-400 max-w-lg mx-auto">
-                                Earn on referral deposits up to three uplines (rates below). Same rules as in the app.
+                            <p className="text-slate-400 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
+                                Each time a referral <span className="text-slate-300 font-medium">activates an investment</span>, you and two uplines earn the rates below on <span className="text-slate-300 font-medium">that deposit</span> — again on every new qualifying deposit, not just once.
                             </p>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl mx-auto">
@@ -329,8 +329,8 @@ export default function LandingPage() {
                                 </div>
                             ))}
                         </div>
-                        <p className="text-center text-xs text-slate-500 mt-4">
-                            Commission is earned on every deposit made by your referrals, credited instantly.
+                        <p className="text-center text-xs text-slate-500 mt-4 max-w-lg mx-auto leading-relaxed">
+                            Wallet-only top-ups without a plan do not trigger referral payouts. Plan activations credit instantly to referral balances.
                         </p>
                     </div>
                 </section>

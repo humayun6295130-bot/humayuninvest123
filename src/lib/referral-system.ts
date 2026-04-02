@@ -16,6 +16,16 @@ import {
     Firestore,
 } from 'firebase/firestore';
 import { REFERRAL_COMMISSION_MAX_DEPTH } from '@/lib/deposit-income-tiers';
+import { roundMoney2 } from '@/lib/wallet-totals';
+
+/**
+ * User-visible policy (EN). Commissions fire on each qualifying **plan / investment activation**,
+ * not on wallet-only top-ups. Three uplines; repeats on every new qualifying deposit from the same team member.
+ */
+export const REFERRAL_POLICY_HEADLINE = 'Per-deposit lifetime commission (3 levels)';
+
+export const REFERRAL_POLICY_DETAIL =
+    'Whenever someone in your network activates an investment (plan deposit), Levels 1–3 earn the published percentage of that deposit amount (per-deposit lifetime). Separately, when that member claims daily profit, Levels 1–3 earn a small percentage of that day’s claimed amount — again each claim day. Wallet-only top-ups do not trigger deposit commissions. All rates follow live admin settings.';
 
 // Helper to ensure db is not null
 const getDb = (): Firestore => {
@@ -43,7 +53,23 @@ export interface ReferralSettings {
     level5_percent?: number;
     min_withdrawal: number;
     enabled: boolean;
+    /** % of member’s **daily claim** paid to direct upline (small; e.g. 0.5 = 0.5%). */
+    daily_level1_percent: number;
+    daily_level2_percent: number;
+    daily_level3_percent: number;
+    /** If false, no L1–L3 payouts on daily profit claims. */
+    daily_income_commission_enabled: boolean;
+    signup_bonus?: number;
 }
+
+/** MLM line item metadata for `awardCommission` descriptions and audit. */
+export type ReferralCommissionMlmMeta = {
+    uplineDepth: number;
+    percentApplied: number;
+    commissionKind?: 'per_deposit' | 'daily_claim';
+    /** Deposit amount or total daily claim (USD) the % is applied to — for receipts. */
+    basisAmountUsd?: number;
+};
 
 export interface UserReferral {
     id: string;
@@ -107,7 +133,39 @@ export const DEFAULT_REFERRAL_SETTINGS: ReferralSettings = {
     level3_percent: 2,
     min_withdrawal: 10,
     enabled: true,
+    daily_income_commission_enabled: true,
+    /** Small slice of each daily claim (member’s claimed profit that day). */
+    daily_level1_percent: 0.5,
+    daily_level2_percent: 0.25,
+    daily_level3_percent: 0.15,
 };
+
+export function normalizeReferralSettings(raw: Partial<ReferralSettings> | Record<string, unknown> | undefined | null): ReferralSettings {
+    const r = (raw || {}) as Partial<ReferralSettings>;
+    const n = (x: unknown, d: number) => {
+        const v = Number(x);
+        return Number.isFinite(v) ? v : d;
+    };
+    /** Percent fields: keep up to 4 decimal places (e.g. 0.125% daily rates). */
+    const pct = (x: unknown, d: number) => {
+        const v = n(x, d);
+        return Math.round(v * 10000) / 10000;
+    };
+    return {
+        ...DEFAULT_REFERRAL_SETTINGS,
+        ...r,
+        level1_percent: pct(r.level1_percent, DEFAULT_REFERRAL_SETTINGS.level1_percent),
+        level2_percent: pct(r.level2_percent, DEFAULT_REFERRAL_SETTINGS.level2_percent),
+        level3_percent: pct(r.level3_percent, DEFAULT_REFERRAL_SETTINGS.level3_percent),
+        daily_level1_percent: pct(r.daily_level1_percent, DEFAULT_REFERRAL_SETTINGS.daily_level1_percent),
+        daily_level2_percent: pct(r.daily_level2_percent, DEFAULT_REFERRAL_SETTINGS.daily_level2_percent),
+        daily_level3_percent: pct(r.daily_level3_percent, DEFAULT_REFERRAL_SETTINGS.daily_level3_percent),
+        min_withdrawal: roundMoney2(n(r.min_withdrawal, DEFAULT_REFERRAL_SETTINGS.min_withdrawal)),
+        enabled: r.enabled !== false,
+        daily_income_commission_enabled: r.daily_income_commission_enabled !== false,
+        signup_bonus: r.signup_bonus != null ? roundMoney2(n(r.signup_bonus, 0)) : undefined,
+    };
+}
 
 // ─── Core Functions ─────────────────────────────────────
 
@@ -119,14 +177,15 @@ export async function getReferralSettings(): Promise<ReferralSettings> {
         const firestore = getDb();
         const settingsDoc = await getDoc(doc(firestore, 'referral_settings', 'default'));
         if (settingsDoc.exists()) {
-            return settingsDoc.data() as ReferralSettings;
+            return normalizeReferralSettings(settingsDoc.data());
         }
         // Create default settings if not exists
-        await setDoc(doc(firestore, 'referral_settings', 'default'), DEFAULT_REFERRAL_SETTINGS);
-        return DEFAULT_REFERRAL_SETTINGS;
+        const initial = normalizeReferralSettings({});
+        await setDoc(doc(firestore, 'referral_settings', 'default'), initial);
+        return initial;
     } catch (error) {
         console.error('Error getting referral settings:', error);
-        return DEFAULT_REFERRAL_SETTINGS;
+        return normalizeReferralSettings({});
     }
 }
 
@@ -174,6 +233,8 @@ export async function processNewReferral(
     const batch = writeBatch(firestore);
     const timestamp = new Date().toISOString();
 
+    const depositRates = await getReferralSettings();
+
     // Get referrer's current level and commission rate
     const referrerDoc = await getDoc(doc(firestore, 'users', referrerId));
     if (!referrerDoc.exists()) {
@@ -185,12 +246,10 @@ export async function processNewReferral(
     // Check if team commission is enabled for referrer
     const teamCommissionEnabled = referrerData.team_commission_enabled !== false;
 
-    const referrerLevel = referrerData.referral_level || 1;
-
-    // Get commission percentage based on referrer's level
-    const levels = DEFAULT_REFERRAL_LEVELS;
-    const levelConfig = levels.find(l => l.level === referrerLevel) || levels[0];
-    const commissionPercent = levelConfig.commissionPercent;
+    // Deposit commission % on referrals — same source as distributeInvestmentReferralCommissions (referral_settings)
+    const level1DepositPercent = depositRates.level1_percent;
+    const level2DepositPercent = depositRates.level2_percent;
+    const level3DepositPercent = depositRates.level3_percent;
 
     // 1. Create referral record (always create - tracks the relationship)
     const referralRef = doc(collection(firestore, 'referrals'));
@@ -201,7 +260,7 @@ export async function processNewReferral(
         referred_username: referredUsername,
         referred_name: referredName,
         level: 1,
-        commission_percent: commissionPercent,
+        commission_percent: level1DepositPercent,
         total_commission: 0,
         status: teamCommissionEnabled ? 'active' : 'inactive',
         investment_amount: investmentAmount,
@@ -247,7 +306,6 @@ export async function processNewReferral(
     // 3. If there's an upstream referrer, create level-2 row (grandparent sees new member C in gen 2)
     const grandparentId = referrerData.referrer_id as string | undefined;
     if (grandparentId) {
-        const level2Config = levels.find(l => l.level === 2) || levels[1];
         const level2Ref = doc(collection(firestore, 'referrals'));
         batch.set(level2Ref, {
             referrer_id: grandparentId,
@@ -258,7 +316,7 @@ export async function processNewReferral(
             /** Immediate referrer (direct parent) — same as level-1 referrer for this signup */
             parent_referrer_id: referrerId,
             level: 2,
-            commission_percent: level2Config.commissionPercent,
+            commission_percent: level2DepositPercent,
             total_commission: 0,
             status: 'active',
             investment_amount: investmentAmount,
@@ -283,7 +341,6 @@ export async function processNewReferral(
             : undefined;
 
         if (greatGrandparentId) {
-            const level3Config = levels.find(l => l.level === 3) || levels[2];
             const level3Ref = doc(collection(firestore, 'referrals'));
             batch.set(level3Ref, {
                 referrer_id: greatGrandparentId,
@@ -294,7 +351,7 @@ export async function processNewReferral(
                 parent_referrer_id: referrerId,
                 intermediate_referrer_id: grandparentId,
                 level: 3,
-                commission_percent: level3Config.commissionPercent,
+                commission_percent: level3DepositPercent,
                 total_commission: 0,
                 status: 'active',
                 investment_amount: investmentAmount,
@@ -319,7 +376,7 @@ export async function processNewReferral(
 
     // 4. Initial signup commission only after referral graph is committed (investment > 0 is rare on register)
     if (investmentAmount > 0 && teamCommissionEnabled) {
-        const commission = investmentAmount * (commissionPercent / 100);
+        const commission = investmentAmount * (level1DepositPercent / 100);
         await awardCommission(
             firestore,
             referrerId,
@@ -358,8 +415,11 @@ export async function awardCommission(
     amount: number,
     type: 'investment' | 'daily' | 'withdrawal' | 'bonus',
     investmentAmount: number = 0,
-    mlmMeta?: { uplineDepth: number; percentApplied: number }
+    mlmMeta?: ReferralCommissionMlmMeta
 ): Promise<void> {
+    const payout = roundMoney2(amount);
+    if (payout <= 0) return;
+
     const batch = writeBatch(firestore);
     const timestamp = new Date().toISOString();
 
@@ -381,9 +441,20 @@ export async function awardCommission(
 
     const bonusLevel = mlmMeta?.uplineDepth ?? userLevel;
     const bonusPercent = mlmMeta?.percentApplied ?? levelConfig.commissionPercent;
-    const description = mlmMeta
-        ? `Investment bonus — upline level ${mlmMeta.uplineDepth} (${mlmMeta.percentApplied}% of deposit) from ${fromUsername}`
-        : `${type === 'investment' ? 'Investment' : type === 'daily' ? 'Daily' : type === 'withdrawal' ? 'Withdrawal' : 'Bonus'} commission from ${fromUsername} (referral tier ${userLevel})`;
+
+    const basis =
+        mlmMeta?.basisAmountUsd != null && Number.isFinite(mlmMeta.basisAmountUsd)
+            ? roundMoney2(mlmMeta.basisAmountUsd)
+            : null;
+
+    let description: string;
+    if (mlmMeta?.commissionKind === 'daily_claim' && basis != null && mlmMeta.uplineDepth != null) {
+        description = `Daily income commission — Level ${mlmMeta.uplineDepth} (${mlmMeta.percentApplied}% of $${basis.toFixed(2)} claimed today) from ${fromUsername}`;
+    } else if (mlmMeta?.uplineDepth != null && mlmMeta.percentApplied != null) {
+        description = `Per-deposit lifetime commission — Level ${mlmMeta.uplineDepth} (${mlmMeta.percentApplied}% of this deposit) from ${fromUsername}`;
+    } else {
+        description = `${type === 'investment' ? 'Investment' : type === 'daily' ? 'Daily' : type === 'withdrawal' ? 'Withdrawal' : 'Bonus'} commission from ${fromUsername} (referral tier ${userLevel})`;
+    }
 
     // 1. Create bonus record
     const bonusRef = doc(collection(firestore, 'referral_bonuses'));
@@ -392,7 +463,7 @@ export async function awardCommission(
         user_email: userData.email,
         from_user_id: fromUserId,
         from_username: fromUsername,
-        amount: amount,
+        amount: payout,
         type: type,
         level: bonusLevel,
         level_percent: bonusPercent,
@@ -408,7 +479,7 @@ export async function awardCommission(
         teamRef,
         {
             user_id: userId,
-            total_commission_earned: increment(amount),
+            total_commission_earned: increment(payout),
             updated_at: timestamp,
         },
         { merge: true }
@@ -417,8 +488,8 @@ export async function awardCommission(
     // 3. Add to user's referral_balance (available to withdraw) and referral_earnings (all-time total)
     const userRef = doc(firestore, 'users', userId);
     batch.update(userRef, {
-        referral_earnings: increment(amount),
-        referral_balance: increment(amount),
+        referral_earnings: increment(payout),
+        referral_balance: increment(payout),
         updated_at: timestamp,
     });
 
@@ -426,8 +497,9 @@ export async function awardCommission(
 }
 
 /**
- * When a deposit/investment is confirmed (client Firestore), pay up to 3 uplines
- * using `referral_settings` percentages. Single entry point so every activation path stays consistent.
+ * When an investment (plan) is activated / confirmed, pay up to **3 uplines** using `referral_settings`
+ * percentages on **this deposit amount** — repeats on every new qualifying activation (per-deposit lifetime model).
+ * Call sites: QR / payment verify / admin approval / reinvest / NOWPayments server path (mirror in Admin SDK).
  */
 export async function distributeInvestmentReferralCommissions(
     firestore: Firestore,
@@ -463,7 +535,7 @@ export async function distributeInvestmentReferralCommissions(
         if (!referrerDoc.exists()) break;
 
         if (percent > 0) {
-            const commission = investmentAmount * (percent / 100);
+            const commission = roundMoney2(investmentAmount * (percent / 100));
             if (commission > 0) {
                 await awardCommission(
                     firestore,
@@ -473,8 +545,84 @@ export async function distributeInvestmentReferralCommissions(
                     commission,
                     'investment',
                     investmentAmount,
-                    { uplineDepth: level + 1, percentApplied: percent }
+                    {
+                        uplineDepth: level + 1,
+                        percentApplied: percent,
+                        commissionKind: 'per_deposit',
+                        basisAmountUsd: investmentAmount,
+                    }
                 );
+            }
+        }
+
+        const nextRaw = referrerDoc.data().referrer_id as string | undefined;
+        const next =
+            nextRaw && typeof nextRaw === 'string' && nextRaw.trim().length > 0 ? nextRaw.trim() : undefined;
+        currentReferrerId = next;
+        level++;
+    }
+}
+
+/**
+ * When a member completes their **daily profit claim**, pay up to 3 uplines a **small %** of that
+ * claim amount (separate from per-deposit commissions). Amounts rounded to cents.
+ */
+export async function distributeDailyClaimReferralCommissions(
+    firestore: Firestore,
+    earnerUserId: string,
+    dailyClaimAmountUsd: number,
+    earnerDisplayName: string
+): Promise<void> {
+    const claimTotal = roundMoney2(dailyClaimAmountUsd);
+    if (claimTotal <= 0) return;
+
+    const settings = await getReferralSettings();
+    if (!settings.enabled || settings.daily_income_commission_enabled === false) {
+        return;
+    }
+
+    const percents = [
+        settings.daily_level1_percent,
+        settings.daily_level2_percent,
+        settings.daily_level3_percent,
+    ];
+
+    const userDoc = await getDoc(doc(firestore, 'users', earnerUserId));
+    if (!userDoc.exists()) return;
+
+    let currentReferrerId = userDoc.data().referrer_id as string | undefined;
+    if (!currentReferrerId || typeof currentReferrerId !== 'string') return;
+    currentReferrerId = currentReferrerId.trim();
+    if (!currentReferrerId) return;
+
+    let level = 0;
+    while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
+        const percent = Number(percents[level] ?? 0);
+        const referrerDoc = await getDoc(doc(firestore, 'users', currentReferrerId));
+        if (!referrerDoc.exists()) break;
+
+        if (percent > 0 && Number.isFinite(percent)) {
+            const commission = roundMoney2(claimTotal * (percent / 100));
+            if (commission > 0) {
+                try {
+                    await awardCommission(
+                        firestore,
+                        currentReferrerId,
+                        earnerUserId,
+                        earnerDisplayName,
+                        commission,
+                        'daily',
+                        claimTotal,
+                        {
+                            uplineDepth: level + 1,
+                            percentApplied: percent,
+                            commissionKind: 'daily_claim',
+                            basisAmountUsd: claimTotal,
+                        }
+                    );
+                } catch (e) {
+                    console.error('Daily claim referral commission (non-fatal):', e);
+                }
             }
         }
 

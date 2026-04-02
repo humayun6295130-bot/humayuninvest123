@@ -104,11 +104,11 @@ const faqCategories = [
         questions: [
             {
                 q: "How does the referral program work?",
-                a: `Share your unique referral link. On each referral deposit you earn ${DEFAULT_REFERRAL_SETTINGS.level1_percent}% as direct referrer, ${DEFAULT_REFERRAL_SETTINGS.level2_percent}% on the next upline, and ${DEFAULT_REFERRAL_SETTINGS.level3_percent}% on the third — three levels total (default rates; admin can change live settings).`
+                a: `Per-deposit lifetime commission (3 levels): when a referral activates a plan, you earn ${DEFAULT_REFERRAL_SETTINGS.level1_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level2_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level3_percent}% on three uplines of that deposit — every new deposit again. Separately, daily income commission: when they claim daily profit, uplines earn a small % (${DEFAULT_REFERRAL_SETTINGS.daily_level1_percent}% / ${DEFAULT_REFERRAL_SETTINGS.daily_level2_percent}% / ${DEFAULT_REFERRAL_SETTINGS.daily_level3_percent}% defaults) of that day’s claimed amount, rounded to cents. Wallet top-ups without a plan do not trigger deposit commissions. Admin can change all rates.`
             },
             {
                 q: "When do I receive referral commissions?",
-                a: "Commissions are credited to your account immediately when your referral makes a deposit. You can withdraw these earnings anytime."
+                a: "Commissions credit immediately when your referral’s investment is activated (plan deposit confirmed). They appear in your referral balance and combined withdrawable total. Wallet top-ups alone do not pay referral commissions."
             },
             {
                 q: "Is there a limit on referrals?",
