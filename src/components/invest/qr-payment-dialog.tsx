@@ -32,7 +32,7 @@ import {
 import Image from "next/image";
 import { generateGenericQRCode, getWalletInfo, MIN_WALLET_DEPOSIT_USD } from "@/lib/wallet-config";
 import { isPaymentStatusComplete } from "@/lib/nowpayments-shared";
-import { resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
+import { computeExpectedReturnUsd } from "@/lib/investment-expected-return";
 import {
     buildInvestmentOrderId,
     buildWalletDepositOrderId,
@@ -40,7 +40,8 @@ import {
 } from "@/lib/investment-order-id";
 import { creditWalletAfterNowpaymentsDeposit } from "@/lib/nowpayments-wallet-deposit";
 
-const POLL_MS = 10_000;
+/** Base interval; first polls fire sooner so UX feels snappy after on-chain confirm */
+const POLL_MS = 5_000;
 
 export interface InvestmentPlan {
     id: string;
@@ -55,28 +56,6 @@ export interface InvestmentPlan {
     total_return?: number;
     /** Default true: expected payout includes principal back */
     capital_return?: boolean;
-}
-
-/** Total USD user should see credited at term (for Firestore), independent of marketing label */
-export function computeExpectedReturnUsd(plan: InvestmentPlan | null, amount: number): number {
-    if (!plan || !Number.isFinite(amount) || amount <= 0) return 0;
-    const tr = plan.total_return;
-    if (typeof tr === "number" && Number.isFinite(tr) && tr >= amount * 0.5) {
-        return tr;
-    }
-    const dur = Number(plan.duration_days) || 30;
-    const capital = plan.capital_return !== false;
-    const tiered = resolveDailyIncomeForDeposit(amount);
-    if (tiered.dailyUsd > 0 && dur > 0) {
-        const profit = tiered.dailyUsd * dur;
-        return profit + (capital ? amount : 0);
-    }
-    const retPct = Number(plan.return_percent) || 0;
-    if (retPct > 0) {
-        const profit = amount * (retPct / 100);
-        return profit + (capital ? amount : 0);
-    }
-    return amount * 2;
 }
 
 interface QrPaymentDialogProps {
@@ -330,11 +309,12 @@ export function QrPaymentDialog({
             ]);
             if (pendingDup.length > 0 || txDup.length > 0) {
                 toast({
-                    variant: "destructive",
-                    title: "Already processed",
-                    description: "This payment was already recorded.",
+                    title: "Already complete",
+                    description: "This payment is already on your account. Check portfolio or balance.",
                 });
-                setTerminal("fail");
+                setTerminal("ok");
+                activatedRef.current = false;
+                onOpenChange(false);
                 return;
             }
 
@@ -543,7 +523,7 @@ export function QrPaymentDialog({
 
     finalizeRef.current = finalizePayment;
 
-    /** Poll NOWPayments every 10s */
+    /** Poll NOWPayments: quick first checks, then every POLL_MS */
     useEffect(() => {
         if (!open || npPaymentId == null || terminal !== null) return;
 
@@ -578,8 +558,14 @@ export function QrPaymentDialog({
         };
 
         void runPoll();
+        const quickA = window.setTimeout(() => void runPoll(), 1_200);
+        const quickB = window.setTimeout(() => void runPoll(), 3_000);
         const id = window.setInterval(() => void runPoll(), POLL_MS);
-        return () => window.clearInterval(id);
+        return () => {
+            window.clearTimeout(quickA);
+            window.clearTimeout(quickB);
+            window.clearInterval(id);
+        };
     }, [open, npPaymentId, terminal, toast]);
 
     const refreshStatus = useCallback(async () => {
@@ -620,7 +606,7 @@ export function QrPaymentDialog({
                             : "Complete Your Investment"}
                     </DialogTitle>
                     <DialogDescription className="text-slate-400">
-                        Pay with USDT (BEP20 on BNB Smart Chain) via NOWPayments — status updates every few seconds.
+                        Pay with USDT (BEP20 on BNB Smart Chain) via NOWPayments — we check status often; you can also close this page after paying (webhook will still activate your plan when ready).
                         {paymentPurpose === "wallet_deposit"
                             ? " Funds go to your wallet balance when payment completes."
                             : ""}
