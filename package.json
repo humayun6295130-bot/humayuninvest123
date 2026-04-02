@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "firebase:deploy:rules": "npx firebase-tools deploy --only firestore:rules",
     "firebase:deploy:indexes": "npx firebase-tools deploy --only firestore:indexes",
-    "firebase:deploy:firestore": "npx firebase-tools deploy --only firestore"
+    "firebase:deploy:firestore": "npx firebase-tools deploy --only firestore",
+    "link-referral": "npx tsx scripts/link-existing-referral.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",

@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { getEffectiveDailyIncomeUsd } from "@/lib/deposit-income-tiers";
+import { getEffectiveDailyIncomeUsd, resolveDailyIncomeForDeposit } from "@/lib/deposit-income-tiers";
 import {
     Pickaxe,
     Bitcoin,
@@ -930,22 +930,39 @@ export default function MiningPage() {
                                 </p>
                             )}
                         </div>
-                        {selectedPackage && investAmount && (
+                        {selectedPackage && investAmount && (() => {
+                            const amt = parseFloat(investAmount) || 0;
+                            const tier = resolveDailyIncomeForDeposit(amt);
+                            const dailyUsd = tier.dailyUsd;
+                            const monthlyEst = dailyUsd * 30;
+                            return (
                             <Card className="bg-[#0a0a0a]/50 border-slate-800">
                                 <CardContent className="p-3 space-y-2">
+                                    <p className="text-[11px] text-slate-500 leading-snug">
+                                        Daily income follows the global deposit tier table (same as claims), not the miner card % label.
+                                    </p>
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-slate-400">Per day</span>
-                                        <span className="text-[#FFD700]">${((parseFloat(investAmount) || 0) * selectedPackage.dailyRoi / 100).toFixed(2)}</span>
+                                        <span className="text-slate-400">Per day (tier {tier.tierLevel || "—"})</span>
+                                        <span className="text-[#FFD700]">${dailyUsd.toFixed(2)}</span>
                                     </div>
+                                    {tier.tierLevel > 0 && (
+                                        <p className="text-[11px] text-slate-500">{tier.incomePercent}% of principal in this tier band</p>
+                                    )}
                                     <div className="flex justify-between text-sm border-t border-slate-800 pt-2">
-                                        <span className="text-slate-400">Monthly Estimate</span>
+                                        <span className="text-slate-400">Monthly estimate (30×)</span>
                                         <span className="text-green-400 font-bold">
-                                            ${((parseFloat(investAmount) || 0) * selectedPackage.dailyRoi * 30 / 100).toFixed(2)}
+                                            ${monthlyEst.toFixed(2)}
                                         </span>
                                     </div>
+                                    {amt > 0 && tier.tierLevel === 0 ? (
+                                        <p className="text-[11px] text-amber-500/90">
+                                            Below minimum tier — increase amount until daily income applies (see Invest page tiers).
+                                        </p>
+                                    ) : null}
                                 </CardContent>
                             </Card>
-                        )}
+                            );
+                        })()}
                     </div>
                     <DialogFooter>
                         <Button

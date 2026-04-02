@@ -1,6 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
-import { normalizeReferralSettings, type ReferralSettings } from '@/lib/referral-system';
+import { calculateTeamLevel, normalizeReferralSettings, type ReferralSettings } from '@/lib/referral-system';
 import type { ActivateQrInvestmentParams } from '@/lib/activate-qr-investment';
 import {
     DEPOSIT_INCOME_TIERS,
@@ -71,14 +71,55 @@ async function awardOneCommissionAdmin(
     await batch.commit();
 }
 
+async function bumpUplineTeamVolumeAdmin(adminDb: Firestore, uplineUid: string, deltaUsd: number): Promise<void> {
+    const delta = roundMoney2(deltaUsd);
+    if (delta <= 0) return;
+
+    const teamRef = adminDb.collection('user_teams').doc(uplineUid);
+    const snap = await teamRef.get();
+    const timestamp = new Date().toISOString();
+
+    if (!snap.exists) {
+        await teamRef.set(
+            {
+                user_id: uplineUid,
+                total_members: 0,
+                level1_count: 0,
+                level2_count: 0,
+                level3_count: 0,
+                level4_count: 0,
+                level5_count: 0,
+                total_team_investment: delta,
+                total_commission_earned: 0,
+                current_level: calculateTeamLevel(0, delta),
+                updated_at: timestamp,
+            },
+            { merge: true }
+        );
+        return;
+    }
+
+    const td = snap.data()!;
+    const totalMembers = td.total_members || 0;
+    const totalInvestment = roundMoney2((td.total_team_investment || 0) + delta);
+    const newLevel = calculateTeamLevel(totalMembers, totalInvestment);
+    await teamRef.update({
+        total_team_investment: totalInvestment,
+        current_level: newLevel,
+        updated_at: timestamp,
+    });
+}
+
 async function runReferralChainAdmin(
     adminDb: Firestore,
     investorUserId: string,
     investorEmail: string,
     investmentAmount: number
 ): Promise<void> {
+    if (investmentAmount <= 0) return;
+
     const settings = await getReferralSettingsAdmin(adminDb);
-    if (!settings.enabled) return;
+    const payCommission = settings.enabled;
 
     const commissionPercents = [
         settings.level1_percent,
@@ -93,28 +134,38 @@ async function runReferralChainAdmin(
     const fromName = userDoc.data()?.username || investorEmail || '';
 
     while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
-        const percent = Number(commissionPercents[level] ?? 0);
         const referrerDoc = await adminDb.collection('users').doc(currentReferrerId).get();
         if (!referrerDoc.exists) break;
-        if (percent > 0) {
-            const commission = roundMoney2(investmentAmount * (percent / 100));
-            if (commission > 0) {
-                try {
-                    await awardOneCommissionAdmin(
-                        adminDb,
-                        currentReferrerId,
-                        investorUserId,
-                        fromName,
-                        commission,
-                        'investment',
-                        level + 1,
-                        percent
-                    );
-                } catch (e) {
-                    console.error('Referral commission (admin) non-fatal:', e);
+
+        try {
+            await bumpUplineTeamVolumeAdmin(adminDb, currentReferrerId, investmentAmount);
+        } catch (e) {
+            console.error('bumpUplineTeamVolumeAdmin (non-fatal):', e);
+        }
+
+        if (payCommission) {
+            const percent = Number(commissionPercents[level] ?? 0);
+            if (percent > 0) {
+                const commission = roundMoney2(investmentAmount * (percent / 100));
+                if (commission > 0) {
+                    try {
+                        await awardOneCommissionAdmin(
+                            adminDb,
+                            currentReferrerId,
+                            investorUserId,
+                            fromName,
+                            commission,
+                            'investment',
+                            level + 1,
+                            percent
+                        );
+                    } catch (e) {
+                        console.error('Referral commission (admin) non-fatal:', e);
+                    }
                 }
             }
         }
+
         const nextRaw = referrerDoc.data()?.referrer_id as string | undefined;
         currentReferrerId =
             typeof nextRaw === 'string' && nextRaw.trim().length > 0 ? nextRaw.trim() : undefined;

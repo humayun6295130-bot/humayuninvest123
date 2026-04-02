@@ -497,8 +497,57 @@ export async function awardCommission(
 }
 
 /**
+ * Add this deposit amount to each upline's `user_teams.total_team_investment` (L1–L3) and refresh `current_level`.
+ * Independent of referral commission toggle so team stats stay accurate when commissions are off.
+ */
+async function bumpUplineTeamInvestmentVolume(
+    firestore: Firestore,
+    uplineUid: string,
+    deltaUsd: number
+): Promise<void> {
+    const delta = roundMoney2(deltaUsd);
+    if (delta <= 0) return;
+
+    const teamRef = doc(firestore, 'user_teams', uplineUid);
+    const snap = await getDoc(teamRef);
+    const timestamp = new Date().toISOString();
+
+    if (!snap.exists()) {
+        await setDoc(
+            teamRef,
+            {
+                user_id: uplineUid,
+                total_members: 0,
+                level1_count: 0,
+                level2_count: 0,
+                level3_count: 0,
+                level4_count: 0,
+                level5_count: 0,
+                total_team_investment: delta,
+                total_commission_earned: 0,
+                current_level: calculateTeamLevel(0, delta),
+                updated_at: timestamp,
+            },
+            { merge: true }
+        );
+        return;
+    }
+
+    const td = snap.data();
+    const totalMembers = td.total_members || 0;
+    const totalInvestment = roundMoney2((td.total_team_investment || 0) + delta);
+    const newLevel = calculateTeamLevel(totalMembers, totalInvestment);
+    await updateDoc(teamRef, {
+        total_team_investment: totalInvestment,
+        current_level: newLevel,
+        updated_at: timestamp,
+    });
+}
+
+/**
  * When an investment (plan) is activated / confirmed, pay up to **3 uplines** using `referral_settings`
  * percentages on **this deposit amount** — repeats on every new qualifying activation (per-deposit lifetime model).
+ * Also adds the deposit to each upline's **team investment volume** (`user_teams`) so referral stats / levels match reality.
  * Call sites: QR / payment verify / admin approval / reinvest / NOWPayments server path (mirror in Admin SDK).
  */
 export async function distributeInvestmentReferralCommissions(
@@ -510,9 +559,7 @@ export async function distributeInvestmentReferralCommissions(
     if (investmentAmount <= 0) return;
 
     const settings = await getReferralSettings();
-    if (!settings.enabled) {
-        return;
-    }
+    const payCommission = settings.enabled;
 
     const commissionPercents = [
         settings.level1_percent,
@@ -530,28 +577,40 @@ export async function distributeInvestmentReferralCommissions(
 
     let level = 0;
     while (currentReferrerId && level < REFERRAL_COMMISSION_MAX_DEPTH) {
-        const percent = Number(commissionPercents[level] ?? 0);
         const referrerDoc = await getDoc(doc(firestore, 'users', currentReferrerId));
         if (!referrerDoc.exists()) break;
 
-        if (percent > 0) {
-            const commission = roundMoney2(investmentAmount * (percent / 100));
-            if (commission > 0) {
-                await awardCommission(
-                    firestore,
-                    currentReferrerId,
-                    investorUserId,
-                    investorDisplayName,
-                    commission,
-                    'investment',
-                    investmentAmount,
-                    {
-                        uplineDepth: level + 1,
-                        percentApplied: percent,
-                        commissionKind: 'per_deposit',
-                        basisAmountUsd: investmentAmount,
+        try {
+            await bumpUplineTeamInvestmentVolume(firestore, currentReferrerId, investmentAmount);
+        } catch (e) {
+            console.error('bumpUplineTeamInvestmentVolume (non-fatal):', e);
+        }
+
+        if (payCommission) {
+            const percent = Number(commissionPercents[level] ?? 0);
+            if (percent > 0) {
+                const commission = roundMoney2(investmentAmount * (percent / 100));
+                if (commission > 0) {
+                    try {
+                        await awardCommission(
+                            firestore,
+                            currentReferrerId,
+                            investorUserId,
+                            investorDisplayName,
+                            commission,
+                            'investment',
+                            investmentAmount,
+                            {
+                                uplineDepth: level + 1,
+                                percentApplied: percent,
+                                commissionKind: 'per_deposit',
+                                basisAmountUsd: investmentAmount,
+                            }
+                        );
+                    } catch (e) {
+                        console.error('awardCommission (non-fatal):', e);
                     }
-                );
+                }
             }
         }
 
@@ -808,37 +867,44 @@ export async function validateReferralCode(code: string): Promise<{
     message: string;
 }> {
     try {
-        // Input validation
-        if (!code || typeof code !== 'string' || code.length < 3 || code.length > 50) {
+        const trimmed = typeof code === 'string' ? code.trim() : '';
+        // Referral codes are REF + 6 chars; usernames min 3 — keep a sensible floor
+        if (!trimmed || trimmed.length < 3 || trimmed.length > 50) {
             return { valid: false, message: 'Invalid referral code format' };
         }
 
         const firestore = getDb();
 
-        // First: search by referral_code (exact match, case-insensitive via uppercase)
-        const byCodeQuery = query(
-            collection(firestore, 'users'),
-            where('referral_code', '==', code.toUpperCase()),
-            limit(1)
-        );
-        const byCodeSnapshot = await getDocs(byCodeQuery);
+        // By referral_code: stored uppercase (generateUniqueReferralCode); also try as-entered for legacy rows
+        const codeVariants = [trimmed.toUpperCase(), trimmed];
+        const seen = new Set<string>();
+        for (const variant of codeVariants) {
+            if (seen.has(variant)) continue;
+            seen.add(variant);
+            const byCodeQuery = query(
+                collection(firestore, 'users'),
+                where('referral_code', '==', variant),
+                limit(1)
+            );
+            const byCodeSnapshot = await getDocs(byCodeQuery);
 
-        if (!byCodeSnapshot.empty) {
-            const userDoc = byCodeSnapshot.docs[0];
-            const d = userDoc.data();
-            return {
-                valid: true,
-                userId: userDoc.id,
-                username: d.username,
-                displayName: d.display_name,
-                message: 'Valid referral code'
-            };
+            if (!byCodeSnapshot.empty) {
+                const userDoc = byCodeSnapshot.docs[0];
+                const d = userDoc.data();
+                return {
+                    valid: true,
+                    userId: userDoc.id,
+                    username: d.username,
+                    displayName: d.display_name,
+                    message: 'Valid referral code'
+                };
+            }
         }
 
         // Fallback: search by username (legacy support)
         const byUsernameQuery = query(
             collection(firestore, 'users'),
-            where('username', '==', code.toLowerCase()),
+            where('username', '==', trimmed.toLowerCase()),
             limit(1)
         );
         const byUsernameSnapshot = await getDocs(byUsernameQuery);

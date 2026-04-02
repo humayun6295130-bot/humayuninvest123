@@ -71,7 +71,6 @@ export function RegisterForm() {
   const { isConfigured } = useFirebase();
   const { signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [referralCode, setReferralCode] = useState<string>("");
   const [referralValid, setReferralValid] = useState<{
     valid: boolean;
     message: string;
@@ -79,17 +78,7 @@ export function RegisterForm() {
     username?: string;
     displayName?: string;
   }>({ valid: false, message: "" });
-
-  // Get referral code from URL on mount
-  useEffect(() => {
-    const refCode = searchParams.get("ref");
-    if (refCode) {
-      setReferralCode(refCode);
-      validateReferralCode(refCode).then(result => {
-        setReferralValid(result);
-      });
-    }
-  }, [searchParams]);
+  const [referralCheckPending, setReferralCheckPending] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -102,12 +91,33 @@ export function RegisterForm() {
     },
   });
 
-  // Update referral code in form when it changes
+  const watchedReferralCode = form.watch("referralCode");
+
+  // Pre-fill referral from ?ref= (single source of truth: form field — no hidden controlled input)
   useEffect(() => {
-    if (referralCode) {
-      form.setValue("referralCode", referralCode);
+    const refParam = searchParams.get("ref");
+    const trimmed = refParam?.trim() ?? "";
+    if (trimmed) {
+      form.setValue("referralCode", trimmed);
     }
-  }, [referralCode, form]);
+  }, [searchParams, form]);
+
+  // Debounced validation when the field changes (typing or URL pre-fill)
+  useEffect(() => {
+    const trimmed = (watchedReferralCode ?? "").trim();
+    if (!trimmed) {
+      setReferralValid({ valid: false, message: "" });
+      setReferralCheckPending(false);
+      return;
+    }
+    setReferralCheckPending(true);
+    const t = window.setTimeout(() => {
+      validateReferralCode(trimmed)
+        .then(setReferralValid)
+        .finally(() => setReferralCheckPending(false));
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [watchedReferralCode]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
@@ -120,11 +130,11 @@ export function RegisterForm() {
       // Check if this user should be an admin based on their email
       const isAdmin = values.email.toLowerCase() === "humayunlbb@gmail.com";
 
-      // Validate referral code if provided
+      // Validate referral code if provided (trimmed; re-check on submit so value matches form)
       let referrerId: string | null = null;
-      if (values.referralCode || referralCode) {
-        const refCode = values.referralCode || referralCode;
-        const validation = await validateReferralCode(refCode);
+      const refCodeRaw = (values.referralCode ?? "").trim();
+      if (refCodeRaw) {
+        const validation = await validateReferralCode(refCodeRaw);
         if (validation.valid && validation.userId) {
           referrerId = validation.userId;
         }
@@ -220,9 +230,14 @@ export function RegisterForm() {
             title: "Referral Applied!",
             description: `You were referred by a team member. They'll earn commission from your investments!`,
           });
-        } catch (refError: any) {
+        } catch (refError: unknown) {
           console.error("Error processing referral:", refError);
-          // Don't fail registration if referral processing fails
+          const msg = refError instanceof Error ? refError.message : "Could not save referral link.";
+          toast({
+            variant: "destructive",
+            title: "Referral not linked",
+            description: `${msg} Your account was created; support can attach your sponsor if needed.`,
+          });
         }
       }
 
@@ -258,7 +273,17 @@ export function RegisterForm() {
           Create your account and start mining BTC
         </p>
 
-        {/* Show referral info if valid */}
+        {/* Referral status from ?ref= or optional field */}
+        {referralCheckPending && (watchedReferralCode ?? "").trim() ? (
+          <div className="mt-4 p-3 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-muted-foreground">
+            Checking referral code…
+          </div>
+        ) : null}
+        {!referralCheckPending && (watchedReferralCode ?? "").trim() && !referralValid.valid ? (
+          <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/25 rounded-lg text-sm text-amber-200/90">
+            {referralValid.message || "This referral code was not found. You can fix it below or continue without a sponsor."}
+          </div>
+        ) : null}
         {referralValid.valid && (
           <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
             <div className="flex items-center gap-2 text-green-400">
@@ -362,8 +387,24 @@ export function RegisterForm() {
               )}
             />
 
-            {/* Hidden referral code field - auto-filled from URL */}
-            <input type="hidden" {...form.register("referralCode")} value={referralCode} />
+            <FormField
+              control={form.control}
+              name="referralCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-300">Referral code (optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="REF… or username from invite link"
+                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:ring-orange-500 focus:border-orange-500"
+                      {...field}
+                      disabled={isLoading}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
 
           <CardFooter className="flex flex-col gap-4">

@@ -3,6 +3,7 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { PlanManager } from "@/components/admin/plan-manager";
 import { EnhancedReferralManager } from "@/components/admin/enhanced-referral-manager";
+import { AdminReferralRepairPanel } from "@/components/admin/admin-referral-repair-panel";
 import { ContentModerationPanel } from "@/components/admin/content-moderation-panel";
 import { AdminPortfolioLookup } from "@/components/admin/admin-portfolio-lookup";
 import { AdminInvestmentsLookup } from "@/components/admin/admin-investments-lookup";
@@ -35,7 +36,8 @@ export function AdminPlatformHub() {
                             Referrals, bonuses &amp; team
                         </span>
                     </AccordionTrigger>
-                    <AccordionContent className="pb-4 pt-0">
+                    <AccordionContent className="pb-4 pt-0 space-y-4">
+                        <AdminReferralRepairPanel />
                         <EnhancedReferralManager />
                     </AccordionContent>
                 </AccordionItem>
