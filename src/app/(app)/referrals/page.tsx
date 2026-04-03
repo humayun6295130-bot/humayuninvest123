@@ -130,7 +130,7 @@ export default function ReferralsPage() {
     const bonusesOptions = useMemo(() => ({
         table: 'referral_bonuses',
         filters: user ? [{ column: 'user_id', operator: '==' as const, value: user.uid }] : [],
-        limitCount: 50,
+        limitCount: 300,
         enabled: !!user,
     }), [user]);
 
@@ -165,6 +165,12 @@ export default function ReferralsPage() {
                 new Date(b.requested_at || 0).getTime() - new Date(a.requested_at || 0).getTime()
         );
     }, [withdrawalsRaw]);
+
+    /** Real commission credited per team member (from referral_bonuses), keyed by referred user id */
+    const commissionByReferredUserId = useMemo(
+        () => aggregateCommissionByReferredMember(bonuses ?? undefined),
+        [bonuses]
+    );
 
     // Build stable base URL for referral links (prefers NEXT_PUBLIC_BASE_URL, falls back to window.origin, then a safe default)
     const referralBaseUrl = useMemo(() => {
@@ -605,6 +611,11 @@ export default function ReferralsPage() {
 
                     {/* Referrals List */}
                     <Tabs defaultValue="all" className="space-y-4">
+                        <div className="px-1">
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                Next to each person: <span className="font-medium text-foreground">commission you earned from them</span> is summed from your bonus ledger (plan activations + daily claims). This replaces the old row counter that often stayed at $0.
+                            </p>
+                        </div>
                         <TabsList className="flex flex-wrap h-auto gap-1 p-1">
                             <TabsTrigger value="all" className="flex-1 min-w-[60px] text-xs sm:text-sm">All ({totalReferrals})</TabsTrigger>
                             <TabsTrigger value="level1" className="flex-1 min-w-[60px] text-xs sm:text-sm">L1 ({level1Referrals.length})</TabsTrigger>
@@ -613,16 +624,32 @@ export default function ReferralsPage() {
                         </TabsList>
 
                         <TabsContent value="all">
-                            <ReferralsList referrals={referrals || []} depositRates={rates} />
+                            <ReferralsList
+                                referrals={referrals || []}
+                                depositRates={rates}
+                                commissionByReferredUserId={commissionByReferredUserId}
+                            />
                         </TabsContent>
                         <TabsContent value="level1">
-                            <ReferralsList referrals={level1Referrals} depositRates={rates} />
+                            <ReferralsList
+                                referrals={level1Referrals}
+                                depositRates={rates}
+                                commissionByReferredUserId={commissionByReferredUserId}
+                            />
                         </TabsContent>
                         <TabsContent value="level2">
-                            <ReferralsList referrals={level2Referrals} depositRates={rates} />
+                            <ReferralsList
+                                referrals={level2Referrals}
+                                depositRates={rates}
+                                commissionByReferredUserId={commissionByReferredUserId}
+                            />
                         </TabsContent>
                         <TabsContent value="level3">
-                            <ReferralsList referrals={level3Referrals} depositRates={rates} />
+                            <ReferralsList
+                                referrals={level3Referrals}
+                                depositRates={rates}
+                                commissionByReferredUserId={commissionByReferredUserId}
+                            />
                         </TabsContent>
                     </Tabs>
                 </div>
@@ -769,12 +796,72 @@ function depositRateForLevel(
     return depositRates.level3;
 }
 
+type CommissionFromMemberAgg = {
+    approvedTotal: number;
+    depositStream: number;
+    dailyStream: number;
+    otherStream: number;
+    pendingTotal: number;
+    bonusEntries: number;
+};
+
+function aggregateCommissionByReferredMember(
+    bonuses: ReferralBonus[] | undefined
+): Record<string, CommissionFromMemberAgg> {
+    const out: Record<string, CommissionFromMemberAgg> = {};
+    if (!bonuses?.length) return out;
+
+    for (const b of bonuses) {
+        const fromId = typeof b.from_user_id === 'string' ? b.from_user_id.trim() : '';
+        if (!fromId) continue;
+
+        const amt = Number(b.amount);
+        if (!Number.isFinite(amt) || amt === 0) continue;
+
+        if (!out[fromId]) {
+            out[fromId] = {
+                approvedTotal: 0,
+                depositStream: 0,
+                dailyStream: 0,
+                otherStream: 0,
+                pendingTotal: 0,
+                bonusEntries: 0,
+            };
+        }
+        const row = out[fromId]!;
+        const st = String(b.status || '').toLowerCase();
+        const typ = String(b.type || '').toLowerCase();
+
+        if (st === 'approved') {
+            row.approvedTotal += amt;
+            row.bonusEntries += 1;
+            if (typ === 'daily') {
+                row.dailyStream += amt;
+            } else if (typ === 'investment' || typ === 'commission') {
+                row.depositStream += amt;
+            } else {
+                row.otherStream += amt;
+            }
+        } else if (st === 'pending') {
+            row.pendingTotal += amt;
+        }
+    }
+
+    return out;
+}
+
+function fmtUsd(n: number): string {
+    return n.toFixed(2);
+}
+
 function ReferralsList({
     referrals,
     depositRates,
+    commissionByReferredUserId,
 }: {
     referrals: Referral[];
     depositRates: { level1: number; level2: number; level3: number };
+    commissionByReferredUserId: Record<string, CommissionFromMemberAgg>;
 }) {
     if (referrals.length === 0) {
         return (
@@ -795,10 +882,23 @@ function ReferralsList({
                     {referrals.map((referral) => {
                         const sub = referralMemberSecondaryLabel(referral);
                         const displayRate = depositRateForLevel(depositRates, referral.level);
+                        const memberId = referral.referred_user_id;
+                        const agg = memberId ? commissionByReferredUserId[memberId] : undefined;
+                        const totalCredited = agg?.approvedTotal ?? 0;
+                        const parts: string[] = [];
+                        if (agg && agg.depositStream > 0.001) {
+                            parts.push(`Plan / deposit: $${fmtUsd(agg.depositStream)}`);
+                        }
+                        if (agg && agg.dailyStream > 0.001) {
+                            parts.push(`Daily claims: $${fmtUsd(agg.dailyStream)}`);
+                        }
+                        if (agg && agg.otherStream > 0.001) {
+                            parts.push(`Bonus / other: $${fmtUsd(agg.otherStream)}`);
+                        }
                         return (
-                        <div key={referral.id} className="p-3 sm:p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors">
+                        <div key={referral.id} className="p-3 sm:p-4 flex items-start sm:items-center gap-3 hover:bg-muted/50 transition-colors">
                             <div className={cn(
-                                "h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center shrink-0",
+                                "h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 sm:mt-0",
                                 referral.level === 1 ? "bg-blue-500/10" :
                                     referral.level === 2 ? "bg-purple-500/10" : "bg-orange-500/10"
                             )}>
@@ -808,7 +908,7 @@ function ReferralsList({
                                         referral.level === 2 ? "text-purple-500" : "text-orange-500"
                                 )} />
                             </div>
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0 space-y-1">
                                 <p className="font-medium text-sm truncate">
                                     {referralMemberPrimaryLabel(referral)}
                                 </p>
@@ -819,14 +919,42 @@ function ReferralsList({
                                 )}
                                 <div className="flex items-center gap-1 sm:gap-2 text-xs text-muted-foreground flex-wrap">
                                     <Badge variant="outline" className="text-xs">L{referral.level}</Badge>
-                                    <span>{displayRate}% on deposits (current plan)</span>
+                                    <span>Your rate on their deposits: {displayRate}%</span>
                                 </div>
-                            </div>
-                            <div className="text-right shrink-0">
-                                <p className="font-semibold text-green-600 text-sm">+${(referral.total_commission || 0).toFixed(2)}</p>
-                                <p className="text-xs text-muted-foreground">
-                                    ${(referral.total_invested || 0).toFixed(2)} invested
+                                <p className="text-[11px] sm:text-xs text-emerald-700 dark:text-emerald-400/95 font-medium pt-0.5 border-t border-border/60 mt-2">
+                                    Commission earned from this member:{' '}
+                                    <span className="tabular-nums">${fmtUsd(totalCredited)}</span>
+                                    {agg && agg.bonusEntries > 0 ? (
+                                        <span className="text-muted-foreground font-normal">
+                                            {' '}({agg.bonusEntries} credit{agg.bonusEntries === 1 ? '' : 's'} in ledger)
+                                        </span>
+                                    ) : null}
                                 </p>
+                                {parts.length > 0 ? (
+                                    <p className="text-[10px] sm:text-[11px] text-muted-foreground leading-snug">
+                                        {parts.join(' · ')}
+                                    </p>
+                                ) : totalCredited <= 0 ? (
+                                    <p className="text-[10px] sm:text-[11px] text-muted-foreground">
+                                        No bonus payouts yet from this member (after they activate plans or claim, you will see amounts here).
+                                    </p>
+                                ) : null}
+                                {agg && agg.pendingTotal > 0.001 ? (
+                                    <p className="text-[10px] sm:text-[11px] text-amber-700 dark:text-amber-500/90">
+                                        Pending: ${fmtUsd(agg.pendingTotal)}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="text-right shrink-0 space-y-0.5 sm:pl-2 border-l border-border/50 pl-3 sm:min-w-[100px]">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">From them</p>
+                                <p className="font-bold text-green-600 dark:text-green-400 text-base tabular-nums">
+                                    +${fmtUsd(totalCredited)}
+                                </p>
+                                {(referral.total_invested || 0) > 0 ? (
+                                    <p className="text-[11px] text-muted-foreground tabular-nums">
+                                        Their row: ${fmtUsd(referral.total_invested || 0)} vol.
+                                    </p>
+                                ) : null}
                             </div>
                         </div>
                     );
