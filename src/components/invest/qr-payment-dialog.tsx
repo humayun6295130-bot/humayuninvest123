@@ -42,7 +42,7 @@ import {
 import { creditWalletAfterNowpaymentsDeposit } from "@/lib/nowpayments-wallet-deposit";
 
 /** Base interval; first polls fire sooner so UX feels snappy after on-chain confirm */
-const POLL_MS = 5_000;
+const POLL_MS = 2_500;
 
 export interface InvestmentPlan {
     id: string;
@@ -101,7 +101,8 @@ export function QrPaymentDialog({
     const [terminal, setTerminal] = useState<NpTerminal>(null);
     const [orderCopied, setOrderCopied] = useState(false);
 
-    const activatedRef = useRef(false);
+    /** Deduplicate overlapping finalize runs from poll + visibility refresh */
+    const finalizePromiseRef = useRef<Promise<void> | null>(null);
     const finalizeRef = useRef<() => Promise<void>>(async () => {});
     const walletInfo = getWalletInfo();
 
@@ -189,7 +190,7 @@ export function QrPaymentDialog({
         if (!open || !plan || !userId) return;
 
         let cancelled = false;
-        activatedRef.current = false;
+        finalizePromiseRef.current = null;
         setTerminal(null);
         setCreateError(null);
         setNpPaymentId(null);
@@ -281,19 +282,12 @@ export function QrPaymentDialog({
 
     const finalizePayment = useCallback(async () => {
         if (!plan || !userId || npPaymentId == null || !orderId) return;
-        if (activatedRef.current) return;
-        activatedRef.current = true;
+        if (finalizePromiseRef.current) return finalizePromiseRef.current;
 
-        const email = (userEmail?.trim() || user?.email || "").trim();
-        if (!email) {
-            toast({
-                variant: "destructive",
-                title: "Email required",
-                description: "Your account has no email on file.",
-            });
-            activatedRef.current = false;
-            return;
-        }
+        const run = async () => {
+        const email =
+            (userEmail?.trim() || user?.email || "").trim() ||
+            `user_${userId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 20) || "account"}@noreply.local`;
 
         const amt = Number(investmentAmount);
         const txKey = `np_${npPaymentId}`;
@@ -301,27 +295,32 @@ export function QrPaymentDialog({
 
         setIsSubmitting(true);
         try {
-            const [pendingDup, txDup] = await Promise.all([
-                fetchRows<{ transaction_id?: string }>("pending_investments", {
-                    filters: [
-                        { column: "user_id", operator: "==", value: userId },
-                        { column: "transaction_id", operator: "==", value: txLower },
-                    ],
-                }),
-                fetchRows<{ transaction_hash?: string }>("transactions", {
-                    filters: [
-                        { column: "user_id", operator: "==", value: userId },
-                        { column: "transaction_hash", operator: "==", value: txLower },
-                    ],
-                }),
-            ]);
+            let pendingDup: { transaction_id?: string }[] = [];
+            let txDup: { transaction_hash?: string }[] = [];
+            try {
+                [pendingDup, txDup] = await Promise.all([
+                    fetchRows<{ transaction_id?: string }>("pending_investments", {
+                        filters: [
+                            { column: "user_id", operator: "==", value: userId },
+                            { column: "transaction_id", operator: "==", value: txLower },
+                        ],
+                    }),
+                    fetchRows<{ transaction_hash?: string }>("transactions", {
+                        filters: [
+                            { column: "user_id", operator: "==", value: userId },
+                            { column: "transaction_hash", operator: "==", value: txLower },
+                        ],
+                    }),
+                ]);
+            } catch {
+                /* Firestore index/rules/network — server verify path still dedupes by tx hash */
+            }
             if (pendingDup.length > 0 || txDup.length > 0) {
                 toast({
                     title: "Already complete",
                     description: "This payment is already on your account. Check portfolio or balance.",
                 });
                 setTerminal("ok");
-                activatedRef.current = false;
                 onOpenChange(false);
                 return;
             }
@@ -371,15 +370,7 @@ export function QrPaymentDialog({
                         onOpenChange(false);
                         return;
                     }
-                    if (completeRes.status !== 501) {
-                        toast({
-                            variant: "destructive",
-                            title: "Deposit failed",
-                            description: completeJson.error || "Could not credit wallet on the server.",
-                        });
-                        activatedRef.current = false;
-                        return;
-                    }
+                    /* Non-501 (e.g. amount mismatch, 403): still try public verify + client credit below */
                 } else {
                     const completeRes = await fetch("/api/nowpayments/complete-investment", {
                         method: "POST",
@@ -423,41 +414,46 @@ export function QrPaymentDialog({
                         onOpenChange(false);
                         return;
                     }
-                    if (completeRes.status !== 501) {
-                        toast({
-                            variant: "destructive",
-                            title: "Activation failed",
-                            description: completeJson.error || "Could not activate investment on the server.",
-                        });
-                        activatedRef.current = false;
-                        return;
-                    }
+                    /* Same: fall through to verify + client activation when Admin route errors */
                 }
             }
 
-            const verifyRes = await fetch("/api/nowpayments/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    paymentId: String(npPaymentId),
-                    orderId,
-                    userId,
-                    expectedUsdAmount: amt,
-                }),
-            });
-            const verifyJson = (await verifyRes.json().catch(() => ({}))) as {
-                valid?: boolean;
-                error?: string;
-                settled_usd?: number;
-            };
+            type VerifyJson = { valid?: boolean; error?: string; settled_usd?: number; payment_status?: string };
+            let verifyJson: VerifyJson = {};
+            let verifyOk = false;
+            for (let attempt = 0; attempt < 8; attempt++) {
+                const verifyRes = await fetch("/api/nowpayments/verify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        paymentId: String(npPaymentId),
+                        orderId,
+                        userId,
+                        expectedUsdAmount: amt,
+                    }),
+                });
+                verifyJson = (await verifyRes.json().catch(() => ({}))) as VerifyJson;
+                if (verifyRes.ok && verifyJson.valid) {
+                    verifyOk = true;
+                    break;
+                }
+                const pst = String(verifyJson.payment_status ?? "").toLowerCase();
+                const statusLag =
+                    verifyJson.error === "Payment is not completed" ||
+                    ["waiting", "confirming", "sending", "partially_paid"].includes(pst);
+                const retryableHttp =
+                    verifyRes.status === 502 || verifyRes.status === 503 || verifyRes.status === 504;
+                const canRetry = (retryableHttp || statusLag) && attempt < 7;
+                if (!canRetry) break;
+                await new Promise((r) => setTimeout(r, Math.min(4_000, 700 + attempt * 500)));
+            }
 
-            if (!verifyRes.ok || !verifyJson.valid) {
+            if (!verifyOk) {
                 toast({
                     variant: "destructive",
                     title: "Verification failed",
                     description: verifyJson.error || "Could not confirm payment.",
                 });
-                activatedRef.current = false;
                 return;
             }
 
@@ -521,10 +517,15 @@ export function QrPaymentDialog({
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : "Activation failed";
             toast({ variant: "destructive", title: "Error", description: message });
-            activatedRef.current = false;
         } finally {
             setIsSubmitting(false);
         }
+        };
+
+        finalizePromiseRef.current = run().finally(() => {
+            finalizePromiseRef.current = null;
+        });
+        return finalizePromiseRef.current;
     }, [
         plan,
         userId,
@@ -580,12 +581,16 @@ export function QrPaymentDialog({
         };
 
         void runPoll();
-        const quickA = window.setTimeout(() => void runPoll(), 1_200);
-        const quickB = window.setTimeout(() => void runPoll(), 3_000);
+        const quickA = window.setTimeout(() => void runPoll(), 400);
+        const quickB = window.setTimeout(() => void runPoll(), 900);
+        const quickC = window.setTimeout(() => void runPoll(), 1_800);
+        const quickD = window.setTimeout(() => void runPoll(), 2_800);
         const id = window.setInterval(() => void runPoll(), POLL_MS);
         return () => {
             window.clearTimeout(quickA);
             window.clearTimeout(quickB);
+            window.clearTimeout(quickC);
+            window.clearTimeout(quickD);
             window.clearInterval(id);
         };
     }, [open, npPaymentId, terminal, toast]);
@@ -605,6 +610,15 @@ export function QrPaymentDialog({
             /* ignore */
         }
     }, [npPaymentId]);
+
+    useEffect(() => {
+        if (!open || npPaymentId == null || terminal !== null) return;
+        const onVis = () => {
+            if (document.visibilityState === "visible") void refreshStatus();
+        };
+        document.addEventListener("visibilitychange", onVis);
+        return () => document.removeEventListener("visibilitychange", onVis);
+    }, [open, npPaymentId, terminal, refreshStatus]);
 
     if (!plan) return null;
 

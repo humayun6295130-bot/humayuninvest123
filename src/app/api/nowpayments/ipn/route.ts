@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { getNowpaymentsEnv } from '@/lib/nowpayments-internal';
 import { getAdminFirestore, isFirebaseAdminConfigured } from '@/lib/firebase-admin';
 import { fulfillNowPaymentFromProvider } from '@/lib/nowpayments-fulfill-server';
+import { verifyNowpaymentsIpnSignature } from '@/lib/nowpayments-ipn-verify';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,11 +27,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const sortedKeys = Object.keys(params).sort();
-    const sortedJson = JSON.stringify(params, sortedKeys);
-    const hmac = crypto.createHmac('sha512', ipnSecret).update(sortedJson).digest('hex');
-
-    if (hmac !== received) {
+    if (!verifyNowpaymentsIpnSignature(raw, ipnSecret, params, received)) {
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 

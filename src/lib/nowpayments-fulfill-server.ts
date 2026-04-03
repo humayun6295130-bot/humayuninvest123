@@ -4,7 +4,12 @@
  */
 import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
-import { npGetPayment, isPaymentStatusComplete, usdAmountsMatch } from '@/lib/nowpayments-internal';
+import {
+    npGetPayment,
+    isPaymentStatusComplete,
+    usdAmountsMatch,
+    nowpaymentsPriceAmountUsd,
+} from '@/lib/nowpayments-internal';
 import {
     isInvestmentOrderIdForUser,
     isWalletDepositOrderIdForUser,
@@ -19,16 +24,26 @@ export type FulfillNpResult =
     | { ok: true; action: 'wallet_credited' | 'investment_activated' | 'already_done' | 'ignored' }
     | { ok: false; error: string };
 
+/** `dep_<uid>_<ts>` — uid must not contain `_` (matches buildWalletDepositOrderId). */
 function parseDepositUserId(orderId: string): string | null {
-    const m = /^dep_([a-zA-Z0-9]+)_(\d+)$/.exec(orderId.trim());
+    const m = /^dep_([^_]+)_(\d{10,20})$/.exec(orderId.trim());
     return m ? m[1] : null;
 }
 
-/** planId may contain underscores; trailing segment is numeric timestamp from buildInvestmentOrderId */
+/**
+ * `inv_<uid>_<planId>_<ts>` — uid must not contain `_`; planId may contain underscores.
+ * Trailing numeric segment is the timestamp from buildInvestmentOrderId.
+ */
 function parseInvestmentParts(orderId: string): { userId: string; planId: string } | null {
-    const m = /^inv_([a-zA-Z0-9]+)_(.+)_(\d{10,20})$/.exec(orderId.trim());
+    const m = /^inv_(.+)_(\d{10,20})$/.exec(orderId.trim());
     if (!m) return null;
-    return { userId: m[1], planId: m[2] };
+    const rest = m[1];
+    const i = rest.indexOf('_');
+    if (i <= 0) return null;
+    const userId = rest.slice(0, i);
+    const planId = rest.slice(i + 1);
+    if (!userId || !planId) return null;
+    return { userId, planId };
 }
 
 function planDocToReturnInput(pdata: Record<string, unknown>): PlanReturnInput {
@@ -73,7 +88,8 @@ export async function fulfillNowPaymentFromProvider(
         return { ok: false, error: 'missing order_id' };
     }
 
-    const priceAmt = Number(d.price_amount);
+    const priceAmt =
+        nowpaymentsPriceAmountUsd(d as Record<string, unknown>) ?? Number(d.price_amount);
     if (!Number.isFinite(priceAmt) || priceAmt <= 0) {
         return { ok: false, error: 'invalid price_amount' };
     }

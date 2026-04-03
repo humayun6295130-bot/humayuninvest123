@@ -18,8 +18,18 @@ export function nowpaymentsPriceAmountUsd(data: Record<string, unknown>): number
     return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-/** NOWPayments: finished = settled; confirmed = on-chain received (often before finished). */
+/**
+ * NOWPayments payment_status (see API docs):
+ * waiting → confirming → confirmed → sending → finished (also failed/refunded/expired).
+ * We treat late-stage statuses as payable so activation is not stuck between confirmed and finished.
+ */
 export function isPaymentStatusComplete(status: string | undefined): boolean {
     const s = String(status ?? '').toLowerCase();
-    return s === 'finished' || s === 'confirmed';
+    return (
+        s === 'finished' ||
+        s === 'confirmed' ||
+        s === 'sending' ||
+        s === 'completed' ||
+        s === 'success'
+    );
 }
