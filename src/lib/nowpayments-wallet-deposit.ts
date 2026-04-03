@@ -22,10 +22,16 @@ export async function creditWalletAfterNowpaymentsDeposit(params: {
 
     const [pendingDup, txDup] = await Promise.all([
         fetchRows<{ transaction_id?: string }>("pending_investments", {
-            filters: [{ column: "transaction_id", operator: "==", value: txKey }],
+            filters: [
+                { column: "user_id", operator: "==", value: params.user_id },
+                { column: "transaction_id", operator: "==", value: txKey },
+            ],
         }),
         fetchRows<{ transaction_hash?: string }>("transactions", {
-            filters: [{ column: "transaction_hash", operator: "==", value: txKey }],
+            filters: [
+                { column: "user_id", operator: "==", value: params.user_id },
+                { column: "transaction_hash", operator: "==", value: txKey },
+            ],
         }),
     ]);
     if (pendingDup.length > 0 || txDup.length > 0) {

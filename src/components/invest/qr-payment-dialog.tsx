@@ -301,10 +301,16 @@ export function QrPaymentDialog({
         try {
             const [pendingDup, txDup] = await Promise.all([
                 fetchRows<{ transaction_id?: string }>("pending_investments", {
-                    filters: [{ column: "transaction_id", operator: "==", value: txLower }],
+                    filters: [
+                        { column: "user_id", operator: "==", value: userId },
+                        { column: "transaction_id", operator: "==", value: txLower },
+                    ],
                 }),
                 fetchRows<{ transaction_hash?: string }>("transactions", {
-                    filters: [{ column: "transaction_hash", operator: "==", value: txLower }],
+                    filters: [
+                        { column: "user_id", operator: "==", value: userId },
+                        { column: "transaction_hash", operator: "==", value: txLower },
+                    ],
                 }),
             ]);
             if (pendingDup.length > 0 || txDup.length > 0) {

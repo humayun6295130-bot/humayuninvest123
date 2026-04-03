@@ -41,20 +41,30 @@ export async function activateInvestmentAfterVerifiedPayment(
 
     const txKey = params.transaction_id.trim().toLowerCase();
 
+    // Must scope by user_id so Firestore rules allow the query (see firestore.rules read on these collections).
     const invSnap = await getDocs(
-        query(collection(db, 'user_investments'), where('transaction_hash', '==', txKey), limit(25))
+        query(
+            collection(db, 'user_investments'),
+            where('user_id', '==', params.user_id),
+            where('transaction_hash', '==', txKey),
+            limit(25)
+        )
     );
-    if (invSnap.docs.some((d) => d.data().user_id === params.user_id)) {
+    if (!invSnap.empty) {
         return false;
     }
 
     const txSnap = await getDocs(
-        query(collection(db, 'transactions'), where('transaction_hash', '==', txKey), limit(40))
+        query(
+            collection(db, 'transactions'),
+            where('user_id', '==', params.user_id),
+            where('transaction_hash', '==', txKey),
+            limit(40)
+        )
     );
     const alreadyDebited = txSnap.docs.some((d) => {
         const x = d.data();
         return (
-            x.user_id === params.user_id &&
             x.type === 'investment' &&
             Number(x.amount) < 0 &&
             (x.status === 'completed' || x.status === 'approved')
