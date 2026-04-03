@@ -6,7 +6,10 @@ import { PublicFooter } from "@/components/layout/public-footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronDown, ChevronUp, Search, Bitcoin, Wallet, Shield, Users, Zap, Clock, TrendingUp } from "lucide-react";
 import { DEPOSIT_INCOME_TIERS } from "@/lib/deposit-income-tiers";
-import { DEFAULT_REFERRAL_SETTINGS } from "@/lib/referral-system";
+import {
+    RATES_ARE_DEFAULTS_DISCLAIMER,
+    REFERRAL_PROGRAM_COMBINED_PARAGRAPH,
+} from "@/lib/public-platform-copy";
 
 const LAST_DEPOSIT_TIER = DEPOSIT_INCOME_TIERS[DEPOSIT_INCOME_TIERS.length - 1];
 const FAQ_DAILY_TIERS_TEXT = DEPOSIT_INCOME_TIERS.map(
@@ -104,7 +107,7 @@ const faqCategories = [
         questions: [
             {
                 q: "How does the referral program work?",
-                a: `Per-deposit lifetime commission (3 levels): when a referral activates a plan, you earn ${DEFAULT_REFERRAL_SETTINGS.level1_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level2_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level3_percent}% on three uplines of that deposit — every new deposit again. Separately, daily income commission: when they claim daily profit, uplines earn a small % (${DEFAULT_REFERRAL_SETTINGS.daily_level1_percent}% / ${DEFAULT_REFERRAL_SETTINGS.daily_level2_percent}% / ${DEFAULT_REFERRAL_SETTINGS.daily_level3_percent}% defaults) of that day’s claimed amount (very small amounts may credit $0.01 minimum). Wallet top-ups without a plan do not trigger deposit commissions. Admin can change all rates.`
+                a: `${REFERRAL_PROGRAM_COMBINED_PARAGRAPH} ${RATES_ARE_DEFAULTS_DISCLAIMER}`,
             },
             {
                 q: "When do I receive referral commissions?",

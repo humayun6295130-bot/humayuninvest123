@@ -31,6 +31,7 @@ import { format } from 'date-fns';
 import { useState, useMemo } from 'react';
 import { getLiveInvestmentLevels, getLevelInfo, getNextLevel, calculateDailyEarnings, calculateWeeklyEarnings, calculateMonthlyEarnings } from '@/lib/level-config';
 import { DEFAULT_REFERRAL_SETTINGS } from '@/lib/referral-system';
+import { RATES_ARE_DEFAULTS_DISCLAIMER, REFERRAL_DAILY_CLAIM_SUMMARY } from '@/lib/public-platform-copy';
 import { useToast } from '@/hooks/use-toast';
 import { formatSupportId } from '@/lib/support-id';
 import { isAdminProfile } from '@/lib/user-role';
@@ -665,7 +666,9 @@ export default function ProfilePage() {
                         <Gift className="w-5 h-5 text-yellow-500" />
                         Team Commission
                     </CardTitle>
-                    <CardDescription>Your earnings from team referrals</CardDescription>
+                    <CardDescription>
+                        Plan-activation commissions plus optional share of referrals’ daily claims (three uplines). Full wording matches the public FAQ and Terms.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="grid gap-4 md:grid-cols-3">
@@ -689,22 +692,30 @@ export default function ProfilePage() {
                         </div>
                     </div>
 
-                    <div className="mt-4 p-4 bg-muted/30 rounded-lg">
-                        <p className="text-sm font-medium mb-2">Commission Structure</p>
-                        <div className="grid gap-2 md:grid-cols-3 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Level 1:</span>
-                                <span className="font-semibold text-blue-600">{DEFAULT_REFERRAL_SETTINGS.level1_percent}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Level 2:</span>
-                                <span className="font-semibold text-green-600">{DEFAULT_REFERRAL_SETTINGS.level2_percent}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Level 3:</span>
-                                <span className="font-semibold text-purple-600">{DEFAULT_REFERRAL_SETTINGS.level3_percent}%</span>
+                    <div className="mt-4 p-4 bg-muted/30 rounded-lg space-y-3">
+                        <div>
+                            <p className="text-sm font-medium mb-1">Per plan deposit (upline levels 1–3, defaults)</p>
+                            <p className="text-xs text-muted-foreground mb-2">Each time a downline activates an investment — not wallet-only top-ups.</p>
+                            <div className="grid gap-2 md:grid-cols-3 text-sm">
+                                <div className="flex justify-between gap-2">
+                                    <span className="text-muted-foreground">Level 1:</span>
+                                    <span className="font-semibold text-blue-600">{DEFAULT_REFERRAL_SETTINGS.level1_percent}%</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                    <span className="text-muted-foreground">Level 2:</span>
+                                    <span className="font-semibold text-green-600">{DEFAULT_REFERRAL_SETTINGS.level2_percent}%</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                    <span className="text-muted-foreground">Level 3:</span>
+                                    <span className="font-semibold text-purple-600">{DEFAULT_REFERRAL_SETTINGS.level3_percent}%</span>
+                                </div>
                             </div>
                         </div>
+                        <div>
+                            <p className="text-sm font-medium mb-1">On each daily profit claim by your team</p>
+                            <p className="text-xs text-muted-foreground leading-snug">{REFERRAL_DAILY_CLAIM_SUMMARY}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{RATES_ARE_DEFAULTS_DISCLAIMER}</p>
                     </div>
                 </CardContent>
             </Card>

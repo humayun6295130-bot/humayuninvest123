@@ -8,7 +8,12 @@ import { PublicFooter } from '@/components/layout/public-footer';
 import { PublicBannerCarousel } from '@/components/layout/public-banner-carousel';
 import { MiningVisualization } from '@/components/mining/mining-visualization';
 import { useFirebase } from '@/firebase';
-import { DEFAULT_REFERRAL_SETTINGS, REFERRAL_POLICY_HEADLINE } from '@/lib/referral-system';
+import { DEFAULT_REFERRAL_SETTINGS } from '@/lib/referral-system';
+import {
+    RATES_ARE_DEFAULTS_DISCLAIMER,
+    REFERRAL_DAILY_CLAIM_SUMMARY,
+    REFERRAL_PER_DEPOSIT_SUMMARY,
+} from '@/lib/public-platform-copy';
 
 const STATS = [
     { icon: Hash, value: "245.6 PH/s", label: "Network Hash Rate", color: "text-orange-400" },
@@ -56,8 +61,8 @@ const FEATURES = [
     },
     {
         icon: Zap,
-        title: "Instant Payouts",
-        desc: "Receive your mining rewards instantly — no waiting, no delays, straight to your wallet.",
+        title: "Withdrawals",
+        desc: "Claim daily income to your balance, then request withdrawals from Wallet (main + referral combined), subject to platform fees and processing times.",
         gradient: "from-purple-500/20 to-pink-500/20",
         border: "border-purple-500/30",
         iconBg: "bg-purple-500/10",
@@ -92,8 +97,8 @@ const COMMISSION_LEVELS = [
 const PERKS = [
     "No hidden fees or commissions",
     "24/7 live mining monitoring",
-    "Instant referral rewards",
-    "Per-deposit lifetime commission (3 levels)",
+    "Referral commissions on plan activations + share of referrals’ daily claims (3 uplines)",
+    "Per-deposit lifetime commission (3 levels) — see Referrals for live %",
     "Secure USDT withdrawals",
     "Dedicated account manager",
 ];
@@ -318,7 +323,10 @@ export default function LandingPage() {
                                 <span className="bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">Mine</span>
                             </h2>
                             <p className="text-slate-400 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
-                                Each time a referral <span className="text-slate-300 font-medium">activates an investment</span>, you and two uplines earn the rates below on <span className="text-slate-300 font-medium">that deposit</span> — again on every new qualifying deposit, not just once.
+                                {REFERRAL_PER_DEPOSIT_SUMMARY}
+                            </p>
+                            <p className="text-slate-400 max-w-xl mx-auto text-sm sm:text-base leading-relaxed mt-3">
+                                {REFERRAL_DAILY_CLAIM_SUMMARY}
                             </p>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl mx-auto">
@@ -326,11 +334,18 @@ export default function LandingPage() {
                                 <div key={lvl.level} className={`flex flex-col items-center p-4 rounded-2xl border ${lvl.bg}`}>
                                     <div className={`text-2xl sm:text-3xl font-black ${lvl.color} mb-1`}>{lvl.percent}</div>
                                     <div className="text-xs text-slate-400 text-center leading-tight">{lvl.label}</div>
+                                    <div className="text-[10px] text-slate-500 text-center mt-1 leading-tight">of each plan deposit</div>
                                 </div>
                             ))}
                         </div>
-                        <p className="text-center text-xs text-slate-500 mt-4 max-w-lg mx-auto leading-relaxed">
-                            Wallet-only top-ups without a plan do not trigger referral payouts. Plan activations credit instantly to referral balances.
+                        <p className="text-center text-xs text-slate-500 mt-3 max-w-2xl mx-auto leading-relaxed">
+                            Daily-claim upline % (defaults): {DEFAULT_REFERRAL_SETTINGS.daily_level1_percent}% / {DEFAULT_REFERRAL_SETTINGS.daily_level2_percent}% / {DEFAULT_REFERRAL_SETTINGS.daily_level3_percent}% of that day’s claimed profit.
+                        </p>
+                        <p className="text-center text-xs text-slate-500 mt-2 max-w-2xl mx-auto leading-relaxed">
+                            {RATES_ARE_DEFAULTS_DISCLAIMER}
+                        </p>
+                        <p className="text-center text-xs text-slate-500 mt-2 max-w-lg mx-auto leading-relaxed">
+                            Commissions credit to your referral balance when triggered; they are not “instant BTC sent on-chain” by default.
                         </p>
                     </div>
                 </section>

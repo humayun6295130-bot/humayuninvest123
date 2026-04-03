@@ -3,6 +3,10 @@
 import { PublicHeader } from "@/components/layout/public-header";
 import { PublicFooter } from "@/components/layout/public-footer";
 import { DEFAULT_REFERRAL_SETTINGS } from "@/lib/referral-system";
+import {
+    RATES_ARE_DEFAULTS_DISCLAIMER,
+    REFERRAL_DAILY_CLAIM_SUMMARY,
+} from "@/lib/public-platform-copy";
 
 export default function TermsOfService() {
     return (
@@ -78,6 +82,11 @@ export default function TermsOfService() {
                                 <li>Level 2 (next upline): {DEFAULT_REFERRAL_SETTINGS.level2_percent}%</li>
                                 <li>Level 3 (third upline): {DEFAULT_REFERRAL_SETTINGS.level3_percent}%</li>
                             </ul>
+                            <p className="text-slate-400 mt-4">
+                                <strong className="text-slate-300">Daily profit claim (optional second stream):</strong>{" "}
+                                {REFERRAL_DAILY_CLAIM_SUMMARY}
+                            </p>
+                            <p className="text-slate-500 text-sm mt-3">{RATES_ARE_DEFAULTS_DISCLAIMER}</p>
                         </section>
 
                         <section className="mb-8">

@@ -20,7 +20,13 @@ import {
     Globe
 } from "lucide-react";
 import Link from "next/link";
-import { DEFAULT_REFERRAL_SETTINGS } from "@/lib/referral-system";
+import {
+    DEPOSIT_TIERS_FOR_DISPLAY,
+    EARNINGS_AND_REFERRAL_CREDIT_SUMMARY,
+    PLATFORM_MIN_INVESTMENT_USD,
+    RATES_ARE_DEFAULTS_DISCLAIMER,
+    REFERRAL_PROGRAM_COMBINED_PARAGRAPH,
+} from "@/lib/public-platform-copy";
 
 const steps = [
     {
@@ -33,35 +39,35 @@ const steps = [
     {
         number: 2,
         title: "Choose Investment Plan",
-        description: "Select a mining plan that fits your budget. Plans start from just $100.",
+        description: `Pick a deposit size that fits your budget. Active plans start from $${PLATFORM_MIN_INVESTMENT_USD.toLocaleString("en-US")} USD; daily income % depends on the tier shown on Invest and in your dashboard.`,
         icon: Wallet,
         color: "from-purple-500 to-purple-600"
     },
     {
         number: 3,
         title: "Make Deposit",
-        description: "Send USDT (TRC-20) to our secure wallet address. QR code available for easy payment.",
+        description: "Fund your account with USDT using the network and address shown in the deposit / invest flow (e.g. QR in the app). Always match the network the screen asks for.",
         icon: Bitcoin,
         color: "from-orange-500 to-orange-600"
     },
     {
         number: 4,
         title: "Start Mining",
-        description: "Your hash rate activates immediately. Watch your Bitcoin balance grow daily!",
+        description: "After your plan is activated, your position runs in the app. Track balance and claim daily profit once per UTC day on active investments.",
         icon: Server,
         color: "from-green-500 to-green-600"
     },
     {
         number: 5,
-        title: "Earn Rewards",
-        description: "Receive daily BTC rewards directly to your wallet. Withdraw anytime.",
+        title: "Claim & Earn",
+        description: EARNINGS_AND_REFERRAL_CREDIT_SUMMARY,
         icon: TrendingUp,
         color: "from-yellow-500 to-yellow-600"
     },
     {
         number: 6,
-        title: "Refer & Earn More",
-        description: `Per-deposit lifetime commission: ${DEFAULT_REFERRAL_SETTINGS.level1_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level2_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level3_percent}% on three uplines, each time a referral activates an investment — every new plan deposit pays again.`,
+        title: "Refer & team commission",
+        description: `${REFERRAL_PROGRAM_COMBINED_PARAGRAPH} ${RATES_ARE_DEFAULTS_DISCLAIMER}`,
         icon: Users,
         color: "from-pink-500 to-pink-600"
     }
@@ -85,8 +91,8 @@ const features = [
     },
     {
         icon: Clock,
-        title: "Instant Payouts",
-        description: "Withdraw your earnings anytime with fast processing within 24-48 hours"
+        title: "Withdrawals",
+        description: "Request payouts from your Wallet when you have available balance; processing time and fees follow the live rules shown in the app."
     },
     {
         icon: Zap,
@@ -199,88 +205,56 @@ export default function HowItWorksPage() {
                     </div>
                 </section>
 
-                {/* Investment Plans */}
+                {/* Deposit tiers — same table as claims / activation (defaults; admin may override in app). */}
                 <section className="py-20">
                     <div className="container px-4 mx-auto">
                         <h2 className="text-3xl font-bold text-white text-center mb-4">
-                            Investment Plans
+                            Deposit tiers &amp; daily income %
                         </h2>
-                        <p className="text-slate-400 text-center mb-12 max-w-2xl mx-auto">
-                            Choose the plan that fits your investment goals
+                        <p className="text-slate-400 text-center mb-4 max-w-2xl mx-auto">
+                            Daily rate is a percentage of your principal in the active position. You claim once per UTC day. Same bands power the Invest page and earnings logic.
+                        </p>
+                        <p className="text-slate-500 text-center text-xs mb-10 max-w-xl mx-auto">
+                            {RATES_ARE_DEFAULTS_DISCLAIMER.replace("Referrals page", "Invest or Settings")}
                         </p>
 
-                        <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                            <Card className="bg-slate-900 border-slate-800">
-                                <CardContent className="p-6 text-center">
-                                    <div className="text-2xl mb-2">⛏️</div>
-                                    <h3 className="text-xl font-bold text-white mb-2">Starter</h3>
-                                    <div className="text-3xl font-bold text-orange-400 mb-2">$100</div>
-                                    <p className="text-slate-400 text-sm mb-4">Minimum</p>
-                                    <ul className="space-y-2 text-sm text-slate-400 mb-6">
-                                        <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> 10 TH/s Hash Rate
-                                        </li>
-                                        <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> 1% Daily Returns
-                                        </li>
-                                        <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> Up to 60X
-                                        </li>
-                                    </ul>
-                                    <Button asChild className="w-full bg-orange-500 hover:bg-orange-600">
-                                        <Link href="/register">Get Started</Link>
-                                    </Button>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="bg-gradient-to-b from-orange-500/20 to-slate-900 border-orange-500">
-                                <CardContent className="p-6 text-center">
-                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-orange-500 text-white text-xs px-3 py-1 rounded-full">
-                                        Popular
-                                    </div>
-                                    <div className="text-2xl mb-2">💰</div>
-                                    <h3 className="text-xl font-bold text-white mb-2">Pro</h3>
-                                    <div className="text-3xl font-bold text-orange-400 mb-2">$1,000</div>
-                                    <p className="text-slate-400 text-sm mb-4">Best Value</p>
-                                    <ul className="space-y-2 text-sm text-slate-400 mb-6">
-                                        <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> 100 TH/s Hash Rate
-                                        </li>
-                                        <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> 1.5% Daily Returns
-                                        </li>
-                                        <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> Up to 60X
-                                        </li>
-                                    </ul>
-                                    <Button asChild className="w-full bg-orange-500 hover:bg-orange-600">
-                                        <Link href="/register">Get Started</Link>
-                                    </Button>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="bg-slate-900 border-slate-800">
-                                <CardContent className="p-6 text-center">
-                                    <div className="text-2xl mb-2">👑</div>
-                                    <h3 className="text-xl font-bold text-white mb-2">Enterprise</h3>
-                                    <div className="text-3xl font-bold text-orange-400 mb-2">$10,000</div>
-                                    <p className="text-slate-400 text-sm mb-4">Maximum Returns</p>
-                                    <ul className="space-y-2 text-sm text-slate-400 mb-6">
-                                        <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> 1 PH/s Hash Rate
-                                        </li>
-                                        <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> 4% /day at $10,000 (top tier)
-                                        </li>
-                                        <li className="flex items-center justify-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-green-400" /> Up to 60X
-                                        </li>
-                                    </ul>
-                                    <Button asChild className="w-full bg-orange-500 hover:bg-orange-600">
-                                        <Link href="/register">Get Started</Link>
-                                    </Button>
-                                </CardContent>
-                            </Card>
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 max-w-7xl mx-auto">
+                            {DEPOSIT_TIERS_FOR_DISPLAY.map((tier, idx) => {
+                                const popular = idx === 2;
+                                return (
+                                    <Card
+                                        key={tier.level}
+                                        className={`relative bg-slate-900 border-slate-800 ${popular ? "border-orange-500/70 ring-1 ring-orange-500/30" : ""}`}
+                                    >
+                                        {popular && (
+                                            <div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 bg-orange-500 text-white text-xs px-3 py-1 rounded-full whitespace-nowrap">
+                                                Popular band
+                                            </div>
+                                        )}
+                                        <CardContent className="p-5 text-center pt-6">
+                                            <div className="text-2xl mb-2">⛏️</div>
+                                            <h3 className="text-lg font-bold text-white mb-1">Tier {tier.level}</h3>
+                                            <div className="text-2xl font-bold text-orange-400 mb-1">
+                                                ${tier.min.toLocaleString("en-US")} – ${tier.max.toLocaleString("en-US")}
+                                            </div>
+                                            <p className="text-slate-400 text-xs mb-4">USD principal range</p>
+                                            <ul className="space-y-2 text-sm text-slate-400 mb-6 text-left">
+                                                <li className="flex items-start gap-2">
+                                                    <CheckCircle className="h-4 w-4 text-green-400 shrink-0 mt-0.5" />
+                                                    <span>{tier.incomePercent}% of principal per day (before claim)</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <CheckCircle className="h-4 w-4 text-green-400 shrink-0 mt-0.5" />
+                                                    <span>Daily claim on active investments</span>
+                                                </li>
+                                            </ul>
+                                            <Button asChild className="w-full bg-orange-500 hover:bg-orange-600">
+                                                <Link href="/invest">Open Invest</Link>
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
                         </div>
                     </div>
                 </section>
