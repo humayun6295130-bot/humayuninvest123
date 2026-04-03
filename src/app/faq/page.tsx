@@ -104,7 +104,7 @@ const faqCategories = [
         questions: [
             {
                 q: "How does the referral program work?",
-                a: `Per-deposit lifetime commission (3 levels): when a referral activates a plan, you earn ${DEFAULT_REFERRAL_SETTINGS.level1_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level2_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level3_percent}% on three uplines of that deposit — every new deposit again. Separately, daily income commission: when they claim daily profit, uplines earn a small % (${DEFAULT_REFERRAL_SETTINGS.daily_level1_percent}% / ${DEFAULT_REFERRAL_SETTINGS.daily_level2_percent}% / ${DEFAULT_REFERRAL_SETTINGS.daily_level3_percent}% defaults) of that day’s claimed amount, rounded to cents. Wallet top-ups without a plan do not trigger deposit commissions. Admin can change all rates.`
+                a: `Per-deposit lifetime commission (3 levels): when a referral activates a plan, you earn ${DEFAULT_REFERRAL_SETTINGS.level1_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level2_percent}% / ${DEFAULT_REFERRAL_SETTINGS.level3_percent}% on three uplines of that deposit — every new deposit again. Separately, daily income commission: when they claim daily profit, uplines earn a small % (${DEFAULT_REFERRAL_SETTINGS.daily_level1_percent}% / ${DEFAULT_REFERRAL_SETTINGS.daily_level2_percent}% / ${DEFAULT_REFERRAL_SETTINGS.daily_level3_percent}% defaults) of that day’s claimed amount (very small amounts may credit $0.01 minimum). Wallet top-ups without a plan do not trigger deposit commissions. Admin can change all rates.`
             },
             {
                 q: "When do I receive referral commissions?",

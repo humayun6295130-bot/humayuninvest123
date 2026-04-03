@@ -16,7 +16,7 @@ import {
     Firestore,
 } from 'firebase/firestore';
 import { REFERRAL_COMMISSION_MAX_DEPTH } from '@/lib/deposit-income-tiers';
-import { roundMoney2 } from '@/lib/wallet-totals';
+import { referralPayoutUsd, roundMoney2 } from '@/lib/wallet-totals';
 
 /**
  * User-visible policy (EN). Commissions fire on each qualifying **plan / investment activation**,
@@ -134,10 +134,10 @@ export const DEFAULT_REFERRAL_SETTINGS: ReferralSettings = {
     min_withdrawal: 10,
     enabled: true,
     daily_income_commission_enabled: true,
-    /** Small slice of each daily claim (member’s claimed profit that day). */
+    /** Small slice of each daily claim (L1 ≥ L2 ≥ L3, gradual step-down; ~1.1% of claim to team). */
     daily_level1_percent: 0.5,
-    daily_level2_percent: 0.25,
-    daily_level3_percent: 0.15,
+    daily_level2_percent: 0.35,
+    daily_level3_percent: 0.25,
 };
 
 export function normalizeReferralSettings(raw: Partial<ReferralSettings> | Record<string, unknown> | undefined | null): ReferralSettings {
@@ -417,7 +417,7 @@ export async function awardCommission(
     investmentAmount: number = 0,
     mlmMeta?: ReferralCommissionMlmMeta
 ): Promise<void> {
-    const payout = roundMoney2(amount);
+    const payout = referralPayoutUsd(amount);
     if (payout <= 0) return;
 
     const batch = writeBatch(firestore);
@@ -589,15 +589,15 @@ export async function distributeInvestmentReferralCommissions(
         if (payCommission) {
             const percent = Number(commissionPercents[level] ?? 0);
             if (percent > 0) {
-                const commission = roundMoney2(investmentAmount * (percent / 100));
-                if (commission > 0) {
+                const rawSlice = investmentAmount * (percent / 100);
+                if (rawSlice > 0) {
                     try {
                         await awardCommission(
                             firestore,
                             currentReferrerId,
                             investorUserId,
                             investorDisplayName,
-                            commission,
+                            rawSlice,
                             'investment',
                             investmentAmount,
                             {
@@ -624,7 +624,8 @@ export async function distributeInvestmentReferralCommissions(
 
 /**
  * When a member completes their **daily profit claim**, pay up to 3 uplines a **small %** of that
- * claim amount (separate from per-deposit commissions). Amounts rounded to cents.
+ * claim amount (separate from per-deposit commissions). Payout uses `referralPayoutUsd` so tiny
+ * slices still credit at least $0.01 when the % is non-zero.
  */
 export async function distributeDailyClaimReferralCommissions(
     firestore: Firestore,
@@ -661,15 +662,15 @@ export async function distributeDailyClaimReferralCommissions(
         if (!referrerDoc.exists()) break;
 
         if (percent > 0 && Number.isFinite(percent)) {
-            const commission = roundMoney2(claimTotal * (percent / 100));
-            if (commission > 0) {
+            const rawSlice = claimTotal * (percent / 100);
+            if (rawSlice > 0) {
                 try {
                     await awardCommission(
                         firestore,
                         currentReferrerId,
                         earnerUserId,
                         earnerDisplayName,
-                        commission,
+                        rawSlice,
                         'daily',
                         claimTotal,
                         {

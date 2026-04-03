@@ -6,6 +6,20 @@ export function roundMoney2(n: number): number {
     return Math.round(n * 100) / 100;
 }
 
+/**
+ * Credit for referral lines: normal 2-decimal rounding, but if the math is positive yet
+ * rounds to $0.00 (typical for small daily-claim % slices), pay at least $0.01 so uplines
+ * actually receive something when settings say they earn a non-zero %.
+ * Ignores float dust below 1e-8.
+ */
+export function referralPayoutUsd(raw: number): number {
+    const x = Number(raw);
+    if (!Number.isFinite(x) || x < 1e-8) return 0;
+    const rounded = Math.round(x * 100) / 100;
+    if (rounded > 0) return rounded;
+    return 0.01;
+}
+
 export function getMainBalanceUsd(profile: { balance?: unknown } | null | undefined): number {
     return roundMoney2(Number(profile?.balance) || 0);
 }
