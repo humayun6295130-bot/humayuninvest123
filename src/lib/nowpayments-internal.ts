@@ -214,7 +214,11 @@ export async function npGetPayment(
     return { ok: true, data };
 }
 
-export { usdAmountsMatch, isPaymentStatusComplete } from './nowpayments-shared';
+export {
+    usdAmountsMatch,
+    isPaymentStatusComplete,
+    nowpaymentsPriceAmountUsd,
+} from './nowpayments-shared';
 
 export function orderIdForUser(userId: string, planId: string): string {
     return buildInvestmentOrderId(userId, planId);

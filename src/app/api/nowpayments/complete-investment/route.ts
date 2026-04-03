@@ -5,6 +5,7 @@ import {
     npGetPayment,
     usdAmountsMatch,
     isPaymentStatusComplete,
+    nowpaymentsPriceAmountUsd,
 } from '@/lib/nowpayments-internal';
 import { getAdminAuth, getAdminFirestore, isFirebaseAdminConfigured } from '@/lib/firebase-admin';
 import { activateInvestmentWithAdminDb } from '@/lib/activate-investment-server';
@@ -122,10 +123,20 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: false, error: 'Order mismatch' }, { status: 403 });
         }
 
-        const priceAmt = Number(d.price_amount);
+        const priceAmt =
+            nowpaymentsPriceAmountUsd(d as Record<string, unknown>) ?? Number(d.price_amount);
+        if (!Number.isFinite(priceAmt) || priceAmt <= 0) {
+            return NextResponse.json({ ok: false, error: 'Invalid amount from payment provider' }, { status: 502 });
+        }
         if (!usdAmountsMatch(expectedUsdAmount, priceAmt)) {
             return NextResponse.json({ ok: false, error: 'Amount mismatch' }, { status: 403 });
         }
+
+        const activationUsd = priceAmt;
+        const ratio = Number.isFinite(amount) && amount > 0 ? activationUsd / amount : 1;
+        const scaledExpected = Number.isFinite(expectedReturn)
+            ? Math.round(expectedReturn * ratio * 100) / 100
+            : activationUsd * 2;
 
         const params: ActivateQrInvestmentParams = {
             user_id: userId,
@@ -134,8 +145,8 @@ export async function POST(request: NextRequest) {
             plan_name: planName,
             daily_roi_percent: dailyRoiPercent,
             return_percent: returnPercent,
-            amount,
-            expected_return: Number.isFinite(expectedReturn) ? expectedReturn : amount * 2,
+            amount: activationUsd,
+            expected_return: scaledExpected,
             duration_days: durationDays,
             transaction_id: transactionId,
             proof_image_url: proofImageUrl,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
     Dialog,
     DialogContent,
@@ -80,6 +81,7 @@ export function QrPaymentDialog({
     customAmount,
     paymentPurpose = "investment",
 }: QrPaymentDialogProps) {
+    const router = useRouter();
     const { toast } = useToast();
     const { user } = useUser();
     const [copied, setCopied] = useState(false);
@@ -365,6 +367,7 @@ export function QrPaymentDialog({
                         setScreenshot(null);
                         setScreenshotPreview(null);
                         setTerminal("ok");
+                        router.refresh();
                         onOpenChange(false);
                         return;
                     }
@@ -416,6 +419,7 @@ export function QrPaymentDialog({
                         setScreenshot(null);
                         setScreenshotPreview(null);
                         setTerminal("ok");
+                        router.refresh();
                         onOpenChange(false);
                         return;
                     }
@@ -444,6 +448,7 @@ export function QrPaymentDialog({
             const verifyJson = (await verifyRes.json().catch(() => ({}))) as {
                 valid?: boolean;
                 error?: string;
+                settled_usd?: number;
             };
 
             if (!verifyRes.ok || !verifyJson.valid) {
@@ -456,12 +461,21 @@ export function QrPaymentDialog({
                 return;
             }
 
+            const invoiceUsd =
+                typeof verifyJson.settled_usd === "number" &&
+                Number.isFinite(verifyJson.settled_usd) &&
+                verifyJson.settled_usd > 0
+                    ? verifyJson.settled_usd
+                    : amt;
+            const retScale = Number.isFinite(amt) && amt > 0 ? invoiceUsd / amt : 1;
+            const scaledExpectedReturn = Math.round(expectedReturn * retScale * 100) / 100;
+
             if (isWalletTopUp) {
                 const credited = await creditWalletAfterNowpaymentsDeposit({
                     user_id: userId,
                     user_email: email,
                     user_display_name: user?.displayName,
-                    amount: amt,
+                    amount: invoiceUsd,
                     order_id: orderId,
                     payment_id: npPaymentId,
                     pay_address: payAddress || "NOWPayments",
@@ -480,8 +494,8 @@ export function QrPaymentDialog({
                     plan_name: plan.name,
                     daily_roi_percent: plan.daily_roi_percent,
                     return_percent: plan.return_percent,
-                    amount: amt,
-                    expected_return: expectedReturn,
+                    amount: invoiceUsd,
+                    expected_return: scaledExpectedReturn,
                     order_id: orderId,
                     duration_days: plan.duration_days > 0 ? plan.duration_days : 30,
                     transaction_id: txLower,
@@ -502,6 +516,7 @@ export function QrPaymentDialog({
             setScreenshot(null);
             setScreenshotPreview(null);
             setTerminal("ok");
+            router.refresh();
             onOpenChange(false);
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : "Activation failed";
@@ -525,6 +540,7 @@ export function QrPaymentDialog({
         onOpenChange,
         toast,
         paymentPurpose,
+        router,
     ]);
 
     finalizeRef.current = finalizePayment;

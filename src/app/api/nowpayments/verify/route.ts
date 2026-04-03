@@ -5,6 +5,7 @@ import {
     npGetPayment,
     usdAmountsMatch,
     isPaymentStatusComplete,
+    nowpaymentsPriceAmountUsd,
 } from '@/lib/nowpayments-internal';
 
 export const dynamic = 'force-dynamic';
@@ -56,12 +57,20 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ valid: false, error: 'Order mismatch' }, { status: 403 });
         }
 
-        const priceAmt = Number(d.price_amount);
+        const priceAmt =
+            nowpaymentsPriceAmountUsd(d as Record<string, unknown>) ?? Number(d.price_amount);
+        if (!Number.isFinite(priceAmt) || priceAmt <= 0) {
+            return NextResponse.json({ valid: false, error: 'Invalid amount from payment provider' }, { status: 502 });
+        }
         if (!usdAmountsMatch(expectedUsdAmount, priceAmt)) {
             return NextResponse.json({ valid: false, error: 'Amount mismatch' }, { status: 403 });
         }
 
-        return NextResponse.json({ valid: true, payment_status: d.payment_status });
+        return NextResponse.json({
+            valid: true,
+            payment_status: d.payment_status,
+            settled_usd: priceAmt,
+        });
     } catch {
         return NextResponse.json({ valid: false, error: 'Verification failed' }, { status: 500 });
     }

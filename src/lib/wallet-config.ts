@@ -24,8 +24,8 @@ export const ADMIN_WALLET_ADDRESS = getAdminWalletAddress();
 // USDT Token Contract Address on BNB Smart Chain (BEP20)
 export const USDT_CONTRACT_BSC = '0x55d398326f99059fF775485246999027B319E5C';
 
-/** Minimum USD amount for wallet top-up (manual + NOWPayments). */
-export const MIN_WALLET_DEPOSIT_USD = 50;
+/** Minimum USD amount for wallet top-up (manual + NOWPayments). Aligns with lowest deposit tier ($30). */
+export const MIN_WALLET_DEPOSIT_USD = 30;
 
 // Fallback addresses for different networks (not used - kept for reference)
 export const WALLET_ADDRESSES = {

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getNowpaymentsEnv, npGetPayment, usdAmountsMatch, isPaymentStatusComplete } from '@/lib/nowpayments-internal';
+import {
+    getNowpaymentsEnv,
+    npGetPayment,
+    usdAmountsMatch,
+    isPaymentStatusComplete,
+    nowpaymentsPriceAmountUsd,
+} from '@/lib/nowpayments-internal';
 import { isWalletDepositOrderIdForUser } from '@/lib/investment-order-id';
 import { getAdminAuth, getAdminFirestore, isFirebaseAdminConfigured } from '@/lib/firebase-admin';
 import { MIN_WALLET_DEPOSIT_USD } from '@/lib/wallet-config';
@@ -109,12 +115,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: false, error: 'Order mismatch' }, { status: 403 });
         }
 
-        const priceAmt = Number(d.price_amount);
+        const priceAmt =
+            nowpaymentsPriceAmountUsd(d as Record<string, unknown>) ?? Number(d.price_amount);
+        if (!Number.isFinite(priceAmt) || priceAmt <= 0) {
+            return NextResponse.json({ ok: false, error: 'Invalid amount from payment provider' }, { status: 502 });
+        }
         if (!usdAmountsMatch(expectedUsdAmount, priceAmt)) {
             return NextResponse.json({ ok: false, error: 'Amount mismatch' }, { status: 403 });
         }
 
-        const creditUsd = Number.isFinite(priceAmt) && priceAmt > 0 ? priceAmt : expectedUsdAmount;
+        const creditUsd = priceAmt;
         if (creditUsd < MIN_WALLET_DEPOSIT_USD) {
             return NextResponse.json(
                 { ok: false, error: `Minimum wallet deposit is $${MIN_WALLET_DEPOSIT_USD}` },
