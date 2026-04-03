@@ -164,7 +164,14 @@ service cloud.firestore {
         );
       allow create: if isSignedIn()
         && request.resource.data.referred_user_id == request.auth.uid;
-      allow update, delete: if isAdmin();
+      // Referrer or referred may update (e.g. total_commission) when commissions run from the referred user’s session.
+      allow update: if isSignedIn()
+        && (
+          resource.data.referrer_id == request.auth.uid
+          || resource.data.referred_user_id == request.auth.uid
+          || isAdmin()
+        );
+      allow delete: if isAdmin();
     }
 
     match /referral_bonuses/{docId} {

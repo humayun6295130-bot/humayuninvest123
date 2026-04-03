@@ -34,6 +34,13 @@ async function awardOneCommissionAdmin(
 
     const timestamp = new Date().toISOString();
 
+    const pairSnap = await adminDb
+        .collection('referrals')
+        .where('referrer_id', '==', referrerId)
+        .where('referred_user_id', '==', fromUserId)
+        .limit(1)
+        .get();
+
     const batch = adminDb.batch();
     const bonusRef = adminDb.collection('referral_bonuses').doc();
     batch.set(bonusRef, {
@@ -50,6 +57,13 @@ async function awardOneCommissionAdmin(
         created_at: timestamp,
         paid_at: timestamp,
     });
+
+    if (!pairSnap.empty) {
+        batch.update(pairSnap.docs[0].ref, {
+            total_commission: FieldValue.increment(amount),
+            updated_at: timestamp,
+        });
+    }
 
     const teamRef = adminDb.collection('user_teams').doc(referrerId);
     batch.set(

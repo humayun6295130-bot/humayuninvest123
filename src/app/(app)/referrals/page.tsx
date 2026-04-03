@@ -85,6 +85,21 @@ interface ReferralWithdrawal {
     processed_at?: string;
 }
 
+/** Bonus / withdrawal line amounts: missing or bad fields must not turn the whole sum into NaN. */
+function coerceLedgerUsd(raw: unknown): number {
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * `referral_bonuses.amount` is canonical; some legacy rows may use `bonus_amount` or strings.
+ */
+function referralBonusLedgerUsd(b: ReferralBonus): number {
+    const ext = b as ReferralBonus & { bonus_amount?: unknown };
+    const raw = ext.amount ?? ext.bonus_amount;
+    return coerceLedgerUsd(raw);
+}
+
 export default function ReferralsPage() {
     const { user, userProfile } = useUser();
     const { toast } = useToast();
@@ -204,12 +219,24 @@ export default function ReferralsPage() {
     const level3Referrals = referrals?.filter(r => r.level === 3) || [];
 
     const activeReferrals = referrals?.filter(r => r.status === 'active').length || 0;
-    const totalCommission = bonuses?.filter(b => b.status === 'approved').reduce((sum, b) => sum + b.amount, 0) || 0;
-    const pendingCommission = bonuses?.filter(b => b.status === 'pending').reduce((sum, b) => sum + b.amount, 0) || 0;
+    const totalCommission =
+        bonuses?.reduce((sum, b) => {
+            if (String(b.status || '').toLowerCase() !== 'approved') return sum;
+            return sum + referralBonusLedgerUsd(b);
+        }, 0) ?? 0;
+    const pendingCommission =
+        bonuses?.reduce((sum, b) => {
+            if (String(b.status || '').toLowerCase() !== 'pending') return sum;
+            return sum + referralBonusLedgerUsd(b);
+        }, 0) ?? 0;
 
     const referralWallet = userProfile?.referral_balance || 0;
     const withdrawableTotal = getWithdrawableUsd(userProfile);
-    const totalWithdrawn = withdrawals?.filter(w => w.status === 'approved').reduce((sum, w) => sum + w.amount, 0) || 0;
+    const totalWithdrawn =
+        withdrawals?.reduce((sum, w) => {
+            if (String(w.status || '').toLowerCase() !== 'approved') return sum;
+            return sum + coerceLedgerUsd(w.amount);
+        }, 0) ?? 0;
 
     const copyToClipboard = async () => {
         // Build link with fallback (base URL already normalised)
@@ -722,7 +749,7 @@ export default function ReferralsPage() {
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-medium">+${bonus.amount.toFixed(2)}</p>
+                                                        <p className="text-sm font-medium">+${referralBonusLedgerUsd(bonus).toFixed(2)}</p>
                                                         <p className="text-xs text-muted-foreground">
                                                             {bonus.type === 'manual'
                                                             ? 'Bonus from Admin'
@@ -815,8 +842,8 @@ function aggregateCommissionByReferredMember(
         const fromId = typeof b.from_user_id === 'string' ? b.from_user_id.trim() : '';
         if (!fromId) continue;
 
-        const amt = Number(b.amount);
-        if (!Number.isFinite(amt) || amt === 0) continue;
+        const amt = referralBonusLedgerUsd(b);
+        if (amt <= 0) continue;
 
         if (!out[fromId]) {
             out[fromId] = {
@@ -832,12 +859,12 @@ function aggregateCommissionByReferredMember(
         const st = String(b.status || '').toLowerCase();
         const typ = String(b.type || '').toLowerCase();
 
-        if (st === 'approved') {
+        if (st === 'approved' || st === 'completed') {
             row.approvedTotal += amt;
             row.bonusEntries += 1;
             if (typ === 'daily') {
                 row.dailyStream += amt;
-            } else if (typ === 'investment' || typ === 'commission') {
+            } else if (typ === 'investment' || typ === 'commission' || typ === 'referral_bonus') {
                 row.depositStream += amt;
             } else {
                 row.otherStream += amt;
@@ -884,7 +911,9 @@ function ReferralsList({
                         const displayRate = depositRateForLevel(depositRates, referral.level);
                         const memberId = referral.referred_user_id;
                         const agg = memberId ? commissionByReferredUserId[memberId] : undefined;
-                        const totalCredited = agg?.approvedTotal ?? 0;
+                        const ledgerTotal = agg?.approvedTotal ?? 0;
+                        const docTotal = coerceLedgerUsd(referral.total_commission);
+                        const totalCredited = ledgerTotal > 0 ? ledgerTotal : docTotal;
                         const parts: string[] = [];
                         if (agg && agg.depositStream > 0.001) {
                             parts.push(`Plan / deposit: $${fmtUsd(agg.depositStream)}`);

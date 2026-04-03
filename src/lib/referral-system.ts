@@ -420,7 +420,6 @@ export async function awardCommission(
     const payout = referralPayoutUsd(amount);
     if (payout <= 0) return;
 
-    const batch = writeBatch(firestore);
     const timestamp = new Date().toISOString();
 
     // Get user's referral level
@@ -435,6 +434,17 @@ export async function awardCommission(
         console.log(`Skipping commission for user ${userId}: Team commission disabled`);
         return;
     }
+
+    const pairSnap = await getDocs(
+        query(
+            collection(firestore, 'referrals'),
+            where('referrer_id', '==', userId),
+            where('referred_user_id', '==', fromUserId),
+            limit(1)
+        )
+    );
+
+    const batch = writeBatch(firestore);
 
     const userLevel = userData.referral_level || 1;
     const levelConfig = DEFAULT_REFERRAL_LEVELS.find(l => l.level === userLevel) || DEFAULT_REFERRAL_LEVELS[0];
@@ -472,6 +482,13 @@ export async function awardCommission(
         created_at: timestamp,
         paid_at: timestamp,
     });
+
+    if (!pairSnap.empty) {
+        batch.update(pairSnap.docs[0].ref, {
+            total_commission: increment(payout),
+            updated_at: timestamp,
+        });
+    }
 
     // 2. Referrer team stats — use set+merge so missing user_teams docs do not fail the whole batch
     const teamRef = doc(firestore, 'user_teams', userId);

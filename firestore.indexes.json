@@ -81,6 +81,14 @@
       ]
     },
     {
+      "collectionGroup": "referrals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "referrer_id", "order": "ASCENDING" },
+        { "fieldPath": "referred_user_id", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "referral_bonuses",
       "queryScope": "COLLECTION",
       "fields": [

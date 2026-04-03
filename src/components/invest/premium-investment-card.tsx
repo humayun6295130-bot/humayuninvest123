@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { TrendingUp, Shield, CheckCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
 interface InvestmentPlan {
     id: string;
@@ -22,15 +22,6 @@ interface InvestmentPlan {
     profit_amount?: number;
     payout_schedule?: 'daily' | 'end_of_term';
     is_verified?: boolean;
-}
-
-function displayDailyRoiPercent(plan: InvestmentPlan): number {
-    const d = Number(plan.daily_roi_percent);
-    if (Number.isFinite(d) && d > 0) return d;
-    const dur = Number(plan.duration_days) || 1;
-    const ret = Number(plan.return_percent);
-    if (Number.isFinite(ret) && ret > 0 && dur > 0) return ret / dur;
-    return 0;
 }
 
 /** Align plan chip text with landing / payment dialog (no fixed "30 days = $X" implication). */
@@ -129,7 +120,6 @@ function InfoTooltip({ content }: { content: string }) {
 }
 
 export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestmentCardProps) {
-    const roiPct = useMemo(() => displayDailyRoiPercent(plan), [plan]);
     const sparklineData = useMemo(() => generateSparklineData(plan), [plan]);
 
     const formatCurrency = (amount: number) => {
@@ -179,34 +169,7 @@ export function PremiumInvestmentCard({ plan, onSelect, index }: PremiumInvestme
                 <SparklineChart data={sparklineData} />
             </div>
 
-            {/* 2x2 Metrics Grid */}
             <div className="metric-grid">
-                <div className="metric-item">
-                    <div className="flex items-center gap-1">
-                        <span className="metric-label">Plan rate</span>
-                        <InfoTooltip content="Plan default %; your payout uses deposit tier at activation" />
-                    </div>
-                    <span className="metric-value text-indigo-600">
-                        {roiPct.toFixed(2)}%/day
-                    </span>
-                </div>
-
-                <div className="metric-item">
-                    <div className="flex items-center gap-1">
-                        <span className="metric-label">Risk</span>
-                        <InfoTooltip content="Risk level assessment" />
-                    </div>
-                    <span className={cn(
-                        "metric-value flex items-center gap-1",
-                        roiPct > 3 ? "text-red-400" : roiPct > 1.5 ? "text-amber-400" : "text-green-400"
-                    )}>
-                        <Shield className={cn(
-                            "w-3 h-3",
-                            roiPct > 3 ? "text-red-400" : roiPct > 1.5 ? "text-amber-400" : "text-green-400"
-                        )} />
-                    </span>
-                </div>
-
                 <div className="metric-item">
                     <div className="flex items-center gap-1">
                         <span className="metric-label">Min Entry</span>

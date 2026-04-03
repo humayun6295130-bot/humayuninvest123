@@ -671,9 +671,9 @@ export default function ProfilePage() {
                     <div className="grid gap-4 md:grid-cols-3">
                         <div className="text-center p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
                             <p className="text-3xl font-bold text-yellow-600">
-                                ${userProfile.total_team_commission?.toLocaleString('en-US') || '0'}
+                                ${(Number(userProfile.referral_earnings) || Number(userProfile.total_team_commission) || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                             </p>
-                            <p className="text-sm text-muted-foreground mt-1">Total Commission</p>
+                            <p className="text-sm text-muted-foreground mt-1">Total referral commission (all time)</p>
                         </div>
                         <div className="text-center p-4 bg-green-500/10 rounded-lg border border-green-500/20">
                             <p className="text-3xl font-bold text-green-600">
