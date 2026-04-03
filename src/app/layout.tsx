@@ -23,8 +23,8 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-        <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&display=swap" rel="stylesheet" />
+        <link rel="preconnect" href="https://api.fontshare.com" />
+        {/* Inter + Cabinet Grotesk load via globals.css @import (avoids duplicate @next/next/no-page-custom-font) */}
       </head>
       <body suppressHydrationWarning className="antialiased bg-background text-foreground">
         <FirebaseProvider>

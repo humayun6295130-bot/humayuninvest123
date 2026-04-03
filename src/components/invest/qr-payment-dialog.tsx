@@ -169,7 +169,7 @@ export function QrPaymentDialog({
         }
     };
 
-    const uploadScreenshot = async (): Promise<string | null> => {
+    const uploadScreenshot = useCallback(async (): Promise<string | null> => {
         if (!screenshot || !userId || !storage) return null;
 
         try {
@@ -183,7 +183,7 @@ export function QrPaymentDialog({
             const message = error instanceof Error ? error.message : "Upload failed";
             throw new Error("Failed to upload screenshot: " + message);
         }
-    };
+    }, [screenshot, userId]);
 
     /** Create NOWPayments invoice when dialog opens */
     useEffect(() => {
@@ -278,7 +278,7 @@ export function QrPaymentDialog({
         return () => {
             cancelled = true;
         };
-    }, [open, plan?.id, plan?.name, userId, investmentAmount, paymentPurpose]);
+    }, [open, plan, userId, investmentAmount, paymentPurpose]);
 
     const finalizePayment = useCallback(async () => {
         if (!plan || !userId || npPaymentId == null || !orderId) return;
@@ -531,7 +531,6 @@ export function QrPaymentDialog({
         userId,
         userEmail,
         user,
-        user?.email,
         npPaymentId,
         orderId,
         investmentAmount,
@@ -542,6 +541,7 @@ export function QrPaymentDialog({
         toast,
         paymentPurpose,
         router,
+        uploadScreenshot,
     ]);
 
     finalizeRef.current = finalizePayment;

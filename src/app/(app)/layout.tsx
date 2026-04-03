@@ -294,7 +294,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]">
+      <SidebarInset className="transition-all duration-300 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]">
         {isAdminRoute && (
           <div className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-center text-sm font-medium text-amber-950 dark:text-amber-100">
             Administrator mode — support and platform controls (not for investing).{' '}
