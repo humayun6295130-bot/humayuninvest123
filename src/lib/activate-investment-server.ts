@@ -9,7 +9,7 @@ import {
     resolveDailyIncomeForDeposit,
     type DepositIncomeTier,
 } from '@/lib/deposit-income-tiers';
-import { roundMoney2 } from '@/lib/wallet-totals';
+import { referralPayoutUsd, roundMoney2 } from '@/lib/wallet-totals';
 
 async function getReferralSettingsAdmin(adminDb: Firestore): Promise<ReferralSettings> {
     const snap = await adminDb.collection('referral_settings').doc('default').get();
@@ -160,21 +160,24 @@ async function runReferralChainAdmin(
         if (payCommission) {
             const percent = Number(commissionPercents[level] ?? 0);
             if (percent > 0) {
-                const commission = roundMoney2(investmentAmount * (percent / 100));
-                if (commission > 0) {
-                    try {
-                        await awardOneCommissionAdmin(
-                            adminDb,
-                            currentReferrerId,
-                            investorUserId,
-                            fromName,
-                            commission,
-                            'investment',
-                            level + 1,
-                            percent
-                        );
-                    } catch (e) {
-                        console.error('Referral commission (admin) non-fatal:', e);
+                const rawSlice = investmentAmount * (percent / 100);
+                if (rawSlice > 0) {
+                    const payout = referralPayoutUsd(rawSlice);
+                    if (payout > 0) {
+                        try {
+                            await awardOneCommissionAdmin(
+                                adminDb,
+                                currentReferrerId,
+                                investorUserId,
+                                fromName,
+                                payout,
+                                'investment',
+                                level + 1,
+                                percent
+                            );
+                        } catch (e) {
+                            console.error('Referral commission (admin) non-fatal:', e);
+                        }
                     }
                 }
             }
