@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Deploy: firebase deploy --only firestore:rules
+// Deploy rules + composite indexes: firebase deploy --only firestore
 //
 // SECURITY NOTE (read before tightening further):
 // This app performs some referral and commission updates from the *client* (e.g. updating
@@ -184,6 +184,19 @@ service cloud.firestore {
     match /referral_withdrawals/{docId} {
       allow read: if isSignedIn()
         && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Legacy / optional tier engine (`src/lib/tier-referral-system.ts`); not used by main MLM path.
+    match /referral_history/{docId} {
+      allow read: if isSignedIn()
+        && (
+          resource.data.referrer_id == request.auth.uid
+          || resource.data.user_id == request.auth.uid
+          || isAdmin()
+        );
       allow create: if isSignedIn()
         && request.resource.data.user_id == request.auth.uid;
       allow update, delete: if isAdmin();
