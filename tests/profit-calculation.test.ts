@@ -62,8 +62,8 @@ describe('Investment Level Configuration', () => {
 
         expect(level?.name).toBe('Platinum');
         expect(level?.minInvestment).toBe(1001);
-        expect(level?.maxInvestment).toBe(2500);
-        expect(level?.dailyIncomePercent).toBe(3.1);
+        expect(level?.maxInvestment).toBe(4999);
+        expect(level?.dailyIncomePercent).toBe(3);
     });
 
     test('Level 5 (Diamond) should have correct values', () => {
@@ -106,8 +106,8 @@ describe('Daily Profit Calculation', () => {
     test('should calculate correct daily income for Platinum ($2000)', () => {
         const income = calculateDailyIncome(2000);
 
-        // 2000 * 3.1% = 62.0
-        expect(income).toBe(62.0);
+        // 2000 * 3% = 60
+        expect(income).toBe(60);
     });
 
     test('should calculate correct daily income for Diamond ($7500)', () => {
@@ -249,7 +249,7 @@ describe('User Level Functions', () => {
     test('getUserLevel should work correctly', () => {
         const level = getUserLevel(500);
 
-        expect(level.name).toBe('Gold');
+        expect(level.name).toBe('Silver');
     });
 
     test('getLevelInfo should be alias for getUserLevel', () => {
@@ -314,26 +314,20 @@ describe('Profit Calculation Edge Cases', () => {
 describe('Full Investment Profit Flow', () => {
 
     test('should calculate complete profit journey', () => {
-        // User invests $500 (Gold level)
+        // $500 is top of Silver tier (251–500) → 2% daily
         const investment = 500;
 
-        // Get their level
         const level = getLevelByAmount(investment);
-        expect(level?.name).toBe('Gold');
-        expect(level?.dailyIncomePercent).toBe(2.5);
+        expect(level?.name).toBe('Silver');
+        expect(level?.dailyIncomePercent).toBe(2);
 
-        // Calculate daily profit
         const daily = calculateDailyIncome(investment);
-        expect(daily).toBe(12.5); // 500 * 2.5%
+        expect(daily).toBe(10); // 500 * 2%
 
-        // Calculate weekly
         const weekly = calculateWeeklyEarnings(investment);
-        expect(weekly).toBe(87.5); // 12.5 * 7
+        expect(weekly).toBe(70);
 
-        // Calculate monthly
         const monthly = calculateMonthlyEarnings(investment);
-        expect(monthly).toBe(375); // 12.5 * 30
+        expect(monthly).toBe(300);
     });
 });
-
-console.log('✅ Daily Profit Calculation Tests Complete');
